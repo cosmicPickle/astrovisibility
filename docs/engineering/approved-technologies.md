@@ -26,6 +26,13 @@ The Rallypath version families are evidence baselines, not mandatory pins. A
 major-version migration or materially different use still requires explicit
 design justification even though the technology itself is pre-approved.
 
+As directly approved by the product owner on 2026-08-19, popular, maintained
+astronomy libraries and authoritative astronomy datasets are also pre-approved
+when they are necessary to implement the product specification. This domain
+pre-approval does not waive compatibility, numerical-validation, provenance,
+licence, privacy, security, maintenance, or bundle-size review. Record each
+adopted library or dataset below and in its controlling specification.
+
 Companion type packages, official framework adapters, Babel/TypeScript plugins,
 and test integrations for an adopted technology are also pre-approved when they
 add no separate runtime architecture and are chosen from the same maintained
@@ -43,16 +50,18 @@ not an architecture decision:
 - Expo Router and React Navigation
 - React Native Gesture Handler, Reanimated, Screens, Safe Area Context, SVG, and
   Worklets
-- Expo Image Picker, Secure Store, Constants, Status Bar, and Build Properties
+- Expo Camera, Sensors, Location, FileSystem, SQLite, Image Picker, Secure Store,
+  Constants, Status Bar, and Build Properties
 - Zod
+- Astronomy Engine and a pinned, transformed OpenNGC catalogue
 - Jest, Jest Expo, React Native Testing Library, and Maestro
 - ESLint and Prettier
 - Docker only when a reproducible tool or test service genuinely needs it
 
-The product will also need astronomy, sky-rendering, panorama/orientation,
-high-resolution local persistence, and mask-editing capabilities. No specific
-libraries for those concerns have yet been adopted. If a candidate is not listed
-below, follow the new-technology approval rule in `AGENTS.md`.
+The staged v1 specification adopts specific astronomy, device, and local-data
+technologies below. Other astronomy packages and data follow the domain
+pre-approval policy above; unrelated candidates still follow the new-technology
+approval rule in `AGENTS.md`.
 
 ## Pre-Approved Foundation and Repository Tooling
 
@@ -92,13 +101,18 @@ below, follow the new-technology approval rule in `AGENTS.md`.
 | Expo Vector Icons                  | 15.x                        | Mobile icons                                                        |
 | Expo Background Task               | 57.x                        | Approved background work when platform policy and UX justify it     |
 | Expo Build Properties              | 57.x                        | Native build property configuration                                 |
+| Expo Camera                        | Current compatible SDK      | User-driven direction-aware panorama tile capture                    |
 | Expo Clipboard                     | 57.x                        | Explicit user-requested clipboard operations                        |
 | Expo Constants                     | 57.x                        | App/runtime configuration access                                    |
+| Expo FileSystem                    | Current compatible SDK      | Durable app-local panorama, mask-cache, and generated-file storage   |
 | Expo Image Picker                  | 57.x                        | User-driven camera/photo selection with permission handling         |
 | Expo Linear Gradient               | 57.x                        | Native gradient rendering                                           |
 | Expo Linking                       | 57.x                        | Deep links and external links with validation                       |
+| Expo Location                      | Current compatible SDK      | Foreground profile location and heading assistance                   |
 | Expo Notifications                 | 57.x                        | Notifications when separately in product scope                      |
 | Expo Secure Store                  | 57.x                        | Small sensitive local values; not large panorama/mask data          |
+| Expo Sensors                       | Current compatible SDK      | Device attitude and motion samples during guided capture             |
+| Expo SQLite                        | Current compatible SDK      | Structured local data, catalogue records, settings, and migrations   |
 | Expo Status Bar                    | 57.x                        | System status-bar integration                                       |
 | Expo Task Manager                  | 57.x                        | Registered background task support                                  |
 | Babel Preset Expo                  | 57.x                        | Expo transforms                                                     |
@@ -123,6 +137,23 @@ approved reusable technology because it is product-specific source code rather
 than an independent technology. Building a focused Astrovisibility native module
 is allowed as an architectural pattern, but its platform APIs, permissions, and
 maintenance boundary must be specified.
+
+## Pre-Approved Astronomy Libraries and Data
+
+The product-owner domain approval covers additional popular, maintained
+astronomy packages and authoritative datasets when a concrete astronomy feature
+needs them. Adoption still requires an explicit registry record and source
+validation.
+
+| Technology or dataset | Approval/adoption status | Approved use |
+| --- | --- | --- |
+| Astronomy Engine (`astronomy-engine`) 2.1.x | Adopted for v1; lock exact version | Offline time, solar-altitude search, and coordinate calculations behind a fixture-tested adapter |
+| OpenNGC `v20260501` | Adopted for v1 as pinned build input | NGC/IC records, Messier membership, aliases, names, coordinates, angular dimensions, magnitudes, and object types |
+| Astronomical League Caldwell catalogue, snapshot 2026-08-19 | Adopted for v1 as reviewed mapping input | Complete 109-object Caldwell membership cross-reference and provenance |
+
+OpenNGC-derived output must retain the required CC BY-SA 4.0 attribution and
+provenance. Astronomy source data is imported and normalized at build time; v1
+does not rely on a network astronomy service at runtime.
 
 ## Pre-Approved Web and Administrative UI Stack
 
@@ -268,8 +299,26 @@ The repository adopts a pnpm 11 monorepo with a modern Node.js 24 ESM root:
   `pnpm-workspace.yaml`.
 
 The monorepo decision does not adopt a server, database, queue, cloud service, or
-specific mobile framework. Those remain pre-approved options until selected by a
+server framework. Those remain pre-approved options until selected by a
 controlling implementation decision.
+
+The Astrovisibility v1 staged-development specification adopts for `apps/mobile`:
+
+- Expo, React Native, Expo Router, and native-stack navigation;
+- gluestack-ui with NativeWind-compatible styling;
+- React Native Gesture Handler, Reanimated, and SVG;
+- Zod for persisted/imported boundaries;
+- Expo Camera, Sensors, Location, FileSystem, SQLite, and Image Picker;
+- Astronomy Engine behind an Astrovisibility-owned validation adapter;
+- a pinned, deterministic OpenNGC-derived offline catalogue with a reviewed
+  Astronomical League Caldwell cross-reference;
+- Jest/Jest Expo, React Native Testing Library, and Maestro for the matching test
+  layers.
+
+The controlling decision is
+`docs/superpowers/specs/mobile/2026-08-19-1217-astrovisibility-v1-development-stages.md`.
+It constrains device permissions to foreground user actions and retains v1 data
+locally on the device.
 
 The agent/tooling bootstrap adopts:
 
