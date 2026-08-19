@@ -1,4 +1,5 @@
 import {
+  applySkyNavigationGesture,
   applySkyPan,
   applySkyZoom,
   createTrajectoryInspectionViewport,
@@ -38,6 +39,53 @@ describe('trajectory inspection viewport', () => {
 const canvas = { widthPixels: 360, heightPixels: 640 };
 
 describe('sky viewport navigation', () => {
+  it('combines live pan and focal zoom from one stable gesture baseline', () => {
+    const viewport = createSkyViewport({
+      centerAltitudeDegrees: 45,
+      centerAzimuthDegrees: 180,
+      horizontalSpanDegrees: 40,
+    });
+    const focalDirection = {
+      altitudeDegrees: 62.7777777778,
+      azimuthDegrees: 190,
+    };
+    const transformed = applySkyNavigationGesture(viewport, canvas, {
+      focalXPixels: 270,
+      focalYPixels: 160,
+      scale: 2,
+      translationXPixels: 24,
+      translationYPixels: 18,
+    });
+
+    const projected = projectDirectionToViewport(
+      focalDirection,
+      transformed,
+      canvas,
+    );
+    expect(projected?.xPixels).toBeCloseTo(294);
+    expect(projected?.yPixels).toBeCloseTo(178);
+    expect(transformed.horizontalSpanDegrees).toBe(20);
+  });
+
+  it('is stable when the final gesture sample is applied again on release', () => {
+    const viewport = createSkyViewport({
+      centerAltitudeDegrees: 45,
+      centerAzimuthDegrees: 180,
+      horizontalSpanDegrees: 120,
+    });
+    const gesture = {
+      focalXPixels: 180,
+      focalYPixels: 320,
+      scale: 1.4,
+      translationXPixels: -42,
+      translationYPixels: 16,
+    };
+    const duringGesture = applySkyNavigationGesture(viewport, canvas, gesture);
+    const atRelease = applySkyNavigationGesture(viewport, canvas, gesture);
+
+    expect(atRelease).toEqual(duringGesture);
+  });
+
   it('wraps continuously through north and clamps vertical navigation', () => {
     const viewport = createSkyViewport({
       centerAltitudeDegrees: 45,

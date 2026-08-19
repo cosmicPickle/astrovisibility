@@ -30,6 +30,8 @@ interface SkyZoomGesture {
   scale: number;
 }
 
+export interface SkyNavigationGesture extends SkyPanGesture, SkyZoomGesture {}
+
 const assertCanvas = (canvas: CanvasSizePixels) => {
   if (canvas.widthPixels <= 0 || canvas.heightPixels <= 0) {
     throw new RangeError('Canvas dimensions must be positive');
@@ -139,6 +141,7 @@ export const projectDirectionToViewport = (
   direction: HorizontalDirectionDegrees,
   rawViewport: SkyViewport,
   canvas: CanvasSizePixels,
+  options: { overscanRatio?: number } = {},
 ) => {
   const viewport = constrainSkyViewport(rawViewport, canvas);
   if (direction.altitudeDegrees < 0 || direction.altitudeDegrees > 90) {
@@ -153,9 +156,12 @@ export const projectDirectionToViewport = (
     unwrappedAzimuthDegrees - viewport.centerAzimuthDegrees;
   const altitudeOffsetDegrees =
     direction.altitudeDegrees - viewport.centerAltitudeDegrees;
+  const overscanRatio = Math.max(0, options.overscanRatio ?? 0);
+  const spanMultiplier = 1 + overscanRatio * 2;
   if (
-    Math.abs(azimuthOffsetDegrees) > viewport.horizontalSpanDegrees / 2 ||
-    Math.abs(altitudeOffsetDegrees) > verticalSpanDegrees / 2
+    Math.abs(azimuthOffsetDegrees) >
+      (viewport.horizontalSpanDegrees / 2) * spanMultiplier ||
+    Math.abs(altitudeOffsetDegrees) > (verticalSpanDegrees / 2) * spanMultiplier
   ) {
     return null;
   }
@@ -232,3 +238,15 @@ export const applySkyZoom = (
     canvas,
   );
 };
+
+/** Applies a simultaneous pan/pinch sample to one immutable gesture baseline.
+ * Keeping this pure prevents incremental scale and translation drift. */
+export const applySkyNavigationGesture = (
+  viewport: SkyViewport,
+  canvas: CanvasSizePixels,
+  gesture: SkyNavigationGesture,
+) =>
+  applySkyPan(applySkyZoom(viewport, canvas, gesture), canvas, {
+    translationXPixels: gesture.translationXPixels,
+    translationYPixels: gesture.translationYPixels,
+  });

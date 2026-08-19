@@ -7,6 +7,15 @@ jest.mock('react-native-reanimated', () => {
     default: { View: reactNative.View },
     runOnJS: (callback: (...parameters: unknown[]) => unknown) => callback,
     useAnimatedStyle: (factory: () => unknown) => factory(),
-    useSharedValue: (value: unknown) => ({ value }),
+    useSharedValue: (initialValue: unknown) => {
+      const sharedValue = {
+        value: initialValue,
+        get: () => sharedValue.value,
+        set: (value: unknown) => {
+          sharedValue.value = value;
+        },
+      };
+      return sharedValue;
+    },
   };
 });

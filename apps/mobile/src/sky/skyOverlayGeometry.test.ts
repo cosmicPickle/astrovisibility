@@ -4,6 +4,7 @@ import {
   buildClassifiedTrajectoryViewportSegments,
   buildTrajectoryViewportSegments,
   projectFieldOfViewToViewport,
+  projectTrajectoryCoordinateToViewport,
 } from './skyOverlayGeometry';
 import { createSkyViewport } from './skyViewport';
 
@@ -11,10 +12,11 @@ const sample = (
   azimuthDegrees: number,
   altitudeDegrees: number,
   assessment: TrajectorySample['assessment'] = 'unassessed',
+  unwrappedAzimuthDegrees = azimuthDegrees,
 ): TrajectorySample => ({
   azimuthDegreesClockwiseFromNorth: azimuthDegrees,
   refractedAltitudeDegrees: altitudeDegrees,
-  unwrappedAzimuthDegrees: azimuthDegrees,
+  unwrappedAzimuthDegrees,
   timestampUtc: '2026-08-19T20:00:00.000Z',
   assessment,
 });
@@ -73,6 +75,76 @@ describe('skyOverlayGeometry', () => {
     ]);
     expect(segments[0]!.points.at(-1)).toEqual(segments[1]!.points[0]);
     expect(segments[1]!.points.at(-1)).toEqual(segments[2]!.points[0]);
+  });
+
+  it('keeps a north-crossing trajectory on its continuous unwrapped branch', () => {
+    const segments = buildClassifiedTrajectoryViewportSegments(
+      [
+        sample(350, 30, 'visible', 350),
+        sample(2, 31, 'visible', 362),
+        sample(14, 32, 'visible', 374),
+      ],
+      createSkyViewport({
+        centerAltitudeDegrees: 45,
+        centerAzimuthDegrees: 2,
+        horizontalSpanDegrees: 60,
+      }),
+      canvas,
+    );
+
+    expect(segments).toHaveLength(1);
+    expect(segments[0]!.points.map(({ xPixels }) => xPixels)).toEqual(
+      [...segments[0]!.points]
+        .map(({ xPixels }) => xPixels)
+        .sort((left, right) => left - right),
+    );
+  });
+
+  it('breaks a near-zenith azimuth flip instead of drawing an artificial S connector', () => {
+    const segments = buildClassifiedTrajectoryViewportSegments(
+      [
+        sample(350, 89.9, 'visible', 350),
+        sample(80, 90, 'visible', 440),
+        sample(170, 89.9, 'visible', 530),
+      ],
+      createSkyViewport({
+        centerAltitudeDegrees: 45,
+        centerAzimuthDegrees: 80,
+        horizontalSpanDegrees: 360,
+      }),
+      canvas,
+    );
+
+    expect(segments.every(({ points }) => points.length === 1)).toBe(true);
+  });
+
+  it('projects a marker on the same north-crossing branch as its nearest sample', () => {
+    const samples = [
+      {
+        ...sample(350, 30, 'visible', 350),
+        timestampUtc: '2026-08-19T20:00:00.000Z',
+      },
+      {
+        ...sample(10, 32, 'visible', 370),
+        timestampUtc: '2026-08-19T20:10:00.000Z',
+      },
+    ];
+    const point = projectTrajectoryCoordinateToViewport(
+      {
+        azimuthDegreesClockwiseFromNorth: 2,
+        refractedAltitudeDegrees: 31,
+        timestampUtc: '2026-08-19T20:05:00.000Z',
+      },
+      samples,
+      createSkyViewport({
+        centerAltitudeDegrees: 45,
+        centerAzimuthDegrees: 0,
+        horizontalSpanDegrees: 60,
+      }),
+      canvas,
+    );
+
+    expect(point?.xPixels).toBeCloseTo(192);
   });
 
   it('projects a rotated selected-equipment rectangle around the target', () => {

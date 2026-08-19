@@ -69,6 +69,35 @@ describe('catalogue viewport query', () => {
     expect(visible.length).toBeLessThan(targets.length);
   });
 
+  it('can retain a bounded offscreen buffer for continuous gesture navigation', () => {
+    const index = buildHorizontalSpatialIndex([
+      target('onscreen', 180, 45, 1),
+      target('buffered-west', 120, 45, 1),
+    ]);
+    const viewport = createSkyViewport({
+      centerAltitudeDegrees: 45,
+      centerAzimuthDegrees: 180,
+      horizontalSpanDegrees: 90,
+    });
+
+    expect(
+      queryCatalogueViewport(index, viewport, canvas).map(
+        (item) => item.target.id,
+      ),
+    ).toEqual(['onscreen']);
+    const buffered = queryCatalogueViewport(index, viewport, canvas, {
+      overscanRatio: 0.5,
+    });
+    expect(buffered.map((item) => item.target.id)).toEqual([
+      'buffered-west',
+      'onscreen',
+    ]);
+    expect(buffered[0]!.xPixels).toBeLessThan(0);
+    expect(buffered[0]!.labelVisible).toBe(false);
+    expect(buffered[1]!.labelVisible).toBe(true);
+    expect(buffered).toHaveLength(2);
+  });
+
   it('leads with common names and suppresses colliding labels deterministically', () => {
     const index = buildHorizontalSpatialIndex([
       target('NGC1976', 180, 45, 1, 'Orion Nebula'),

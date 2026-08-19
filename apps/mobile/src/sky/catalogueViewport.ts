@@ -25,6 +25,7 @@ export interface HorizontalSpatialIndex {
 export interface ViewportCatalogueTarget extends HorizontalCatalogueTarget {
   hitRadiusPixels: number;
   label: string;
+  labelVisible: boolean;
   outlineHeightPixels: number;
   outlineRotationDegrees: number;
   outlineWidthPixels: number;
@@ -105,19 +106,23 @@ const queryBins = (
   viewport: SkyViewport,
   canvas: CanvasSizePixels,
   prominenceTierLimit: 1 | 2 | 3 | 4,
+  overscanRatio: number,
 ) => {
   const verticalSpanDegrees = getVerticalSpanDegrees(viewport, canvas);
+  const spanMultiplier = 1 + overscanRatio * 2;
   const minimumAzimuth =
-    viewport.centerAzimuthDegrees - viewport.horizontalSpanDegrees / 2;
+    viewport.centerAzimuthDegrees -
+    (viewport.horizontalSpanDegrees / 2) * spanMultiplier;
   const maximumAzimuth =
-    viewport.centerAzimuthDegrees + viewport.horizontalSpanDegrees / 2;
+    viewport.centerAzimuthDegrees +
+    (viewport.horizontalSpanDegrees / 2) * spanMultiplier;
   const minimumAltitude = Math.max(
     0,
-    viewport.centerAltitudeDegrees - verticalSpanDegrees / 2,
+    viewport.centerAltitudeDegrees - (verticalSpanDegrees / 2) * spanMultiplier,
   );
   const maximumAltitude = Math.min(
     90,
-    viewport.centerAltitudeDegrees + verticalSpanDegrees / 2,
+    viewport.centerAltitudeDegrees + (verticalSpanDegrees / 2) * spanMultiplier,
   );
   const candidates = new Map<string, HorizontalCatalogueTarget>();
   for (
@@ -158,7 +163,9 @@ export const queryCatalogueViewport = (
   index: HorizontalSpatialIndex,
   viewport: SkyViewport,
   canvas: CanvasSizePixels,
+  options: { overscanRatio?: number } = {},
 ): ViewportCatalogueTarget[] => {
+  const overscanRatio = Math.max(0, options.overscanRatio ?? 0);
   const prominenceTierLimit = getProminenceTierLimit(
     viewport.horizontalSpanDegrees,
   );
@@ -178,6 +185,7 @@ export const queryCatalogueViewport = (
     viewport,
     canvas,
     prominenceTierLimit,
+    overscanRatio,
   ).sort(
     (left, right) =>
       left.target.prominenceTier - right.target.prominenceTier ||
@@ -194,6 +202,7 @@ export const queryCatalogueViewport = (
       },
       viewport,
       canvas,
+      { overscanRatio },
     );
     if (!point) continue;
     const secondaryLabel = getSecondaryCatalogueLabel(item.target);
@@ -201,8 +210,8 @@ export const queryCatalogueViewport = (
       180,
       Math.max(
         44,
-        item.target.preferredName.length * 6.5,
-        (secondaryLabel?.length ?? 0) * 5.5,
+        item.target.preferredName.length * 7.8,
+        (secondaryLabel?.length ?? 0) * 6.4,
       ),
     );
     const labelBounds = {
@@ -211,12 +220,18 @@ export const queryCatalogueViewport = (
       top: point.yPixels - MINIMUM_HIT_RADIUS_PIXELS,
       bottom: point.yPixels + MINIMUM_HIT_RADIUS_PIXELS + 28,
     };
+    const labelVisible =
+      labelBounds.left >= 4 &&
+      labelBounds.right <= canvas.widthPixels - 4 &&
+      labelBounds.top >= 4 &&
+      labelBounds.bottom <= canvas.heightPixels - 4;
     if (
-      labelBounds.left < 4 ||
-      labelBounds.right > canvas.widthPixels - 4 ||
-      labelBounds.top < 4 ||
-      labelBounds.bottom > canvas.heightPixels - 4 ||
-      occupiedLabels.some((bounds) => overlaps(bounds, labelBounds))
+      labelBounds.left < -canvas.widthPixels * overscanRatio + 4 ||
+      labelBounds.right > canvas.widthPixels * (1 + overscanRatio) - 4 ||
+      labelBounds.top < -canvas.heightPixels * overscanRatio + 4 ||
+      labelBounds.bottom > canvas.heightPixels * (1 + overscanRatio) - 4 ||
+      (labelVisible &&
+        occupiedLabels.some((bounds) => overlaps(bounds, labelBounds)))
     ) {
       continue;
     }
@@ -225,12 +240,13 @@ export const queryCatalogueViewport = (
       (item.target.minorAxisArcminutes ??
         item.target.majorAxisArcminutes ??
         3) / 60;
-    occupiedLabels.push(labelBounds);
+    if (labelVisible) occupiedLabels.push(labelBounds);
     visible.push({
       ...item,
       ...point,
       hitRadiusPixels: MINIMUM_HIT_RADIUS_PIXELS,
       label: item.target.preferredName,
+      labelVisible,
       outlineWidthPixels: Math.max(
         2,
         majorAxisDegrees * horizontalPixelsPerDegree,
