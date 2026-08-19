@@ -126,6 +126,7 @@ approval rule in `AGENTS.md`.
 | React Native Worklets              | 0.10.x                      | Worklet execution required by adopted animation/gesture stack       |
 | React Native Screens               | 4.x                         | Native navigation screen primitives                                 |
 | React Native Safe Area Context     | 5.x                         | Safe-area handling                                                  |
+| React Native Skia                  | 2.6.2                       | GPU-rendered spherical Sky View and projected local overlays        |
 | React Native SVG                   | 15.x                        | Vector rendering, diagrams, overlays, masks, and charts             |
 | React Native QR Code SVG           | 6.x                         | QR rendering if a future approved feature needs it                  |
 | React Aria and React Stately       | 3.x                         | Accessible behavior/state primitives where compatible               |

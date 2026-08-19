@@ -5,10 +5,16 @@ import {
   projectDirectionToViewport,
   type SkyViewport,
 } from './skyViewport';
+import {
+  angularSeparationDegrees,
+  getPlanetariumCameraCenter,
+  projectHorizontalDirection,
+  type PlanetariumCamera,
+} from './planetariumProjection';
 
 const BIN_SIZE_DEGREES = 10;
 const AZIMUTH_BIN_COUNT = 360 / BIN_SIZE_DEGREES;
-const MAXIMUM_RENDERED_TARGETS = 180;
+const MAXIMUM_RENDERED_TARGETS = 120;
 const MINIMUM_HIT_RADIUS_PIXELS = 22;
 
 export interface HorizontalCatalogueTarget {
@@ -261,4 +267,88 @@ export const queryCatalogueViewport = (
     if (visible.length >= MAXIMUM_RENDERED_TARGETS) break;
   }
   return visible;
+};
+
+export const queryCataloguePlanetarium = (
+  targets: readonly HorizontalCatalogueTarget[],
+  camera: PlanetariumCamera,
+  canvas: CanvasSizePixels,
+): ViewportCatalogueTarget[] => {
+  const prominenceTierLimit = getProminenceTierLimit(camera.fieldOfViewDegrees);
+  const center = getPlanetariumCameraCenter(camera);
+  const bufferedAngularRadiusDegrees = Math.min(
+    180,
+    camera.fieldOfViewDegrees * 1.5,
+  );
+  const occupiedLabels: Array<{
+    left: number;
+    right: number;
+    top: number;
+    bottom: number;
+  }> = [];
+  const pixelsPerDegree =
+    Math.min(canvas.widthPixels, canvas.heightPixels) /
+    camera.fieldOfViewDegrees;
+  const candidates = targets
+    .filter(
+      (item) =>
+        item.target.prominenceTier <= prominenceTierLimit &&
+        angularSeparationDegrees(center, item) <= bufferedAngularRadiusDegrees,
+    )
+    .sort(
+      (left, right) =>
+        left.target.prominenceTier - right.target.prominenceTier ||
+        (left.target.magnitude ?? Number.POSITIVE_INFINITY) -
+          (right.target.magnitude ?? Number.POSITIVE_INFINITY) ||
+        left.target.preferredName.localeCompare(
+          right.target.preferredName,
+          'en',
+        ),
+    );
+  const selected: ViewportCatalogueTarget[] = [];
+  for (const item of candidates) {
+    const point = projectHorizontalDirection(item, camera, canvas);
+    const secondaryLabel = getSecondaryCatalogueLabel(item.target);
+    const labelWidthPixels = Math.min(
+      180,
+      Math.max(
+        44,
+        item.target.preferredName.length * 7.8,
+        (secondaryLabel?.length ?? 0) * 6.4,
+      ),
+    );
+    const labelBounds = {
+      left: point.xPixels - labelWidthPixels / 2,
+      right: point.xPixels + labelWidthPixels / 2,
+      top: point.yPixels - MINIMUM_HIT_RADIUS_PIXELS,
+      bottom: point.yPixels + MINIMUM_HIT_RADIUS_PIXELS + 28,
+    };
+    const labelVisible =
+      point.visible &&
+      labelBounds.left >= 4 &&
+      labelBounds.right <= canvas.widthPixels - 4 &&
+      labelBounds.top >= 4 &&
+      labelBounds.bottom <= canvas.heightPixels - 4 &&
+      !occupiedLabels.some((bounds) => overlaps(bounds, labelBounds));
+    if (labelVisible) occupiedLabels.push(labelBounds);
+    const majorAxisDegrees = (item.target.majorAxisArcminutes ?? 3) / 60;
+    const minorAxisDegrees =
+      (item.target.minorAxisArcminutes ??
+        item.target.majorAxisArcminutes ??
+        3) / 60;
+    selected.push({
+      ...item,
+      xPixels: point.xPixels,
+      yPixels: point.yPixels,
+      hitRadiusPixels: MINIMUM_HIT_RADIUS_PIXELS,
+      label: item.target.preferredName,
+      labelVisible,
+      outlineHeightPixels: Math.max(2, minorAxisDegrees * pixelsPerDegree),
+      outlineRotationDegrees: 90 - (item.target.positionAngleDegrees ?? 0),
+      outlineWidthPixels: Math.max(2, majorAxisDegrees * pixelsPerDegree),
+      ...(secondaryLabel ? { secondaryLabel } : {}),
+    });
+    if (selected.length >= MAXIMUM_RENDERED_TARGETS) break;
+  }
+  return selected;
 };

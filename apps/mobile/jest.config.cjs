@@ -3,6 +3,7 @@ const transformedModules = [
   '@expo',
   '@react-navigation',
   '@react-native',
+  '@shopify/react-native-skia',
   'expo',
   'expo-.*',
   'nativewind',

@@ -13,4 +13,5 @@ minimumReleaseAgeExclude:
   - 'expo-sensors@57.0.2'
 
 allowBuilds:
+  '@shopify/react-native-skia': true
   '@swc/core': true

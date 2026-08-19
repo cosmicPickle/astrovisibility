@@ -3,10 +3,12 @@ import {
   buildHorizontalSpatialIndex,
   getSecondaryCatalogueLabel,
   getProminenceTierLimit,
+  queryCataloguePlanetarium,
   queryCatalogueViewport,
   type HorizontalCatalogueTarget,
 } from './catalogueViewport';
 import { createSkyViewport } from './skyViewport';
+import { createPlanetariumCamera } from './planetariumProjection';
 
 const canvas = { widthPixels: 400, heightPixels: 800 };
 
@@ -155,5 +157,46 @@ describe('catalogue viewport query', () => {
     expect(visible?.outlineWidthPixels).toBeLessThan(
       (visible?.hitRadiusPixels ?? 0) * 2,
     );
+  });
+});
+
+describe('planetarium catalogue query', () => {
+  it('retains north-wrapped targets in the live gesture buffer', () => {
+    const targets = [
+      target('west-of-north', 350, 45, 1),
+      target('east-of-north', 10, 45, 1),
+      target('south', 180, 45, 1),
+    ];
+    const camera = createPlanetariumCamera({
+      centerAltitudeDegrees: 45,
+      centerAzimuthDegrees: 0,
+      fieldOfViewDegrees: 40,
+    });
+
+    expect(
+      queryCataloguePlanetarium(targets, camera, canvas).map(
+        (item) => item.target.id,
+      ),
+    ).toEqual(['east-of-north', 'west-of-north']);
+  });
+
+  it('selects from the whole sphere at the 360-degree fisheye limit', () => {
+    const targets = [
+      target('north', 0, 15, 1),
+      target('east', 90, 30, 1),
+      target('south', 180, 45, 1),
+      target('west', 270, 60, 1),
+    ];
+    const camera = createPlanetariumCamera({
+      centerAltitudeDegrees: 90,
+      centerAzimuthDegrees: 0,
+      fieldOfViewDegrees: 360,
+    });
+
+    expect(
+      queryCataloguePlanetarium(targets, camera, canvas).map(
+        (item) => item.target.id,
+      ),
+    ).toEqual(['east', 'north', 'south', 'west']);
   });
 });

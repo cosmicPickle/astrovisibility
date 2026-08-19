@@ -20,6 +20,7 @@
   "dependencies": {
     "@gluestack-ui/core": "5.0.15",
     "@gluestack-ui/utils": "5.0.6",
+    "@shopify/react-native-skia": "2.6.2",
     "astronomy-engine": "2.1.19",
     "expo": "57.0.2",
     "expo-camera": "57.0.3",
