@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Astrovisibility Visual QA'
+  short_description: 'Inspect the app on real rendered surfaces'
+  default_prompt: 'Use $astrovisibility-visual-qa to inspect the affected Astrovisibility UI and interactions.'

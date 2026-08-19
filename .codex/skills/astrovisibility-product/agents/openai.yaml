@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Astrovisibility Product'
+  short_description: "Apply the app's product and UX model"
+  default_prompt: 'Use $astrovisibility-product to plan or review this Astrovisibility product change against the v1 specification.'

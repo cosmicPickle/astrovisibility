@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Build Android App'
+  short_description: 'Build and stage the Android release APK'
+  default_prompt: 'Use $build-share-android-app to build and share the Astrovisibility Android app.'

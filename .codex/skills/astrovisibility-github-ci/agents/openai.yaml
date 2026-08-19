@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Astrovisibility GitHub CI'
+  short_description: "Inspect this repository's GitHub Actions"
+  default_prompt: 'Use $astrovisibility-github-ci to inspect Astrovisibility CI for the current commit.'

@@ -1,0 +1,12 @@
+dist
+build
+coverage
+astro-visibility-spec.md
+node_modules
+tmp/
+tmp/**
+.expo/
+android/**/.cxx
+*.apk
+*.aab
+*.ipa
