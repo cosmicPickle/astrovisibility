@@ -1,0 +1,54 @@
+appId: com.cosmicpickle.astrovisibility
+name: V1 local planning critical path
+---
+- launchApp:
+    clearState: true
+- assertVisible: Astrovisibility
+- assertVisible: No observing profiles yet
+- tapOn: New profile
+- tapOn: Profile name
+- inputText: Test garden
+- tapOn: Latitude
+- inputText: '42.6977'
+- tapOn: Longitude
+- inputText: '23.3219'
+- tapOn: Elevation
+- inputText: '550'
+- tapOn: Timezone
+- eraseText
+- inputText: Europe/Sofia
+- hideKeyboard
+- tapOn: Save profile
+- assertVisible: Test garden
+- tapOn: New setup
+- tapOn: Setup name
+- inputText: Test refractor
+- tapOn: Focal length
+- inputText: '400'
+- tapOn: Aperture
+- inputText: '80'
+- tapOn: Sensor width
+- inputText: '23.5'
+- tapOn: Sensor height
+- inputText: '15.6'
+- tapOn: Pixel size
+- inputText: '3.76'
+- tapOn: Frame rotation
+- inputText: '0'
+- hideKeyboard
+- tapOn: Save setup
+- assertVisible: Test refractor
+- tapOn: Open Test garden Sky View
+- assertVisible: Test garden
+- assertVisible: View All Targets
+- tapOn: View All Targets
+- extendedWaitUntil:
+    visible: '.*targets.*'
+    timeout: 15000
+- back
+- assertVisible: Test garden
+- stopApp
+- launchApp
+- assertVisible: Test garden
+- tapOn: Open Test garden Sky View
+- assertVisible: View All Targets

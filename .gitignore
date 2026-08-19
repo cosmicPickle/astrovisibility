@@ -15,6 +15,11 @@ coverage/
 # Native generated and local build output
 android/.gradle/
 android/app/build/
+apps/mobile/android/.gradle/
+apps/mobile/android/app/build/
+apps/mobile/android/app/.cxx/
+apps/mobile/android/build/
+apps/mobile/.cxx/
 ios/Pods/
 ios/build/
 *.apk
@@ -35,6 +40,9 @@ pnpm-debug.log*
 .env.*
 !.env.example
 !**/.env.example
+*.keystore
+*.jks
+local.properties
 
 # Local user data and captures
 *.sqlite

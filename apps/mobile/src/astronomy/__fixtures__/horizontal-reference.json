@@ -1,0 +1,62 @@
+[
+  {
+    "id": "m31-sofia-winter-evening",
+    "rightAscensionJ2000Hours": 0.7123056,
+    "declinationJ2000Degrees": 41.26875,
+    "timestampUtc": "2026-01-15T20:00:00.000Z",
+    "latitudeDegreesNorth": 42.6977,
+    "longitudeDegreesEast": 23.3219,
+    "elevationMetersAboveMeanSeaLevel": 550,
+    "expectedAzimuthDegreesClockwiseFromNorth": 292.84936735,
+    "expectedRefractedAltitudeDegrees": 41.23705475,
+    "toleranceDegrees": 0.25
+  },
+  {
+    "id": "m42-sydney-summer-evening",
+    "rightAscensionJ2000Hours": 5.588139,
+    "declinationJ2000Degrees": -5.39111,
+    "timestampUtc": "2026-01-15T11:00:00.000Z",
+    "latitudeDegreesNorth": -33.8688,
+    "longitudeDegreesEast": 151.2093,
+    "elevationMetersAboveMeanSeaLevel": 58,
+    "expectedAzimuthDegreesClockwiseFromNorth": 25.86809568,
+    "expectedRefractedAltitudeDegrees": 59.05732632,
+    "toleranceDegrees": 0.25
+  },
+  {
+    "id": "omega-centauri-santiago-autumn",
+    "rightAscensionJ2000Hours": 13.446667,
+    "declinationJ2000Degrees": -47.47972,
+    "timestampUtc": "2026-04-15T04:30:00.000Z",
+    "latitudeDegreesNorth": -33.4489,
+    "longitudeDegreesEast": -70.6693,
+    "elevationMetersAboveMeanSeaLevel": 570,
+    "expectedAzimuthDegreesClockwiseFromNorth": 174.73823304,
+    "expectedRefractedAltitudeDegrees": 75.76062918,
+    "toleranceDegrees": 0.25
+  },
+  {
+    "id": "polaris-reykjavik-summer-north-wrap",
+    "rightAscensionJ2000Hours": 2.530301,
+    "declinationJ2000Degrees": 89.264109,
+    "timestampUtc": "2026-06-21T00:00:00.000Z",
+    "latitudeDegreesNorth": 64.1466,
+    "longitudeDegreesEast": -21.9426,
+    "elevationMetersAboveMeanSeaLevel": 35,
+    "expectedAzimuthDegreesClockwiseFromNorth": 0.50730395,
+    "expectedRefractedAltitudeDegrees": 63.56755276,
+    "toleranceDegrees": 0.25
+  },
+  {
+    "id": "m104-quito-near-horizon",
+    "rightAscensionJ2000Hours": 12.6665,
+    "declinationJ2000Degrees": -11.6231,
+    "timestampUtc": "2026-05-10T08:40:00.000Z",
+    "latitudeDegreesNorth": -0.1807,
+    "longitudeDegreesEast": -78.4678,
+    "elevationMetersAboveMeanSeaLevel": 2850,
+    "expectedAzimuthDegreesClockwiseFromNorth": 258.23054782,
+    "expectedRefractedAltitudeDegrees": 0.85579128,
+    "toleranceDegrees": 0.25
+  }
+]

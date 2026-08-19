@@ -315,6 +315,19 @@ The Astrovisibility v1 staged-development specification adopts for `apps/mobile`
 - Jest/Jest Expo, React Native Testing Library, and Maestro for the matching test
   layers.
 
+Stage 1 pins Expo FileSystem `57.0.0` and Expo SQLite `57.0.0` as direct mobile
+dependencies. FileSystem owns app-private durable panorama assets through
+validated relative paths; SQLite owns schema versioning, structured local data,
+and the idempotent offline catalogue import. Node.js 24's built-in SQLite module
+is used only by host-side persistence integration tests and is not bundled in
+the mobile runtime.
+
+Stage 5 pins Expo Image Picker `57.0.2` as a direct mobile dependency for the
+user-driven image-import/manual-placement fallback when camera permission or
+usable live capture is unavailable. Imported images enter the same app-private
+draft lifecycle as camera captures; no sharing, upload, background photo access,
+or unrestricted media scan is introduced.
+
 The controlling decision is
 `docs/superpowers/specs/mobile/2026-08-19-1217-astrovisibility-v1-development-stages.md`.
 It constrains device permissions to foreground user actions and retains v1 data

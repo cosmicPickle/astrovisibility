@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "dataVersion": "v20260501",
+  "transformVersion": 1,
+  "generatedFromPinnedInputsOn": "2026-08-19",
+  "sources": [
+    {
+      "name": "OpenNGC",
+      "url": "https://github.com/mattiaverga/OpenNGC",
+      "release": "v20260501",
+      "commit": "36cb178a0f69dba8bfc03a99c10512831edf1c6b",
+      "license": "CC BY-SA 4.0",
+      "attribution": "OpenNGC contributors"
+    },
+    {
+      "name": "Astronomical League Caldwell Program Object List",
+      "url": "https://www.astroleague.org/caldwell-program-object-list/",
+      "release": "snapshot-2026-08-19",
+      "commit": "not-applicable",
+      "license": "Copyright; factual catalogue mapping reviewed for attribution",
+      "attribution": "Astronomical League and Sir Patrick Moore"
+    }
+  ],
+  "outputSha256": "6362ff2a15a002a591e559f5d400a73e759860ab86898119879e91316731153a"
+}

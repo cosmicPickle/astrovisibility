@@ -1,0 +1,248 @@
+import type { CatalogueTarget } from '../../scripts/catalogue/catalogueImporter';
+import type { CanvasSizePixels } from './projection';
+import {
+  getVerticalSpanDegrees,
+  projectDirectionToViewport,
+  type SkyViewport,
+} from './skyViewport';
+
+const BIN_SIZE_DEGREES = 10;
+const AZIMUTH_BIN_COUNT = 360 / BIN_SIZE_DEGREES;
+const MAXIMUM_RENDERED_TARGETS = 180;
+const MINIMUM_HIT_RADIUS_PIXELS = 22;
+
+export interface HorizontalCatalogueTarget {
+  altitudeDegrees: number;
+  azimuthDegrees: number;
+  target: CatalogueTarget;
+}
+
+export interface HorizontalSpatialIndex {
+  bins: ReadonlyMap<string, readonly HorizontalCatalogueTarget[]>;
+  targetCount: number;
+}
+
+export interface ViewportCatalogueTarget extends HorizontalCatalogueTarget {
+  hitRadiusPixels: number;
+  label: string;
+  outlineHeightPixels: number;
+  outlineRotationDegrees: number;
+  outlineWidthPixels: number;
+  secondaryLabel?: string;
+  xPixels: number;
+  yPixels: number;
+}
+
+export const getSecondaryCatalogueLabel = (target: CatalogueTarget) => {
+  const membershipLabels = [
+    ...target.memberships.messier.map((number) => `M ${number}`),
+    ...(target.memberships.caldwell === undefined
+      ? []
+      : [`C ${target.memberships.caldwell}`]),
+    ...target.memberships.ngc,
+    ...target.memberships.ic,
+  ];
+  return (
+    membershipLabels.find((label) => label !== target.preferredName) ??
+    target.aliases
+      .filter(
+        (alias) =>
+          alias !== target.preferredName && /^(?:M|C|NGC|IC)\s?\d/i.test(alias),
+      )
+      .sort((left, right) => left.length - right.length)[0]
+  );
+};
+
+const azimuthBin = (azimuthDegrees: number) => {
+  const normalized = ((azimuthDegrees % 360) + 360) % 360;
+  return Math.min(
+    AZIMUTH_BIN_COUNT - 1,
+    Math.floor(normalized / BIN_SIZE_DEGREES),
+  );
+};
+
+const altitudeBin = (altitudeDegrees: number) =>
+  Math.max(0, Math.min(8, Math.floor(altitudeDegrees / BIN_SIZE_DEGREES)));
+
+const binKey = (azimuthIndex: number, altitudeIndex: number) =>
+  `${azimuthIndex}:${altitudeIndex}`;
+
+export const buildHorizontalSpatialIndex = (
+  targets: readonly HorizontalCatalogueTarget[],
+): HorizontalSpatialIndex => {
+  const mutableBins = new Map<string, HorizontalCatalogueTarget[]>();
+  for (const target of targets) {
+    if (
+      !Number.isFinite(target.azimuthDegrees) ||
+      !Number.isFinite(target.altitudeDegrees) ||
+      target.altitudeDegrees < 0 ||
+      target.altitudeDegrees > 90
+    ) {
+      continue;
+    }
+    const key = binKey(
+      azimuthBin(target.azimuthDegrees),
+      altitudeBin(target.altitudeDegrees),
+    );
+    const bin = mutableBins.get(key) ?? [];
+    bin.push(target);
+    mutableBins.set(key, bin);
+  }
+  return { bins: mutableBins, targetCount: targets.length };
+};
+
+export const getProminenceTierLimit = (
+  horizontalSpanDegrees: number,
+): 1 | 2 | 3 | 4 => {
+  if (horizontalSpanDegrees > 220) return 1;
+  if (horizontalSpanDegrees > 100) return 2;
+  if (horizontalSpanDegrees > 45) return 3;
+  return 4;
+};
+
+const queryBins = (
+  index: HorizontalSpatialIndex,
+  viewport: SkyViewport,
+  canvas: CanvasSizePixels,
+  prominenceTierLimit: 1 | 2 | 3 | 4,
+) => {
+  const verticalSpanDegrees = getVerticalSpanDegrees(viewport, canvas);
+  const minimumAzimuth =
+    viewport.centerAzimuthDegrees - viewport.horizontalSpanDegrees / 2;
+  const maximumAzimuth =
+    viewport.centerAzimuthDegrees + viewport.horizontalSpanDegrees / 2;
+  const minimumAltitude = Math.max(
+    0,
+    viewport.centerAltitudeDegrees - verticalSpanDegrees / 2,
+  );
+  const maximumAltitude = Math.min(
+    90,
+    viewport.centerAltitudeDegrees + verticalSpanDegrees / 2,
+  );
+  const candidates = new Map<string, HorizontalCatalogueTarget>();
+  for (
+    let unwrappedAzimuthBin = Math.floor(minimumAzimuth / BIN_SIZE_DEGREES);
+    unwrappedAzimuthBin <= Math.floor(maximumAzimuth / BIN_SIZE_DEGREES);
+    unwrappedAzimuthBin += 1
+  ) {
+    const wrappedAzimuthBin =
+      ((unwrappedAzimuthBin % AZIMUTH_BIN_COUNT) + AZIMUTH_BIN_COUNT) %
+      AZIMUTH_BIN_COUNT;
+    for (
+      let currentAltitudeBin = altitudeBin(minimumAltitude);
+      currentAltitudeBin <= altitudeBin(maximumAltitude);
+      currentAltitudeBin += 1
+    ) {
+      for (const target of index.bins.get(
+        binKey(wrappedAzimuthBin, currentAltitudeBin),
+      ) ?? []) {
+        if (target.target.prominenceTier <= prominenceTierLimit) {
+          candidates.set(target.target.id, target);
+        }
+      }
+    }
+  }
+  return [...candidates.values()];
+};
+
+const overlaps = (
+  left: { left: number; right: number; top: number; bottom: number },
+  right: { left: number; right: number; top: number; bottom: number },
+) =>
+  left.left < right.right &&
+  left.right > right.left &&
+  left.top < right.bottom &&
+  left.bottom > right.top;
+
+export const queryCatalogueViewport = (
+  index: HorizontalSpatialIndex,
+  viewport: SkyViewport,
+  canvas: CanvasSizePixels,
+): ViewportCatalogueTarget[] => {
+  const prominenceTierLimit = getProminenceTierLimit(
+    viewport.horizontalSpanDegrees,
+  );
+  const verticalSpanDegrees = getVerticalSpanDegrees(viewport, canvas);
+  const horizontalPixelsPerDegree =
+    canvas.widthPixels / viewport.horizontalSpanDegrees;
+  const verticalPixelsPerDegree = canvas.heightPixels / verticalSpanDegrees;
+  const occupiedLabels: Array<{
+    left: number;
+    right: number;
+    top: number;
+    bottom: number;
+  }> = [];
+  const visible: ViewportCatalogueTarget[] = [];
+  const candidates = queryBins(
+    index,
+    viewport,
+    canvas,
+    prominenceTierLimit,
+  ).sort(
+    (left, right) =>
+      left.target.prominenceTier - right.target.prominenceTier ||
+      (left.target.magnitude ?? Number.POSITIVE_INFINITY) -
+        (right.target.magnitude ?? Number.POSITIVE_INFINITY) ||
+      left.target.preferredName.localeCompare(right.target.preferredName, 'en'),
+  );
+
+  for (const item of candidates) {
+    const point = projectDirectionToViewport(
+      {
+        altitudeDegrees: item.altitudeDegrees,
+        azimuthDegrees: item.azimuthDegrees,
+      },
+      viewport,
+      canvas,
+    );
+    if (!point) continue;
+    const secondaryLabel = getSecondaryCatalogueLabel(item.target);
+    const labelWidthPixels = Math.min(
+      180,
+      Math.max(
+        44,
+        item.target.preferredName.length * 6.5,
+        (secondaryLabel?.length ?? 0) * 5.5,
+      ),
+    );
+    const labelBounds = {
+      left: point.xPixels - labelWidthPixels / 2,
+      right: point.xPixels + labelWidthPixels / 2,
+      top: point.yPixels - MINIMUM_HIT_RADIUS_PIXELS,
+      bottom: point.yPixels + MINIMUM_HIT_RADIUS_PIXELS + 28,
+    };
+    if (
+      labelBounds.left < 4 ||
+      labelBounds.right > canvas.widthPixels - 4 ||
+      labelBounds.top < 4 ||
+      labelBounds.bottom > canvas.heightPixels - 4 ||
+      occupiedLabels.some((bounds) => overlaps(bounds, labelBounds))
+    ) {
+      continue;
+    }
+    const majorAxisDegrees = (item.target.majorAxisArcminutes ?? 3) / 60;
+    const minorAxisDegrees =
+      (item.target.minorAxisArcminutes ??
+        item.target.majorAxisArcminutes ??
+        3) / 60;
+    occupiedLabels.push(labelBounds);
+    visible.push({
+      ...item,
+      ...point,
+      hitRadiusPixels: MINIMUM_HIT_RADIUS_PIXELS,
+      label: item.target.preferredName,
+      outlineWidthPixels: Math.max(
+        2,
+        majorAxisDegrees * horizontalPixelsPerDegree,
+      ),
+      outlineHeightPixels: Math.max(
+        2,
+        minorAxisDegrees * verticalPixelsPerDegree,
+      ),
+      outlineRotationDegrees: 90 - (item.target.positionAngleDegrees ?? 0),
+      ...(secondaryLabel ? { secondaryLabel } : {}),
+    });
+    if (visible.length >= MAXIMUM_RENDERED_TARGETS) break;
+  }
+  return visible;
+};

@@ -3,7 +3,20 @@
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.19.0",
+  "scripts": {
+    "format": "prettier --check .",
+    "format:write": "prettier --write .",
+    "typecheck": "pnpm --filter @astrovisibility/mobile typecheck",
+    "lint": "pnpm --filter @astrovisibility/mobile lint",
+    "test": "pnpm --filter @astrovisibility/mobile test",
+    "test:e2e:android": "pnpm --filter @astrovisibility/mobile test:e2e:android",
+    "build": "pnpm --filter @astrovisibility/mobile build",
+    "android:prebuild": "pnpm --filter @astrovisibility/mobile android:prebuild"
+  },
   "engines": {
     "node": ">=24.16.0"
+  },
+  "devDependencies": {
+    "prettier": "^3.8.3"
   }
 }

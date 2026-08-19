@@ -1,0 +1,465 @@
+import { z } from 'zod';
+
+import {
+  createTileCoveragePolygon,
+  type PanoramaTilePlacement,
+} from '../panorama/tileGeometry';
+import type {
+  CapturedProofTile,
+  OrientationConfidence,
+  OrientationSnapshot,
+} from '../capture/captureSession';
+import { normalizeAzimuthDegrees } from '../sky/projection';
+import type { OwnedFileStore, SqlDatabase } from './types';
+import { inImmediateTransaction } from './types';
+
+const safeId = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
+const utcInstant = z.iso.datetime({ offset: true });
+const fileExtension = z.string().regex(/^[a-z0-9]{1,5}$/);
+
+export type CaptureDraftTileInput = Omit<CapturedProofTile, 'uri'> & {
+  temporaryUri: string;
+  fileExtension: string;
+};
+
+export interface PanoramaCaptureDraft {
+  id: string;
+  profileId: string;
+  formatVersion: number;
+  createdAtUtc: string;
+  updatedAtUtc: string;
+  tiles: CapturedProofTile[];
+}
+
+export interface ActivePanoramaTile {
+  id: string;
+  uri: string;
+  centerAzimuthDegrees: number;
+  centerAltitudeDegrees: number;
+  rollDegrees: number;
+  horizontalFieldOfViewDegrees: number;
+  verticalFieldOfViewDegrees: number;
+  widthPixels: number;
+  heightPixels: number;
+}
+
+export interface ActivePanorama {
+  id: string;
+  profileId: string;
+  tiles: ActivePanoramaTile[];
+}
+
+interface DraftRow {
+  id: string;
+  profileId: string;
+  formatVersion: number;
+  createdAtUtc: string;
+  updatedAtUtc: string;
+}
+
+interface DraftTileRow {
+  id: string;
+  fileRelativePath: string;
+  sourceKind: 'camera' | 'import';
+  widthPixels: number;
+  heightPixels: number;
+  capturedAtUtc: string;
+  orientationSnapshotJson: string;
+  orientationConfidence: OrientationConfidence;
+  centerAzimuthDegrees: number;
+  centerAltitudeDegrees: number;
+  rollDegrees: number;
+  horizontalFieldOfViewDegrees: number;
+  verticalFieldOfViewDegrees: number;
+  coveragePolygonJson: string;
+  fileExtension: string;
+}
+
+const draftSelect = `
+  SELECT id, profile_id AS profileId, format_version AS formatVersion,
+    created_at_utc AS createdAtUtc, updated_at_utc AS updatedAtUtc
+  FROM panorama_capture_drafts`;
+
+const tileSelect = `
+  SELECT id, file_relative_path AS fileRelativePath,
+    file_extension AS fileExtension, source_kind AS sourceKind,
+    width_pixels AS widthPixels, height_pixels AS heightPixels,
+    captured_at_utc AS capturedAtUtc,
+    orientation_snapshot_json AS orientationSnapshotJson,
+    orientation_confidence AS orientationConfidence,
+    center_azimuth_degrees AS centerAzimuthDegrees,
+    center_altitude_degrees AS centerAltitudeDegrees,
+    roll_degrees AS rollDegrees,
+    horizontal_fov_degrees AS horizontalFieldOfViewDegrees,
+    vertical_fov_degrees AS verticalFieldOfViewDegrees,
+    coverage_polygon_json AS coveragePolygonJson
+  FROM panorama_capture_draft_tiles`;
+
+const shortestAzimuthDelta = (fromDegrees: number, toDegrees: number) => {
+  const delta = normalizeAzimuthDegrees(toDegrees - fromDegrees);
+  return delta > 180 ? delta - 360 : delta;
+};
+
+const validatePlacement = (
+  placement: PanoramaTilePlacement & { rollDegrees: number },
+) => {
+  if (
+    !Number.isFinite(placement.centerAzimuthDegrees) ||
+    !Number.isFinite(placement.centerAltitudeDegrees) ||
+    !Number.isFinite(placement.rollDegrees)
+  ) {
+    throw new RangeError('Reviewed tile placement must be finite.');
+  }
+  createTileCoveragePolygon(placement);
+};
+
+export class PanoramaDraftRepository {
+  private readonly database: SqlDatabase;
+  private readonly files: OwnedFileStore;
+
+  constructor(database: SqlDatabase, files: OwnedFileStore) {
+    this.database = database;
+    this.files = files;
+  }
+
+  async create(
+    id: string,
+    profileId: string,
+    createdAtUtc: string,
+  ): Promise<void> {
+    safeId.parse(id);
+    safeId.parse(profileId);
+    utcInstant.parse(createdAtUtc);
+    const profile = await this.database.getFirstAsync<{
+      activePanoramaRevisionId: string | null;
+    }>(
+      `SELECT active_panorama_revision_id AS activePanoramaRevisionId
+       FROM profiles WHERE id = ?`,
+      [profileId],
+    );
+    if (!profile) throw new Error(`Profile not found: ${profileId}`);
+    if (profile.activePanoramaRevisionId) {
+      throw new Error(
+        'Delete the existing panorama and mask before recapturing.',
+      );
+    }
+    await this.database.runAsync(
+      `INSERT INTO panorama_capture_drafts (
+        id, profile_id, format_version, created_at_utc, updated_at_utc
+      ) VALUES (?, ?, 1, ?, ?)`,
+      [id, profileId, createdAtUtc, createdAtUtc],
+    );
+  }
+
+  async getForProfile(profileId: string): Promise<PanoramaCaptureDraft | null> {
+    const draft = await this.database.getFirstAsync<DraftRow>(
+      `${draftSelect} WHERE profile_id = ?`,
+      [profileId],
+    );
+    return draft ? this.hydrateDraft(draft) : null;
+  }
+
+  async getById(id: string): Promise<PanoramaCaptureDraft | null> {
+    const draft = await this.database.getFirstAsync<DraftRow>(
+      `${draftSelect} WHERE id = ?`,
+      [id],
+    );
+    return draft ? this.hydrateDraft(draft) : null;
+  }
+
+  async addTile(
+    draftId: string,
+    rawTile: CaptureDraftTileInput,
+    updatedAtUtc: string,
+  ): Promise<void> {
+    safeId.parse(draftId);
+    safeId.parse(rawTile.id);
+    const extension = fileExtension.parse(rawTile.fileExtension.toLowerCase());
+    utcInstant.parse(rawTile.capturedAtUtc);
+    utcInstant.parse(updatedAtUtc);
+    validatePlacement(rawTile.reviewedPlacement);
+    const draft = await this.database.getFirstAsync<DraftRow>(
+      `${draftSelect} WHERE id = ?`,
+      [draftId],
+    );
+    if (!draft) throw new Error(`Panorama draft not found: ${draftId}`);
+    const count = await this.database.getFirstAsync<{ count: number }>(
+      'SELECT COUNT(*) AS count FROM panorama_capture_draft_tiles WHERE draft_id = ?',
+      [draftId],
+    );
+    if ((count?.count ?? 0) >= 200) {
+      throw new Error('This panorama draft has reached the 200 tile limit.');
+    }
+    const relativePath = `profiles/${draft.profileId}/panorama-drafts/${draft.id}/tiles/${rawTile.id}.${extension}`;
+    await this.files.promoteTemporaryFile(rawTile.temporaryUri, relativePath);
+    try {
+      await inImmediateTransaction(this.database, async () => {
+        await this.database.runAsync(
+          `INSERT INTO panorama_capture_draft_tiles (
+            id, draft_id, ordinal, file_relative_path, file_extension,
+            source_kind, width_pixels, height_pixels, captured_at_utc,
+            orientation_snapshot_json, orientation_confidence,
+            center_azimuth_degrees, center_altitude_degrees, roll_degrees,
+            horizontal_fov_degrees, vertical_fov_degrees, coverage_polygon_json
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            rawTile.id,
+            draftId,
+            count?.count ?? 0,
+            relativePath,
+            extension,
+            rawTile.sourceKind,
+            rawTile.widthPixels,
+            rawTile.heightPixels,
+            rawTile.capturedAtUtc,
+            JSON.stringify(rawTile.orientationSnapshot),
+            rawTile.orientationConfidence,
+            normalizeAzimuthDegrees(
+              rawTile.reviewedPlacement.centerAzimuthDegrees,
+            ),
+            rawTile.reviewedPlacement.centerAltitudeDegrees,
+            rawTile.reviewedPlacement.rollDegrees,
+            rawTile.reviewedPlacement.horizontalFieldOfViewDegrees,
+            rawTile.reviewedPlacement.verticalFieldOfViewDegrees,
+            JSON.stringify(rawTile.coveragePolygon),
+          ],
+        );
+        await this.database.runAsync(
+          'UPDATE panorama_capture_drafts SET updated_at_utc = ? WHERE id = ?',
+          [updatedAtUtc, draftId],
+        );
+      });
+    } catch (error) {
+      await this.files.deleteOwnedFile(relativePath);
+      throw error;
+    }
+  }
+
+  async updateTilePlacement(
+    draftId: string,
+    tileId: string,
+    placement: PanoramaTilePlacement & { rollDegrees: number },
+    updatedAtUtc: string,
+  ): Promise<void> {
+    validatePlacement(placement);
+    utcInstant.parse(updatedAtUtc);
+    await inImmediateTransaction(this.database, async () => {
+      const result = await this.database.runAsync(
+        `UPDATE panorama_capture_draft_tiles SET
+          center_azimuth_degrees = ?, center_altitude_degrees = ?,
+          roll_degrees = ?, horizontal_fov_degrees = ?, vertical_fov_degrees = ?,
+          coverage_polygon_json = ?
+         WHERE id = ? AND draft_id = ?`,
+        [
+          normalizeAzimuthDegrees(placement.centerAzimuthDegrees),
+          placement.centerAltitudeDegrees,
+          placement.rollDegrees,
+          placement.horizontalFieldOfViewDegrees,
+          placement.verticalFieldOfViewDegrees,
+          JSON.stringify(createTileCoveragePolygon(placement)),
+          tileId,
+          draftId,
+        ],
+      );
+      if (result.changes !== 1)
+        throw new Error(`Draft tile not found: ${tileId}`);
+      await this.database.runAsync(
+        'UPDATE panorama_capture_drafts SET updated_at_utc = ? WHERE id = ?',
+        [updatedAtUtc, draftId],
+      );
+    });
+  }
+
+  async discard(draftId: string): Promise<void> {
+    const rows = await this.database.getAllAsync<{ relativePath: string }>(
+      `SELECT file_relative_path AS relativePath
+       FROM panorama_capture_draft_tiles WHERE draft_id = ?`,
+      [draftId],
+    );
+    await this.database.runAsync(
+      'DELETE FROM panorama_capture_drafts WHERE id = ?',
+      [draftId],
+    );
+    await Promise.allSettled(
+      rows.map((row) => this.files.deleteOwnedFile(row.relativePath)),
+    );
+  }
+
+  async complete(
+    draftId: string,
+    panoramaId: string,
+    completedAtUtc: string,
+  ): Promise<void> {
+    safeId.parse(panoramaId);
+    utcInstant.parse(completedAtUtc);
+    const draft = await this.database.getFirstAsync<DraftRow>(
+      `${draftSelect} WHERE id = ?`,
+      [draftId],
+    );
+    if (!draft) throw new Error(`Panorama draft not found: ${draftId}`);
+    const tiles = await this.database.getAllAsync<DraftTileRow>(
+      `${tileSelect} WHERE draft_id = ? ORDER BY ordinal`,
+      [draftId],
+    );
+    if (tiles.length === 0)
+      throw new Error('Capture at least one tile before saving.');
+    const finalTiles = tiles.map((tile) => ({
+      ...tile,
+      relativePath: `profiles/${draft.profileId}/panoramas/${panoramaId}/tiles/${tile.id}.${tile.fileExtension}`,
+    }));
+    const copied: string[] = [];
+    try {
+      for (const tile of finalTiles) {
+        await this.files.copyOwnedFile(
+          tile.fileRelativePath,
+          tile.relativePath,
+        );
+        copied.push(tile.relativePath);
+      }
+      await inImmediateTransaction(this.database, async () => {
+        await this.database.runAsync(
+          `INSERT INTO panorama_revisions (
+            id, profile_id, status, format_version, created_at_utc
+          ) VALUES (?, ?, 'complete', ?, ?)`,
+          [panoramaId, draft.profileId, draft.formatVersion, completedAtUtc],
+        );
+        for (const [ordinal, tile] of finalTiles.entries()) {
+          const orientation = JSON.parse(
+            tile.orientationSnapshotJson,
+          ) as OrientationSnapshot;
+          await this.database.runAsync(
+            `INSERT INTO panorama_tiles (
+              id, panorama_revision_id, ordinal, file_relative_path,
+              width_pixels, height_pixels, center_azimuth_degrees,
+              center_altitude_degrees, roll_degrees, horizontal_fov_degrees,
+              vertical_fov_degrees, captured_at_utc, heading_accuracy_degrees,
+              orientation_confidence, correction_azimuth_degrees,
+              correction_altitude_degrees, correction_roll_degrees,
+              coverage_polygon_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              tile.id,
+              panoramaId,
+              ordinal,
+              tile.relativePath,
+              tile.widthPixels,
+              tile.heightPixels,
+              normalizeAzimuthDegrees(orientation.trueHeadingDegrees),
+              orientation.estimatedAltitudeDegrees,
+              orientation.rollDegrees,
+              tile.horizontalFieldOfViewDegrees,
+              tile.verticalFieldOfViewDegrees,
+              tile.capturedAtUtc,
+              orientation.headingAccuracyDegrees,
+              tile.orientationConfidence,
+              shortestAzimuthDelta(
+                orientation.trueHeadingDegrees,
+                tile.centerAzimuthDegrees,
+              ),
+              tile.centerAltitudeDegrees - orientation.estimatedAltitudeDegrees,
+              tile.rollDegrees - orientation.rollDegrees,
+              tile.coveragePolygonJson,
+            ],
+          );
+        }
+        const activation = await this.database.runAsync(
+          `UPDATE profiles SET active_panorama_revision_id = ?,
+            active_mask_revision_id = NULL, updated_at_utc = ?
+           WHERE id = ? AND active_panorama_revision_id IS NULL`,
+          [panoramaId, completedAtUtc, draft.profileId],
+        );
+        if (activation.changes !== 1) {
+          throw new Error('The profile already has a panorama.');
+        }
+        await this.database.runAsync(
+          'DELETE FROM panorama_capture_drafts WHERE id = ?',
+          [draftId],
+        );
+      });
+    } catch (error) {
+      await Promise.allSettled(
+        copied.map((path) => this.files.deleteOwnedFile(path)),
+      );
+      throw error;
+    }
+    await Promise.allSettled(
+      tiles.map((tile) => this.files.deleteOwnedFile(tile.fileRelativePath)),
+    );
+  }
+
+  async getActiveForProfile(profileId: string): Promise<ActivePanorama | null> {
+    const revision = await this.database.getFirstAsync<{
+      id: string;
+      profileId: string;
+    }>(
+      `SELECT panorama_revisions.id, panorama_revisions.profile_id AS profileId
+       FROM profiles
+       JOIN panorama_revisions
+         ON panorama_revisions.id = profiles.active_panorama_revision_id
+       WHERE profiles.id = ? AND panorama_revisions.status = 'complete'`,
+      [profileId],
+    );
+    if (!revision) return null;
+    const rows = await this.database.getAllAsync<{
+      id: string;
+      relativePath: string;
+      widthPixels: number;
+      heightPixels: number;
+      centerAzimuthDegrees: number;
+      centerAltitudeDegrees: number;
+      rollDegrees: number;
+      horizontalFieldOfViewDegrees: number;
+      verticalFieldOfViewDegrees: number;
+    }>(
+      `SELECT id, file_relative_path AS relativePath,
+        width_pixels AS widthPixels, height_pixels AS heightPixels,
+        center_azimuth_degrees + correction_azimuth_degrees AS centerAzimuthDegrees,
+        center_altitude_degrees + correction_altitude_degrees AS centerAltitudeDegrees,
+        roll_degrees + correction_roll_degrees AS rollDegrees,
+        horizontal_fov_degrees AS horizontalFieldOfViewDegrees,
+        vertical_fov_degrees AS verticalFieldOfViewDegrees
+       FROM panorama_tiles WHERE panorama_revision_id = ? ORDER BY ordinal`,
+      [revision.id],
+    );
+    return {
+      ...revision,
+      tiles: rows.map((row) => ({
+        ...row,
+        centerAzimuthDegrees: normalizeAzimuthDegrees(row.centerAzimuthDegrees),
+        uri: this.files.resolveOwnedFileUri(row.relativePath),
+      })),
+    };
+  }
+
+  private async hydrateDraft(draft: DraftRow): Promise<PanoramaCaptureDraft> {
+    const rows = await this.database.getAllAsync<DraftTileRow>(
+      `${tileSelect} WHERE draft_id = ? ORDER BY ordinal`,
+      [draft.id],
+    );
+    return {
+      ...draft,
+      tiles: rows.map((row) => ({
+        id: row.id,
+        uri: this.files.resolveOwnedFileUri(row.fileRelativePath),
+        widthPixels: row.widthPixels,
+        heightPixels: row.heightPixels,
+        capturedAtUtc: row.capturedAtUtc,
+        orientationSnapshot: JSON.parse(
+          row.orientationSnapshotJson,
+        ) as OrientationSnapshot,
+        orientationConfidence: row.orientationConfidence,
+        sourceKind: row.sourceKind,
+        reviewedPlacement: {
+          centerAzimuthDegrees: row.centerAzimuthDegrees,
+          centerAltitudeDegrees: row.centerAltitudeDegrees,
+          rollDegrees: row.rollDegrees,
+          horizontalFieldOfViewDegrees: row.horizontalFieldOfViewDegrees,
+          verticalFieldOfViewDegrees: row.verticalFieldOfViewDegrees,
+        },
+        coveragePolygon: JSON.parse(
+          row.coveragePolygonJson,
+        ) as CapturedProofTile['coveragePolygon'],
+      })),
+    };
+  }
+}

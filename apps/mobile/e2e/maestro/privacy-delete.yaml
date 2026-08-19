@@ -1,0 +1,15 @@
+appId: com.cosmicpickle.astrovisibility
+name: Confirmed local data deletion
+---
+- launchApp
+- assertVisible: Astrovisibility
+- tapOn: About and licences
+- assertVisible: Private and local by design
+- assertVisible: Prototype limits
+- tapOn: Delete all local data
+- assertVisible: Delete everything local?
+- tapOn: Delete permanently
+- assertVisible: All user-created local data was deleted.
+- back
+- assertVisible: No observing profiles yet
+- assertVisible: No imaging setups yet

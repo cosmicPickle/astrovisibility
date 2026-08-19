@@ -1,0 +1,48 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+
+buildscript {
+  repositories {
+    google()
+    mavenCentral()
+  }
+  dependencies {
+    classpath('com.android.tools.build:gradle')
+    classpath('com.facebook.react:react-native-gradle-plugin')
+    classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')
+  }
+}
+
+allprojects {
+  repositories {
+    google()
+    mavenCentral()
+    maven { url 'https://www.jitpack.io' }
+  }
+}
+
+// Rallypath's proven Windows native-build workaround. The Android SDK's bundled
+// Ninja repeatedly regenerates build.ninja when pnpm-backed Worklets paths cross
+// CMake's conservative object-path limit.
+def cmakeLongPathArguments = [
+  "-DCMAKE_MAKE_PROGRAM=C:\\ninja\\ninja.exe",
+  "-DCMAKE_OBJECT_PATH_MAX=1024"
+]
+
+subprojects { subproject ->
+  ["com.android.application", "com.android.library"].each { pluginId ->
+    subproject.plugins.withId(pluginId) {
+      subproject.android {
+        defaultConfig {
+          externalNativeBuild {
+            cmake {
+              arguments(*cmakeLongPathArguments)
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+apply plugin: "expo-root-project"
+apply plugin: "com.facebook.react.rootproject"

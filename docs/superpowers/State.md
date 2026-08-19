@@ -1,3 +1,3 @@
 # Active Tasks
 
-No active long-running tasks.
+No active tasks.
