@@ -17,6 +17,8 @@ const AZIMUTH_BIN_COUNT = 360 / BIN_SIZE_DEGREES;
 const MAXIMUM_RENDERED_TARGETS = 120;
 const MINIMUM_HIT_RADIUS_PIXELS = 22;
 const PLANETARIUM_OVERSCAN_RATIO = 0.25;
+const PLANETARIUM_CATALOGUE_REFRESH_PAN_RATIO = 0.15;
+const PLANETARIUM_CATALOGUE_REFRESH_ZOOM_RATIO = 1.15;
 
 export interface HorizontalCatalogueTarget {
   altitudeDegrees: number;
@@ -40,6 +42,41 @@ export interface ViewportCatalogueTarget extends HorizontalCatalogueTarget {
   xPixels: number;
   yPixels: number;
 }
+
+export const shouldRefreshPlanetariumCatalogue = (
+  anchorCamera: PlanetariumCamera,
+  liveCamera: PlanetariumCamera,
+): boolean => {
+  const anchorDirection = horizontalDirectionToVector(
+    getPlanetariumCameraCenter(anchorCamera),
+  );
+  const liveDirection = horizontalDirectionToVector(
+    getPlanetariumCameraCenter(liveCamera),
+  );
+  const directionCosine = Math.max(
+    -1,
+    Math.min(
+      1,
+      anchorDirection.x * liveDirection.x +
+        anchorDirection.y * liveDirection.y +
+        anchorDirection.z * liveDirection.z,
+    ),
+  );
+  const separationDegrees = (Math.acos(directionCosine) * 180) / Math.PI;
+  const smallerFieldOfViewDegrees = Math.min(
+    anchorCamera.fieldOfViewDegrees,
+    liveCamera.fieldOfViewDegrees,
+  );
+  const zoomRatio =
+    Math.max(anchorCamera.fieldOfViewDegrees, liveCamera.fieldOfViewDegrees) /
+    smallerFieldOfViewDegrees;
+
+  return (
+    separationDegrees >=
+      smallerFieldOfViewDegrees * PLANETARIUM_CATALOGUE_REFRESH_PAN_RATIO ||
+    zoomRatio >= PLANETARIUM_CATALOGUE_REFRESH_ZOOM_RATIO
+  );
+};
 
 export const getSecondaryCatalogueLabel = (target: CatalogueTarget) => {
   const membershipLabels = [

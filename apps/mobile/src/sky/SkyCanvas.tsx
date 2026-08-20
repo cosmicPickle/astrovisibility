@@ -14,6 +14,7 @@ import type { ActivePanorama } from '../storage/panoramaDraftRepository';
 import { colors } from '../theme/tokens';
 import {
   queryCataloguePlanetarium,
+  shouldRefreshPlanetariumCatalogue,
   type HorizontalCatalogueTarget,
 } from './catalogueViewport';
 import {
@@ -22,6 +23,7 @@ import {
   type PlanetariumCamera,
 } from './planetariumProjection';
 import { PlanetariumScene } from './PlanetariumScene';
+import { useLatestValue } from './useLatestValue';
 import { usePlanetariumNavigation } from './usePlanetariumNavigation';
 
 export const TRAJECTORY_MARKER_HIT_RADIUS_PIXELS = 22;
@@ -63,18 +65,46 @@ export const SkyCanvas = ({
   maskOverlay,
 }: SkyCanvasProps) => {
   const [canvas, setCanvas] = useState({ widthPixels: 1, heightPixels: 1 });
-  const [cameraState, setCameraState] = useState<PlanetariumCamera>(() =>
+  const [initialCameraState] = useState<PlanetariumCamera>(() =>
     createInitialPlanetariumCamera(),
   );
+  const [catalogueCameraState, setCatalogueCameraState] =
+    useState(initialCameraState);
 
   const visibleTargets = useMemo(
-    () => queryCataloguePlanetarium(targets, cameraState, canvas),
-    [canvas, cameraState, targets],
+    () => queryCataloguePlanetarium(targets, catalogueCameraState, canvas),
+    [canvas, catalogueCameraState, targets],
+  );
+
+  const getTapContext = useLatestValue(
+    useMemo(
+      () => ({
+        canvas,
+        onInspectTrajectoryMarker,
+        onSelectTarget,
+        trajectory,
+        visibleTargets,
+      }),
+      [
+        canvas,
+        onInspectTrajectoryMarker,
+        onSelectTarget,
+        trajectory,
+        visibleTargets,
+      ],
+    ),
   );
 
   const handleTap = useCallback(
     (xPixels: number, yPixels: number, tapCamera: PlanetariumCamera) => {
-      const markerMatch = trajectory?.markers
+      const {
+        canvas: latestCanvas,
+        onInspectTrajectoryMarker: inspectTrajectoryMarker,
+        onSelectTarget: selectTarget,
+        trajectory: latestTrajectory,
+        visibleTargets: latestVisibleTargets,
+      } = getTapContext();
+      const markerMatch = latestTrajectory?.markers
         .filter(({ assessment }) => assessment !== 'belowHorizon')
         .map((marker) => {
           const point = projectHorizontalDirection(
@@ -83,7 +113,7 @@ export const SkyCanvas = ({
               azimuthDegrees: marker.azimuthDegreesClockwiseFromNorth,
             },
             tapCamera,
-            canvas,
+            latestCanvas,
           );
           return {
             distancePixels: Math.hypot(
@@ -100,13 +130,17 @@ export const SkyCanvas = ({
         markerMatch &&
         markerMatch.distancePixels <= TRAJECTORY_MARKER_HIT_RADIUS_PIXELS
       ) {
-        onInspectTrajectoryMarker(markerMatch.marker);
+        inspectTrajectoryMarker(markerMatch.marker);
         return;
       }
-      const targetMatch = visibleTargets
+      const targetMatch = latestVisibleTargets
         .filter(({ altitudeDegrees }) => altitudeDegrees >= 0)
         .map((target) => {
-          const point = projectHorizontalDirection(target, tapCamera, canvas);
+          const point = projectHorizontalDirection(
+            target,
+            tapCamera,
+            latestCanvas,
+          );
           return {
             distancePixels: Math.hypot(
               point.xPixels - xPixels,
@@ -122,25 +156,31 @@ export const SkyCanvas = ({
         targetMatch &&
         targetMatch.distancePixels <= targetMatch.target.hitRadiusPixels
       ) {
-        onSelectTarget(targetMatch.target);
+        selectTarget(targetMatch.target);
       }
     },
-    [
-      canvas,
-      onInspectTrajectoryMarker,
-      onSelectTarget,
-      trajectory,
-      visibleTargets,
-    ],
+    [getTapContext],
   );
 
   const handleCameraCommit = useCallback((camera: PlanetariumCamera) => {
-    setCameraState(camera);
+    setCatalogueCameraState((anchorCamera) =>
+      shouldRefreshPlanetariumCatalogue(anchorCamera, camera)
+        ? camera
+        : anchorCamera,
+    );
+  }, []);
+  const handleCameraPreview = useCallback((camera: PlanetariumCamera) => {
+    setCatalogueCameraState((anchorCamera) =>
+      shouldRefreshPlanetariumCatalogue(anchorCamera, camera)
+        ? camera
+        : anchorCamera,
+    );
   }, []);
   const navigation = usePlanetariumNavigation({
-    cameraState,
+    cameraState: initialCameraState,
     canvas,
     onCameraCommit: handleCameraCommit,
+    onCameraPreview: handleCameraPreview,
     onTap: handleTap,
   });
 

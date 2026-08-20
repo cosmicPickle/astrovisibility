@@ -1,14 +1,30 @@
-import { render } from '@testing-library/react-native';
+import { act, render } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
 
 import type { SelectedTargetTrajectory } from '../astronomy/trajectory';
+import type { CatalogueTarget } from '../../scripts/catalogue/catalogueImporter';
+import type { ViewportCatalogueTarget } from './catalogueViewport';
 import {
+  createPlanetariumCamera,
   getPlanetariumCameraCenter,
   type PlanetariumCamera,
 } from './planetariumProjection';
 import { SkyCanvas } from './SkyCanvas';
 
 const mockObservedCameras: PlanetariumCamera[] = [];
+const mockObservedSceneTargetIds: string[][] = [];
+let mockNavigationOptions:
+  | {
+      cameraState: PlanetariumCamera;
+      onCameraCommit: (camera: PlanetariumCamera) => void;
+      onCameraPreview?: (camera: PlanetariumCamera) => void;
+      onTap: (
+        xPixels: number,
+        yPixels: number,
+        camera: PlanetariumCamera,
+      ) => void;
+    }
+  | undefined;
 
 jest.mock('react-native-gesture-handler', () => ({
   GestureDetector: ({ children }: PropsWithChildren) => children,
@@ -18,23 +34,33 @@ jest.mock('./PlanetariumScene', () => {
   const react = jest.requireActual('react') as typeof import('react');
   const reactNative = jest.requireActual('react-native');
   return {
-    PlanetariumScene: () =>
-      react.createElement(reactNative.View, { testID: 'planetarium-scene' }),
+    PlanetariumScene: ({ targets }: { targets: ViewportCatalogueTarget[] }) => {
+      mockObservedSceneTargetIds.push(targets.map(({ target }) => target.id));
+      return react.createElement(reactNative.View, {
+        testID: 'planetarium-scene',
+      });
+    },
   };
 });
 
 jest.mock('./usePlanetariumNavigation', () => ({
-  usePlanetariumNavigation: ({
-    cameraState,
-  }: {
+  usePlanetariumNavigation: (options: {
     cameraState: PlanetariumCamera;
+    onCameraCommit: (camera: PlanetariumCamera) => void;
+    onCameraPreview?: (camera: PlanetariumCamera) => void;
+    onTap: (
+      xPixels: number,
+      yPixels: number,
+      camera: PlanetariumCamera,
+    ) => void;
   }) => {
-    mockObservedCameras.push(cameraState);
+    mockNavigationOptions = options;
+    mockObservedCameras.push(options.cameraState);
     return {
       camera: {
-        get: () => cameraState,
+        get: () => options.cameraState,
         set: jest.fn(),
-        value: cameraState,
+        value: options.cameraState,
       },
       gesture: {},
     };
@@ -78,9 +104,45 @@ const commonProps = {
   targets: [],
 };
 
+const createCatalogueTarget = (
+  id: string,
+  azimuthDegrees: number,
+): ViewportCatalogueTarget => {
+  const target: CatalogueTarget = {
+    aliases: [id],
+    constellation: 'Ori',
+    declinationJ2000Degrees: 0,
+    id,
+    magnitude: 5,
+    majorAxisArcminutes: 30,
+    memberships: { ic: [], messier: [], ngc: [] },
+    minorAxisArcminutes: 20,
+    objectType: 'G',
+    positionAngleDegrees: 0,
+    preferredName: id,
+    prominenceTier: 1,
+    rightAscensionJ2000Hours: 0,
+  };
+  return {
+    altitudeDegrees: 35,
+    azimuthDegrees,
+    hitRadiusPixels: 22,
+    label: id,
+    labelVisible: true,
+    outlineHeightPixels: 2,
+    outlineRotationDegrees: 0,
+    outlineWidthPixels: 2,
+    target,
+    xPixels: 0,
+    yPixels: 0,
+  };
+};
+
 describe('SkyCanvas selection camera stability', () => {
   beforeEach(() => {
     mockObservedCameras.length = 0;
+    mockObservedSceneTargetIds.length = 0;
+    mockNavigationOptions = undefined;
   });
 
   it('never moves or zooms the camera when selection and trajectory state change', async () => {
@@ -127,5 +189,54 @@ describe('SkyCanvas selection camera stability', () => {
     expect(center.azimuthDegrees).toBeCloseTo(0, 8);
     expect(mockObservedCameras.at(-1)!.fieldOfViewDegrees).toBe(100);
     expect(mockObservedCameras.at(-1)!.mountFrame.kind).toBe('horizontal');
+  });
+
+  it('updates the bounded catalogue during pan preview without moving the committed camera or recreating tap handling', async () => {
+    const onSelectTarget = jest.fn();
+    await render(
+      <SkyCanvas
+        {...commonProps}
+        onSelectTarget={onSelectTarget}
+        selectedTargetId={null}
+        targets={[createCatalogueTarget('south-target', 180)]}
+        trajectory={null}
+      />,
+    );
+    const initialCommittedCamera = mockNavigationOptions!.cameraState;
+    const initialTapHandler = mockNavigationOptions!.onTap;
+    const southCamera = createPlanetariumCamera({
+      centerAltitudeDegrees: 35,
+      centerAzimuthDegrees: 180,
+      fieldOfViewDegrees: 100,
+    });
+
+    expect(mockObservedSceneTargetIds.at(-1)).not.toContain('south-target');
+    await act(() => {
+      mockNavigationOptions!.onCameraPreview?.(southCamera);
+    });
+
+    expect(mockNavigationOptions!.cameraState).toBe(initialCommittedCamera);
+    expect(mockNavigationOptions!.onTap).toBe(initialTapHandler);
+    expect(mockObservedSceneTargetIds.at(-1)).toContain('south-target');
+    await act(() => {
+      mockNavigationOptions!.onTap(0.5, 0.5, southCamera);
+    });
+    expect(onSelectTarget).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: expect.objectContaining({ id: 'south-target' }),
+      }),
+    );
+    const sceneRenderCountBeforeCommit = mockObservedSceneTargetIds.length;
+
+    await act(() => {
+      mockNavigationOptions!.onCameraCommit(southCamera);
+    });
+
+    expect(mockNavigationOptions!.cameraState).toBe(initialCommittedCamera);
+    expect(mockNavigationOptions!.onTap).toBe(initialTapHandler);
+    expect(mockObservedSceneTargetIds.at(-1)).toContain('south-target');
+    expect(mockObservedSceneTargetIds).toHaveLength(
+      sceneRenderCountBeforeCommit,
+    );
   });
 });

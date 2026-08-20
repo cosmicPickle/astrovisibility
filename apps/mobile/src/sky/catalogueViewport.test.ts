@@ -5,6 +5,7 @@ import {
   getProminenceTierLimit,
   queryCataloguePlanetarium,
   queryCatalogueViewport,
+  shouldRefreshPlanetariumCatalogue,
   type HorizontalCatalogueTarget,
 } from './catalogueViewport';
 import { createSkyViewport } from './skyViewport';
@@ -161,6 +162,43 @@ describe('catalogue viewport query', () => {
 });
 
 describe('planetarium catalogue query', () => {
+  it('keeps an overscanned catalogue anchor stable across small pan and zoom release deltas', () => {
+    const anchor = createPlanetariumCamera({
+      centerAltitudeDegrees: 35,
+      centerAzimuthDegrees: 0,
+      fieldOfViewDegrees: 100,
+    });
+    const smallPan = createPlanetariumCamera({
+      centerAltitudeDegrees: 35,
+      centerAzimuthDegrees: 12,
+      fieldOfViewDegrees: 100,
+    });
+    const substantialPan = createPlanetariumCamera({
+      centerAltitudeDegrees: 35,
+      centerAzimuthDegrees: 28,
+      fieldOfViewDegrees: 100,
+    });
+    const smallZoom = createPlanetariumCamera({
+      centerAltitudeDegrees: 35,
+      centerAzimuthDegrees: 0,
+      fieldOfViewDegrees: 92,
+    });
+    const substantialZoom = createPlanetariumCamera({
+      centerAltitudeDegrees: 35,
+      centerAzimuthDegrees: 0,
+      fieldOfViewDegrees: 78,
+    });
+
+    expect(shouldRefreshPlanetariumCatalogue(anchor, smallPan)).toBe(false);
+    expect(shouldRefreshPlanetariumCatalogue(anchor, smallZoom)).toBe(false);
+    expect(shouldRefreshPlanetariumCatalogue(anchor, substantialPan)).toBe(
+      true,
+    );
+    expect(shouldRefreshPlanetariumCatalogue(anchor, substantialZoom)).toBe(
+      true,
+    );
+  });
+
   it('retains north-wrapped targets in the live gesture buffer', () => {
     const targets = [
       target('west-of-north', 350, 45, 1),

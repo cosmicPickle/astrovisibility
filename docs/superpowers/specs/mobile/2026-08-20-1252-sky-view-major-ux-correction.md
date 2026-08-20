@@ -244,3 +244,39 @@ Primary references:
 - Time animation/playback speed controls.
 - Persisting the last previewed time across app launches.
 - Changing panorama/mask capture, storage, or editing semantics.
+
+## Owner correction — 2026-08-20 17:03 +03:00
+
+Horizontal panning still exhibits a release discontinuity after the accepted
+projection and zoom corrections. While a finger is held, the UI-thread camera
+moves the grid and already-mounted catalogue targets correctly. The bounded
+catalogue query remains tied to the last committed React camera, however, so
+new targets are not populated during the drag and the catalogue window is
+replaced on release. Catalogue-dependent tap callbacks also recreate the native
+gesture at that same boundary.
+
+The correction must preserve the accepted projection, initial view, ground,
+zoom, FOV, trajectory, panorama, and mask geometry while making pan rendering a
+single continuous camera transaction:
+
+- Publish a bounded live camera preview during a held pan so the overscanned
+  catalogue population follows the UI-thread camera before release.
+- Keep the committed React camera separate from the preview used for catalogue
+  population; a delayed React render must never write an older preview back to
+  the UI-thread camera.
+- Publish the exact final preview before committing a gesture, and avoid a
+  redundant shared-camera write when React acknowledges that same gesture
+  commit.
+- Keep the native gesture and tap callback identities stable when catalogue
+  membership, collision labels, trajectories, or selection state change.
+  Hit-testing must nevertheless use the latest rendered catalogue and
+  trajectory.
+- Preserve bounded rendering and do not run the full catalogue query on every
+  pointer event. The preview cadence must be frequent enough that the existing
+  overscan hides population turnover during ordinary phone drags.
+- Regression tests must prove live catalogue preview without committed-camera
+  mutation, stable tap/gesture callbacks across preview and commit, exact final
+  pan commit without a second camera write, and unchanged zoom behavior.
+- Verify a fresh release build by repeatedly dragging horizontally at normal
+  and constrained Android viewports, including release, immediate reverse pan,
+  dense DSO regions, grids, ground, selection, and zoom-after-pan.

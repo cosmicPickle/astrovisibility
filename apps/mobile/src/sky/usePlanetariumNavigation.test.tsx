@@ -1,4 +1,5 @@
 import { act, render } from '@testing-library/react-native';
+import { useEffect } from 'react';
 
 import {
   applyPlanetariumPan,
@@ -12,6 +13,38 @@ type GestureHandler = (...parameters: unknown[]) => void;
 
 const mockGestureHandlers: Record<string, GestureHandler> = {};
 const mockGestureOptions: Record<string, number> = {};
+let mockLatestNavigation:
+  ReturnType<typeof usePlanetariumNavigation> | undefined;
+
+jest.mock('react-native-reanimated', () => {
+  const react = jest.requireActual('react') as typeof import('react');
+  return {
+    runOnJS: <Parameters extends unknown[], Result>(
+      callback: (...parameters: Parameters) => Result,
+    ) => callback,
+    useSharedValue: <Value,>(initialValue: Value) => {
+      const [sharedValue] = react.useState(() => {
+        let currentValue = initialValue;
+        return {
+          get value() {
+            return currentValue;
+          },
+          set value(nextValue: Value) {
+            currentValue = nextValue;
+          },
+          get: () => currentValue,
+          set: (nextValue: Value | ((mockCurrent: Value) => Value)) => {
+            currentValue =
+              typeof nextValue === 'function'
+                ? (nextValue as (mockCurrent: Value) => Value)(currentValue)
+                : nextValue;
+          },
+        };
+      });
+      return sharedValue;
+    },
+  };
+});
 
 jest.mock('react-native-gesture-handler', () => {
   const builder = (kind: string) => {
@@ -49,18 +82,23 @@ const Harness = ({
   camera,
   onCameraCommit,
   onCameraPreview,
+  onTap = jest.fn(),
 }: {
   camera: PlanetariumCamera;
   onCameraCommit: (nextCamera: PlanetariumCamera) => void;
   onCameraPreview: (nextCamera: PlanetariumCamera) => void;
+  onTap?: (x: number, y: number, camera: PlanetariumCamera) => void;
 }) => {
-  usePlanetariumNavigation({
+  const navigation = usePlanetariumNavigation({
     cameraState: camera,
     canvas,
     onCameraCommit,
     onCameraPreview,
-    onTap: jest.fn(),
+    onTap,
   });
+  useEffect(() => {
+    mockLatestNavigation = navigation;
+  }, [navigation]);
   return null;
 };
 
@@ -72,6 +110,7 @@ describe('usePlanetariumNavigation', () => {
     for (const key of Object.keys(mockGestureOptions)) {
       delete mockGestureOptions[key];
     }
+    mockLatestNavigation = undefined;
   });
 
   it('publishes held-gesture FOV previews without moving the camera centre', async () => {
@@ -118,7 +157,7 @@ describe('usePlanetariumNavigation', () => {
       mockGestureHandlers['pan-onEnd']!();
     });
 
-    expect(onCameraPreview).toHaveBeenCalledTimes(2);
+    expect(onCameraPreview).toHaveBeenCalledTimes(3);
     expect(onCameraCommit).toHaveBeenCalledTimes(1);
     const committed = onCameraCommit.mock.calls.at(-1)![0] as PlanetariumCamera;
     expect(getPlanetariumCameraCenter(committed)).toEqual(
@@ -154,7 +193,7 @@ describe('usePlanetariumNavigation', () => {
     const previews = onCameraPreview.mock.calls.map(
       ([preview]) => preview as PlanetariumCamera,
     );
-    expect(previews).toHaveLength(2);
+    expect(previews).toHaveLength(3);
     expect(getPlanetariumCameraCenter(previews[1]!)).not.toEqual(
       getPlanetariumCameraCenter(previews[0]!),
     );
@@ -166,9 +205,57 @@ describe('usePlanetariumNavigation', () => {
         { xPixels: 240, yPixels: 400 },
       ),
     );
+    expect(previews[2]).toEqual(previews[1]);
     expect(previews[1]!.fieldOfViewDegrees).toBe(100);
     expect(mockGestureOptions['pan-maxPointers']).toBe(1);
     expect(onCameraCommit).toHaveBeenCalledTimes(1);
     expect(onCameraCommit.mock.calls.at(-1)![0]).toEqual(previews[1]);
+  });
+
+  it('keeps the native gesture camera authoritative across a commit-only parent rerender', async () => {
+    const initialCamera = createPlanetariumCamera({
+      centerAltitudeDegrees: 35,
+      centerAzimuthDegrees: 0,
+      fieldOfViewDegrees: 100,
+    });
+    const onCameraCommit = jest.fn();
+    const onCameraPreview = jest.fn();
+    const firstTap = jest.fn();
+    const view = await render(
+      <Harness
+        camera={initialCamera}
+        onCameraCommit={onCameraCommit}
+        onCameraPreview={onCameraPreview}
+        onTap={firstTap}
+      />,
+    );
+    const initialGesture = mockLatestNavigation!.gesture;
+
+    await act(() => {
+      mockGestureHandlers['pan-onStart']!({ x: 200, y: 400 });
+      mockGestureHandlers['pan-onUpdate']!({ x: 260, y: 400 });
+      mockGestureHandlers['pan-onEnd']!();
+      mockGestureHandlers['pan-onFinalize']!();
+    });
+    const committedCamera = onCameraCommit.mock.calls.at(
+      -1,
+    )![0] as PlanetariumCamera;
+    const sharedCameraSet = jest.spyOn(mockLatestNavigation!.camera, 'set');
+
+    await view.rerender(
+      <Harness
+        camera={initialCamera}
+        onCameraCommit={onCameraCommit}
+        onCameraPreview={onCameraPreview}
+        onTap={firstTap}
+      />,
+    );
+
+    expect(mockLatestNavigation!.gesture).toBe(initialGesture);
+    expect(sharedCameraSet).not.toHaveBeenCalled();
+    await act(() => {
+      mockGestureHandlers['tap-onEnd']!({ x: 20, y: 30 }, true);
+    });
+    expect(firstTap).toHaveBeenCalledWith(20, 30, committedCamera);
   });
 });

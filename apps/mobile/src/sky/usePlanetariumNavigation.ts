@@ -34,7 +34,6 @@ export function usePlanetariumNavigation({
   const pinchBaseline = useSharedValue(cameraState);
   const pinchCommitted = useSharedValue(false);
   const previewUpdateCount = useSharedValue(0);
-
   useEffect(() => {
     camera.set(cameraState);
   }, [camera, cameraState]);
@@ -42,6 +41,18 @@ export function usePlanetariumNavigation({
   const commitCamera = useCallback(
     (nextCamera: PlanetariumCamera) => onCameraCommit(nextCamera),
     [onCameraCommit],
+  );
+  const previewCamera = useCallback(
+    (nextCamera: PlanetariumCamera) => {
+      onCameraPreview?.(nextCamera);
+    },
+    [onCameraPreview],
+  );
+  const handleTap = useCallback(
+    (xPixels: number, yPixels: number, tapCamera: PlanetariumCamera) => {
+      onTap(xPixels, yPixels, tapCamera);
+    },
+    [onTap],
   );
 
   const gesture = useMemo(() => {
@@ -77,13 +88,15 @@ export function usePlanetariumNavigation({
         previewUpdateCount.set(updateCount);
         if (updateCount >= CAMERA_PREVIEW_UPDATE_INTERVAL) {
           previewUpdateCount.set(0);
-          if (onCameraPreview) runOnJS(onCameraPreview)(nextCamera);
+          runOnJS(previewCamera)(nextCamera);
         }
       })
       .onEnd(() => {
         if (!pinchActive.get() && !panSuppressedAfterPinch.get()) {
           panCommitted.set(true);
-          runOnJS(commitCamera)(camera.get());
+          const finalCamera = camera.get();
+          runOnJS(previewCamera)(finalCamera);
+          runOnJS(commitCamera)(finalCamera);
         }
       })
       .onFinalize(() => {
@@ -93,7 +106,9 @@ export function usePlanetariumNavigation({
           !panSuppressedAfterPinch.get()
         ) {
           panCommitted.set(true);
-          runOnJS(commitCamera)(camera.get());
+          const finalCamera = camera.get();
+          runOnJS(previewCamera)(finalCamera);
+          runOnJS(commitCamera)(finalCamera);
         }
       });
 
@@ -116,18 +131,22 @@ export function usePlanetariumNavigation({
         previewUpdateCount.set(updateCount);
         if (updateCount >= CAMERA_PREVIEW_UPDATE_INTERVAL) {
           previewUpdateCount.set(0);
-          if (onCameraPreview) runOnJS(onCameraPreview)(nextCamera);
+          runOnJS(previewCamera)(nextCamera);
         }
       })
       .onEnd(() => {
         pinchCommitted.set(true);
-        runOnJS(commitCamera)(camera.get());
+        const finalCamera = camera.get();
+        runOnJS(previewCamera)(finalCamera);
+        runOnJS(commitCamera)(finalCamera);
       })
       .onFinalize(() => {
         pinchActive.set(false);
         if (!pinchCommitted.get()) {
           pinchCommitted.set(true);
-          runOnJS(commitCamera)(camera.get());
+          const finalCamera = camera.get();
+          runOnJS(previewCamera)(finalCamera);
+          runOnJS(commitCamera)(finalCamera);
         }
       });
 
@@ -135,7 +154,7 @@ export function usePlanetariumNavigation({
       .withTestId('sky-tap')
       .maxDistance(8)
       .onEnd((event, succeeded) => {
-        if (succeeded) runOnJS(onTap)(event.x, event.y, camera.get());
+        if (succeeded) runOnJS(handleTap)(event.x, event.y, camera.get());
       });
 
     return Gesture.Exclusive(Gesture.Simultaneous(pan, pinch), tap);
@@ -143,8 +162,7 @@ export function usePlanetariumNavigation({
     camera,
     canvas,
     commitCamera,
-    onCameraPreview,
-    onTap,
+    handleTap,
     panBaseline,
     panSuppressedAfterPinch,
     panStartX,
@@ -153,6 +171,7 @@ export function usePlanetariumNavigation({
     pinchActive,
     pinchBaseline,
     pinchCommitted,
+    previewCamera,
     previewUpdateCount,
   ]);
 
