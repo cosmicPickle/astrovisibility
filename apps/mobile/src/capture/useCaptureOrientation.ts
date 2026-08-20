@@ -24,6 +24,22 @@ export const smoothHeadingDegrees = (
 const smoothLinear = (current: number, next: number) =>
   current + (next - current) * SENSOR_SMOOTHING_FACTOR;
 
+export const rearCameraAltitudeDegrees = (
+  betaRadians: number,
+  gammaRadians: number,
+) => {
+  // Expo's portrait Z axis points through the screen toward the user, so the
+  // rear camera looks along -Z. Android derives beta/gamma from
+  // SensorManager.getOrientation; -cos(beta) * cos(gamma) is therefore the
+  // rear camera axis's vertical component in the local world frame.
+  const rearCameraVerticalComponent = clamp(
+    -Math.cos(betaRadians) * Math.cos(gammaRadians),
+    -1,
+    1,
+  );
+  return clamp(radiansToDegrees(Math.asin(rearCameraVerticalComponent)), 0, 90);
+};
+
 export const headingUncertaintyDegrees = (accuracyGrade: number) => {
   if (accuracyGrade >= 3) return 20;
   if (accuracyGrade === 2) return 35;
@@ -38,19 +54,16 @@ export const orientationFromDeviceMotion = (
   const { rotation } = measurement;
   if (!rotation) return current;
 
-  const measuredAltitudeDegrees = clamp(
-    Math.abs(radiansToDegrees(rotation.beta)) - 90,
-    0,
-    90,
+  const measuredAltitudeDegrees = rearCameraAltitudeDegrees(
+    rotation.beta,
+    rotation.gamma,
   );
   const measuredRollDegrees = radiansToDegrees(rotation.gamma);
   const hasPreviousMotionSample = current.rawRotation !== null;
 
   return {
     ...current,
-    // DeviceOrientation beta is about 90° while the phone is upright and the
-    // back camera points at the horizon. Values beyond that represent an upward
-    // pitch. This remains an estimate until a physical-device calibration pass.
+    // This remains an estimate until a physical-device calibration pass.
     estimatedAltitudeDegrees: hasPreviousMotionSample
       ? smoothLinear(current.estimatedAltitudeDegrees, measuredAltitudeDegrees)
       : measuredAltitudeDegrees,

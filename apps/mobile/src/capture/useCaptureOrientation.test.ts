@@ -3,6 +3,7 @@ import type { DeviceMotionMeasurement } from 'expo-sensors';
 import {
   headingUncertaintyDegrees,
   orientationFromDeviceMotion,
+  rearCameraAltitudeDegrees,
   smoothHeadingDegrees,
 } from './useCaptureOrientation';
 
@@ -15,39 +16,48 @@ const initial = {
 };
 
 describe('capture orientation samples', () => {
-  it('maps an upright camera to the horizon and an upward pitch toward zenith', () => {
+  it('derives rear-camera altitude from valid Android pitch and roll ranges', () => {
+    expect(rearCameraAltitudeDegrees(Math.PI / 2, 0)).toBeCloseTo(0);
+    expect(rearCameraAltitudeDegrees(-Math.PI / 3, Math.PI)).toBeCloseTo(30);
+    expect(rearCameraAltitudeDegrees(0, Math.PI)).toBeCloseTo(90);
+    expect(rearCameraAltitudeDegrees(0, 0)).toBe(0);
+  });
+
+  it('maps an upright camera to the horizon and an upward rear camera toward zenith', () => {
     const horizon = orientationFromDeviceMotion(initial, {
       rotation: { alpha: 0, beta: Math.PI / 2, gamma: 0 },
     } as DeviceMotionMeasurement);
     const upward = orientationFromDeviceMotion(initial, {
-      rotation: { alpha: 0, beta: Math.PI, gamma: 0.1 },
+      rotation: { alpha: 0, beta: -Math.PI / 3, gamma: Math.PI },
     } as DeviceMotionMeasurement);
 
     expect(horizon.estimatedAltitudeDegrees).toBeCloseTo(0);
-    expect(upward.estimatedAltitudeDegrees).toBeCloseTo(90);
-    expect(upward.rollDegrees).toBeCloseTo(5.73, 1);
+    expect(upward.estimatedAltitudeDegrees).toBeCloseTo(30);
     expect(upward.trueHeadingDegrees).toBe(120);
   });
 
   it('smooths subsequent altitude and roll samples without delaying the first fix', () => {
     const first = orientationFromDeviceMotion(initial, {
-      rotation: { alpha: 0, beta: (2 * Math.PI) / 3, gamma: 0.2 },
+      rotation: { alpha: 0, beta: -Math.PI / 3, gamma: Math.PI },
     } as DeviceMotionMeasurement);
     const subsequent = orientationFromDeviceMotion(
       {
         ...first,
-        rawRotation: { alphaRadians: 0, betaRadians: 2, gammaRadians: 0 },
+        rawRotation: {
+          alphaRadians: 0,
+          betaRadians: -Math.PI / 3,
+          gammaRadians: Math.PI,
+        },
       },
       {
-        rotation: { alpha: 0, beta: Math.PI, gamma: 0.4 },
+        rotation: { alpha: 0, beta: 0, gamma: Math.PI },
       } as DeviceMotionMeasurement,
     );
 
     expect(first.estimatedAltitudeDegrees).toBeCloseTo(30);
     expect(subsequent.estimatedAltitudeDegrees).toBeGreaterThan(30);
     expect(subsequent.estimatedAltitudeDegrees).toBeLessThan(90);
-    expect(subsequent.rollDegrees).toBeGreaterThan(first.rollDegrees);
-    expect(subsequent.rollDegrees).toBeLessThan(22.92);
+    expect(subsequent.rollDegrees).toBeCloseTo(first.rollDegrees);
   });
 
   it('smooths headings across north using the short circular path', () => {
