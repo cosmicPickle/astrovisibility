@@ -1,6 +1,6 @@
 import {
   createSelectedTargetTrajectory,
-  createThirtyMinuteMarkers,
+  createHourlyMarkers,
   unwrapTrajectoryAzimuths,
 } from './trajectory';
 import { equatorialJ2000ToHorizontal } from './horizontalCoordinates';
@@ -147,9 +147,9 @@ describe('selected-target trajectory', () => {
     expect(altitudeAt(setMilliseconds)).toBeLessThan(0);
   });
 
-  it('places markers on exact local half-hour clock boundaries across midnight', () => {
+  it('places markers on exact local hour boundaries across midnight', () => {
     expect(
-      createThirtyMinuteMarkers({
+      createHourlyMarkers({
         startTimestampUtc: '2026-08-19T20:07:00.000Z',
         endTimestampUtc: '2026-08-19T22:08:00.000Z',
         timeZoneId: 'Europe/Sofia',
@@ -159,16 +159,8 @@ describe('selected-target trajectory', () => {
       })),
     ).toEqual([
       {
-        timestampUtc: '2026-08-19T20:30:00.000Z',
-        localTimeLabel: '23:30',
-      },
-      {
         timestampUtc: '2026-08-19T21:00:00.000Z',
         localTimeLabel: '00:00',
-      },
-      {
-        timestampUtc: '2026-08-19T21:30:00.000Z',
-        localTimeLabel: '00:30',
       },
       {
         timestampUtc: '2026-08-19T22:00:00.000Z',
@@ -177,20 +169,20 @@ describe('selected-target trajectory', () => {
     ]);
   });
 
-  it('keeps both occurrences of a repeated half-hour marker', () => {
+  it('keeps both occurrences of a repeated hourly marker', () => {
     expect(
-      createThirtyMinuteMarkers({
+      createHourlyMarkers({
         startTimestampUtc: '2026-11-01T05:00:00.000Z',
         endTimestampUtc: '2026-11-01T07:01:00.000Z',
         timeZoneId: 'America/New_York',
       })
-        .filter(({ localTimeLabel }) => localTimeLabel === '01:30')
+        .filter(({ localTimeLabel }) => localTimeLabel === '01:00')
         .map(({ timestampUtc }) => timestampUtc),
-    ).toEqual(['2026-11-01T05:30:00.000Z', '2026-11-01T06:30:00.000Z']);
+    ).toEqual(['2026-11-01T05:00:00.000Z', '2026-11-01T06:00:00.000Z']);
   });
 
   it('skips nonexistent spring-forward clock markers', () => {
-    const markers = createThirtyMinuteMarkers({
+    const markers = createHourlyMarkers({
       startTimestampUtc: '2026-03-08T06:00:00.000Z',
       endTimestampUtc: '2026-03-08T08:01:00.000Z',
       timeZoneId: 'America/New_York',
@@ -198,9 +190,7 @@ describe('selected-target trajectory', () => {
 
     expect(markers.map(({ localTimeLabel }) => localTimeLabel)).toEqual([
       '01:00',
-      '01:30',
       '03:00',
-      '03:30',
       '04:00',
     ]);
   });

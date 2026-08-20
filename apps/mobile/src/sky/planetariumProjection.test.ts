@@ -88,6 +88,24 @@ describe('planetarium spherical camera', () => {
     expect(Math.max(...radii) - Math.min(...radii)).toBeLessThan(1e-7);
   });
 
+  it('fits every cardinal horizon direction in a zenith-centred wide view', () => {
+    const camera = createEquatorialPlanetariumCamera({
+      centerAltitudeDegrees: 90,
+      centerAzimuthDegrees: 0,
+      fieldOfViewDegrees: 180,
+      observerLatitudeDegrees: 42.7,
+    });
+    const points = [0, 90, 180, 270].map((azimuthDegrees) =>
+      projectHorizontalDirection(
+        { altitudeDegrees: 0, azimuthDegrees },
+        camera,
+        canvas,
+      ),
+    );
+
+    expect(points.every(({ visible }) => visible)).toBe(true);
+  });
+
   it('keeps the equator locally horizontal in the equatorial mount', () => {
     const observerLatitudeDegrees = 42.7;
     const mountFrame = createEquatorialMountFrame(observerLatitudeDegrees);

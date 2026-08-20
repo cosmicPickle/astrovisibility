@@ -33,6 +33,48 @@ const resolveOrdinaryBoundary = (
     : resolution.laterTimestampUtc;
 };
 
+export const createDateObservingWindow = (input: {
+  civilDate: LocalCivilDate;
+  timeZoneId: string;
+}): ObservingWindow => {
+  let resolution = resolveLocalCivilDateTime(
+    { ...input.civilDate, hour: 0, minute: 0 },
+    input.timeZoneId,
+  );
+  if (resolution.kind === 'gap') {
+    for (
+      let minute = 1;
+      minute < 180 && resolution.kind === 'gap';
+      minute += 1
+    ) {
+      resolution = resolveLocalCivilDateTime(
+        {
+          ...input.civilDate,
+          hour: Math.floor(minute / 60),
+          minute: minute % 60,
+        },
+        input.timeZoneId,
+      );
+    }
+  }
+  if (resolution.kind === 'gap') {
+    throw new Error('Selected local date has no resolvable start');
+  }
+  const startTimestampUtc =
+    resolution.kind === 'unique'
+      ? resolution.timestampUtc
+      : resolution.earlierTimestampUtc;
+  return {
+    kind: 'day',
+    startTimestampUtc,
+    endTimestampUtc: new Date(
+      Date.parse(startTimestampUtc) + MILLISECONDS_PER_DAY,
+    ).toISOString(),
+    note: null,
+    warnings: [],
+  };
+};
+
 const findBoundedEvent = (
   search: (start: Date, limitDays: number) => { date: Date } | null,
   startMilliseconds: number,

@@ -1,4 +1,5 @@
 import {
+  createDateObservingWindow,
   createDefaultObservingContext,
   createTonightObservingWindow,
 } from './observingWindow';
@@ -70,6 +71,28 @@ describe('Tonight observing window', () => {
         'Sunset and sunrise are unavailable; using 18:00–06:00 local time.',
       ],
     });
+  });
+});
+
+describe('fixed selected-date observing window', () => {
+  it('starts at local midnight and always spans exactly 24 elapsed hours', () => {
+    const ordinary = createDateObservingWindow({
+      civilDate: { year: 2026, month: 8, day: 21 },
+      timeZoneId: 'Europe/Sofia',
+    });
+    const springForward = createDateObservingWindow({
+      civilDate: { year: 2026, month: 3, day: 29 },
+      timeZoneId: 'Europe/Sofia',
+    });
+
+    expect(ordinary.kind).toBe('day');
+    expect(ordinary.startTimestampUtc).toBe('2026-08-20T21:00:00.000Z');
+    for (const window of [ordinary, springForward]) {
+      expect(
+        Date.parse(window.endTimestampUtc) -
+          Date.parse(window.startTimestampUtc),
+      ).toBe(24 * 60 * 60 * 1000);
+    }
   });
 });
 

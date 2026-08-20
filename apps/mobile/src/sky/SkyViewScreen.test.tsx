@@ -336,9 +336,9 @@ describe('SkyViewScreen', () => {
     await waitFor(() => screen.getByText(profile.name));
     await fireEvent.press(screen.getByText('Orion Nebula'));
     expect(screen.getByText('M 42 · NGC 1976')).toBeTruthy();
-    expect(
+    await waitFor(() =>
       screen.getByText('Above horizon; obstructions not assessed'),
-    ).toBeTruthy();
+    );
     await fireEvent.press(screen.getByText('More Info'));
     expect(screen.getByText('Right ascension (J2000)')).toBeTruthy();
     expect(screen.getByText('5.588 h')).toBeTruthy();
@@ -580,9 +580,9 @@ describe('SkyViewScreen', () => {
     expect(screen.getByTestId('field-of-view-equipment').props.children).toBe(
       equipment.name,
     );
-    expect(
+    await waitFor(() =>
       screen.getByText('Above horizon; obstructions not assessed'),
-    ).toBeTruthy();
+    );
     expect(screen.queryByText(/visible until/i)).toBeNull();
   });
 
@@ -702,7 +702,7 @@ describe('SkyViewScreen', () => {
     await waitFor(() => expect(receivedSignal?.aborted).toBe(true));
   });
 
-  it('applies a custom cross-midnight window and reprojects the sky at its start', async () => {
+  it('updates the atlas from the day slider without reloading local storage', async () => {
     const skyController = controller();
     const screen = await renderWithSafeArea(
       <SkyViewScreen
@@ -714,21 +714,12 @@ describe('SkyViewScreen', () => {
     );
     await waitFor(() => screen.getByText(profile.name));
     await fireEvent.press(screen.getByLabelText('Sky time'));
-    await fireEvent.press(screen.getByText('Custom interval'));
-    await fireEvent.changeText(
-      screen.getByLabelText('Start date'),
-      '2026-08-19',
-    );
-    await fireEvent.changeText(screen.getByLabelText('Start time'), '22:00');
-    await fireEvent.changeText(screen.getByLabelText('End date'), '2026-08-20');
-    await fireEvent.changeText(screen.getByLabelText('End time'), '02:30');
-    await fireEvent.press(screen.getByText('Apply interval'));
+    expect(screen.queryByText('Custom interval')).toBeNull();
+    fireEvent(screen.getByLabelText('Time of day'), 'accessibilityAction', {
+      nativeEvent: { actionName: 'increment' },
+    });
 
-    await waitFor(() =>
-      expect(skyController.load).toHaveBeenLastCalledWith(
-        profile.id,
-        '2026-08-19T19:00:00.000Z',
-      ),
-    );
+    await waitFor(() => screen.getByText('23:15'));
+    expect(skyController.load).toHaveBeenCalledTimes(1);
   });
 });

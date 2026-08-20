@@ -1,141 +1,249 @@
-import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import {
+  PanResponder,
+  Pressable,
+  StyleSheet,
+  View,
+  type LayoutChangeEvent,
+} from 'react-native';
 
+import type { ObserverLocation } from '../astronomy/horizontalCoordinates';
 import {
-  createCustomWindowFromForm,
-  parseLocalCivilDate,
-  type CustomObservingWindowFormValues,
-} from '../astronomy/observingWindowForm';
+  localCivilDateTimeAtInstant,
+  type LocalCivilDate,
+  type ObservingWindow,
+} from '../astronomy/localCivilTime';
 import {
-  formatLocalDateInput,
+  createDateObservingWindow,
+  createDefaultObservingContext,
+} from '../astronomy/observingWindow';
+import {
   formatLocalTimeInput,
   formatObservingWindowRange,
 } from '../astronomy/observingWindowPresentation';
-import { createTonightObservingWindow } from '../astronomy/observingWindow';
-import {
-  localCivilDateTimeAtInstant,
-  type AmbiguousTimeChoice,
-  type ObservingWindow,
-} from '../astronomy/localCivilTime';
-import type { ObserverLocation } from '../astronomy/horizontalCoordinates';
 import { ActionButton } from '../components/ui/ActionButton';
 import { AppText } from '../components/ui/AppText';
-import { FormField } from '../components/ui/FormField';
 import { ModalSheet } from '../components/ui/ModalSheet';
-import { colors } from '../theme/tokens';
+import { colors, layout } from '../theme/tokens';
 
-type WindowMode = 'tonight' | 'custom';
+const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
+const SLIDER_STEP_MILLISECONDS = 15 * 60 * 1000;
 
-const formFromWindow = (
-  window: ObservingWindow,
-  timeZoneId: string,
-): Omit<CustomObservingWindowFormValues, 'timeZoneId'> => {
-  const start = localCivilDateTimeAtInstant(
-    window.startTimestampUtc,
-    timeZoneId,
-  );
-  const end = localCivilDateTimeAtInstant(window.endTimestampUtc, timeZoneId);
-  return {
-    startDate: formatLocalDateInput(start),
-    startTime: formatLocalTimeInput(start),
-    endDate: formatLocalDateInput(end),
-    endTime: formatLocalTimeInput(end),
-  };
-};
-
-const issueMessage = (issue: string) => {
-  switch (issue) {
-    case 'invalidStartDate':
-      return 'Enter the start date as YYYY-MM-DD.';
-    case 'invalidStartTime':
-      return 'Enter the start time as HH:mm.';
-    case 'invalidEndDate':
-      return 'Enter the end date as YYYY-MM-DD.';
-    case 'invalidEndTime':
-      return 'Enter the end time as HH:mm.';
-    case 'startGap':
-      return 'That start time does not exist because the clocks move forward.';
-    case 'endGap':
-      return 'That end time does not exist because the clocks move forward.';
-    case 'startAmbiguous':
-      return 'The start time occurs twice. Choose its first or second occurrence.';
-    case 'endAmbiguous':
-      return 'The end time occurs twice. Choose its first or second occurrence.';
-    case 'endNotAfterStart':
-      return 'End must be after start.';
-    case 'durationExceeds24Hours':
-      return 'The observing interval cannot exceed 24 hours.';
-    default:
-      return 'The observing window could not be applied.';
-  }
-};
+export interface ObservingWindowChange {
+  sceneTimestampUtc: string;
+  window: ObservingWindow;
+}
 
 type ObservingWindowSheetProps = {
+  clock?: () => string;
   observer: ObserverLocation;
-  onApply: (window: ObservingWindow) => Promise<boolean>;
+  onChange: (change: ObservingWindowChange) => void;
   onClose: () => void;
+  sceneTimestampUtc: string;
   timeZoneId: string;
   visible: boolean;
   window: ObservingWindow;
+};
+
+const clampDayOffset = (value: number) =>
+  Math.max(0, Math.min(MILLISECONDS_PER_DAY, value));
+
+const dateLabel = (date: LocalCivilDate) =>
+  new Intl.DateTimeFormat(undefined, {
+    day: 'numeric',
+    month: 'long',
+    weekday: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(Date.UTC(date.year, date.month - 1, date.day)));
+
+const dateAccessibilityLabel = (date: LocalCivilDate) =>
+  `Choose ${date.day} ${new Intl.DateTimeFormat('en-GB', {
+    month: 'long',
+    timeZone: 'UTC',
+  }).format(
+    new Date(Date.UTC(date.year, date.month - 1, date.day)),
+  )} ${date.year}`;
+
+const sameDate = (left: LocalCivilDate, right: LocalCivilDate) =>
+  left.year === right.year &&
+  left.month === right.month &&
+  left.day === right.day;
+
+const calendarDates = (month: LocalCivilDate) => {
+  const leadingBlankCount = new Date(
+    Date.UTC(month.year, month.month - 1, 1),
+  ).getUTCDay();
+  const dayCount = new Date(Date.UTC(month.year, month.month, 0)).getUTCDate();
+  return [
+    ...Array.from({ length: leadingBlankCount }, () => null),
+    ...Array.from({ length: dayCount }, (_, index) => ({
+      year: month.year,
+      month: month.month,
+      day: index + 1,
+    })),
+  ];
+};
+
+const TimeOfDaySlider = ({
+  onChange,
+  timeZoneId,
+  valueMilliseconds,
+  windowStartTimestampUtc,
+}: {
+  onChange: (timestampUtc: string) => void;
+  timeZoneId: string;
+  valueMilliseconds: number;
+  windowStartTimestampUtc: string;
+}) => {
+  const [widthPixels, setWidthPixels] = useState(1);
+  const boundedValue = clampDayOffset(valueMilliseconds);
+  const timestampAt = (offsetMilliseconds: number) =>
+    new Date(
+      Date.parse(windowStartTimestampUtc) + clampDayOffset(offsetMilliseconds),
+    ).toISOString();
+  const updateFromLocation = (locationXPixels: number) => {
+    const rawOffset =
+      (Math.max(0, Math.min(widthPixels, locationXPixels)) / widthPixels) *
+      MILLISECONDS_PER_DAY;
+    const roundedOffset =
+      Math.round(rawOffset / SLIDER_STEP_MILLISECONDS) *
+      SLIDER_STEP_MILLISECONDS;
+    onChange(timestampAt(roundedOffset));
+  };
+  const responder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: (event) =>
+          updateFromLocation(event.nativeEvent.locationX),
+        onPanResponderMove: (event) =>
+          updateFromLocation(event.nativeEvent.locationX),
+      }),
+    // Gesture mapping must track both the measured width and active day.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [onChange, widthPixels, windowStartTimestampUtc],
+  );
+  const localTime = localCivilDateTimeAtInstant(
+    timestampAt(boundedValue),
+    timeZoneId,
+  );
+  const percent = (boundedValue / MILLISECONDS_PER_DAY) * 100;
+  return (
+    <View style={styles.sliderField}>
+      <View style={styles.labelRow}>
+        <AppText tone="label">Time of day</AppText>
+        <AppText style={styles.timeValue}>
+          {formatLocalTimeInput(localTime)}
+        </AppText>
+      </View>
+      <View
+        accessibilityActions={[
+          { name: 'decrement', label: 'Earlier by 15 minutes' },
+          { name: 'increment', label: 'Later by 15 minutes' },
+        ]}
+        accessibilityLabel="Time of day"
+        accessibilityRole="adjustable"
+        accessibilityValue={{
+          min: 0,
+          max: 24 * 60,
+          now: Math.round(boundedValue / 60_000),
+          text: formatLocalTimeInput(localTime),
+        }}
+        onAccessibilityAction={(event) => {
+          const delta =
+            event.nativeEvent.actionName === 'increment'
+              ? SLIDER_STEP_MILLISECONDS
+              : event.nativeEvent.actionName === 'decrement'
+                ? -SLIDER_STEP_MILLISECONDS
+                : 0;
+          onChange(timestampAt(boundedValue + delta));
+        }}
+        onLayout={(event: LayoutChangeEvent) =>
+          setWidthPixels(Math.max(1, event.nativeEvent.layout.width))
+        }
+        style={styles.sliderTouchTrack}
+        {...responder.panHandlers}
+      >
+        <View style={styles.sliderTrack}>
+          <View style={[styles.sliderFill, { width: `${percent}%` }]} />
+          <View style={[styles.sliderThumb, { left: `${percent}%` }]} />
+        </View>
+      </View>
+      <View style={styles.sliderEnds}>
+        <AppText tone="muted">00:00</AppText>
+        <AppText tone="muted">24:00</AppText>
+      </View>
+    </View>
+  );
 };
 
 export const ObservingWindowSheet = (props: ObservingWindowSheetProps) =>
   props.visible ? <VisibleObservingWindowSheet {...props} /> : null;
 
 const VisibleObservingWindowSheet = ({
+  clock = () => new Date().toISOString(),
   observer,
-  onApply,
+  onChange,
   onClose,
+  sceneTimestampUtc,
   timeZoneId,
   window,
 }: Omit<ObservingWindowSheetProps, 'visible'>) => {
-  const [mode, setMode] = useState<WindowMode>(
-    window.kind === 'custom' ? 'custom' : 'tonight',
+  const initialDate = localCivilDateTimeAtInstant(
+    sceneTimestampUtc,
+    timeZoneId,
   );
-  const [form, setForm] = useState(() => formFromWindow(window, timeZoneId));
-  const [tonightDate, setTonightDate] = useState(form.startDate);
-  const [startAmbiguity, setStartAmbiguity] = useState<AmbiguousTimeChoice>();
-  const [endAmbiguity, setEndAmbiguity] = useState<AmbiguousTimeChoice>();
-  const [issue, setIssue] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-
-  const updateForm = (field: keyof typeof form, value: string) => {
-    setForm((current) => ({ ...current, [field]: value }));
-    setIssue(null);
-    if (field.startsWith('start')) setStartAmbiguity(undefined);
-    if (field.startsWith('end')) setEndAmbiguity(undefined);
+  const [selectedDate, setSelectedDate] = useState<LocalCivilDate>(initialDate);
+  const [displayedMonth, setDisplayedMonth] = useState<LocalCivilDate>({
+    ...initialDate,
+    day: 1,
+  });
+  const [calendarVisible, setCalendarVisible] = useState(false);
+  const [localSceneTimestampUtc, setLocalSceneTimestampUtc] =
+    useState(sceneTimestampUtc);
+  const [localWindow, setLocalWindow] = useState(window);
+  const days = useMemo(() => calendarDates(displayedMonth), [displayedMonth]);
+  const emitChange = (change: ObservingWindowChange) => {
+    setLocalSceneTimestampUtc(change.sceneTimestampUtc);
+    setLocalWindow(change.window);
+    onChange(change);
   };
-
-  const applyWindow = async (nextWindow: ObservingWindow) => {
-    setSubmitting(true);
-    const applied = await onApply(nextWindow);
-    setSubmitting(false);
-    if (!applied) setIssue('applyFailed');
-  };
-
-  const applyTonight = () => {
-    const civilDate = parseLocalCivilDate(tonightDate);
-    if (!civilDate) {
-      setIssue('invalidTonightDate');
-      return;
-    }
-    void applyWindow(
-      createTonightObservingWindow({ civilDate, observer, timeZoneId }),
-    );
-  };
-
-  const applyCustom = () => {
-    const result = createCustomWindowFromForm({
-      ...form,
+  const selectDate = (date: LocalCivilDate) => {
+    const nextWindow = createDateObservingWindow({
+      civilDate: date,
       timeZoneId,
-      startAmbiguity,
-      endAmbiguity,
     });
-    if (!result.success) {
-      setIssue(result.issue);
-      return;
-    }
-    void applyWindow(result.window);
+    const currentOffset = clampDayOffset(
+      Date.parse(localSceneTimestampUtc) -
+        Date.parse(localWindow.startTimestampUtc),
+    );
+    const nextTimestampUtc = new Date(
+      Date.parse(nextWindow.startTimestampUtc) + currentOffset,
+    ).toISOString();
+    setSelectedDate(date);
+    setCalendarVisible(false);
+    emitChange({ sceneTimestampUtc: nextTimestampUtc, window: nextWindow });
+  };
+  const applyClockInstant = (mode: 'now' | 'tonight') => {
+    const nowTimestampUtc = clock();
+    const sceneTimestamp =
+      mode === 'now'
+        ? nowTimestampUtc
+        : createDefaultObservingContext({
+            nowTimestampUtc,
+            observer,
+            timeZoneId,
+          }).sceneTimestampUtc;
+    const date = localCivilDateTimeAtInstant(sceneTimestamp, timeZoneId);
+    const nextWindow = createDateObservingWindow({
+      civilDate: date,
+      timeZoneId,
+    });
+    setSelectedDate(date);
+    setDisplayedMonth({ ...date, day: 1 });
+    emitChange({ sceneTimestampUtc: sceneTimestamp, window: nextWindow });
   };
 
   return (
@@ -146,174 +254,199 @@ const VisibleObservingWindowSheet = ({
       visible
     >
       <AppText tone="muted">
-        Times use {timeZoneId}. Calculations use the corresponding UTC instants.
+        Browse one 24-hour sky day in {timeZoneId}. The atlas updates as the
+        time changes.
       </AppText>
-      <View style={styles.modeRow}>
+      <Pressable
+        accessibilityLabel="Choose observing date"
+        accessibilityRole="button"
+        onPress={() => setCalendarVisible((current) => !current)}
+        style={styles.dateButton}
+      >
+        <AppText tone="label">Date</AppText>
+        <AppText style={styles.dateValue}>{dateLabel(selectedDate)}</AppText>
+      </Pressable>
+      {calendarVisible ? (
+        <View style={styles.calendar}>
+          <View style={styles.calendarHeader}>
+            <ActionButton
+              accessibilityLabel="Previous month"
+              label="‹"
+              onPress={() => {
+                const previousMonth = new Date(
+                  Date.UTC(displayedMonth.year, displayedMonth.month - 2, 1),
+                );
+                setDisplayedMonth({
+                  year: previousMonth.getUTCFullYear(),
+                  month: previousMonth.getUTCMonth() + 1,
+                  day: 1,
+                });
+              }}
+              variant="text"
+            />
+            <AppText style={styles.calendarTitle}>
+              {new Intl.DateTimeFormat(undefined, {
+                month: 'long',
+                year: 'numeric',
+                timeZone: 'UTC',
+              }).format(
+                new Date(
+                  Date.UTC(displayedMonth.year, displayedMonth.month - 1, 1),
+                ),
+              )}
+            </AppText>
+            <ActionButton
+              accessibilityLabel="Next month"
+              label="›"
+              onPress={() => {
+                const nextMonth = new Date(
+                  Date.UTC(displayedMonth.year, displayedMonth.month, 1),
+                );
+                setDisplayedMonth({
+                  year: nextMonth.getUTCFullYear(),
+                  month: nextMonth.getUTCMonth() + 1,
+                  day: 1,
+                });
+              }}
+              variant="text"
+            />
+          </View>
+          <View style={styles.calendarGrid}>
+            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((label, index) => (
+              <AppText key={`${label}-${index}`} style={styles.weekday}>
+                {label}
+              </AppText>
+            ))}
+            {days.map((date, index) =>
+              date ? (
+                <Pressable
+                  accessibilityLabel={dateAccessibilityLabel(date)}
+                  accessibilityRole="button"
+                  key={`${date.year}-${date.month}-${date.day}`}
+                  onPress={() => selectDate(date)}
+                  style={[
+                    styles.calendarDay,
+                    sameDate(date, selectedDate) && styles.selectedCalendarDay,
+                  ]}
+                >
+                  <AppText>{date.day}</AppText>
+                </Pressable>
+              ) : (
+                <View key={`blank-${index}`} style={styles.calendarDay} />
+              ),
+            )}
+          </View>
+        </View>
+      ) : null}
+      <TimeOfDaySlider
+        onChange={(nextTimestampUtc) =>
+          emitChange({
+            sceneTimestampUtc: nextTimestampUtc,
+            window: localWindow,
+          })
+        }
+        timeZoneId={timeZoneId}
+        valueMilliseconds={
+          Date.parse(localSceneTimestampUtc) -
+          Date.parse(localWindow.startTimestampUtc)
+        }
+        windowStartTimestampUtc={localWindow.startTimestampUtc}
+      />
+      <View style={styles.quickActions}>
+        <ActionButton
+          label="Now"
+          onPress={() => applyClockInstant('now')}
+          style={styles.quickButton}
+          variant="secondary"
+        />
         <ActionButton
           label="Tonight"
-          onPress={() => {
-            setMode('tonight');
-            setIssue(null);
-          }}
-          style={styles.modeButton}
-          variant={mode === 'tonight' ? 'primary' : 'secondary'}
-        />
-        <ActionButton
-          label="Custom interval"
-          onPress={() => {
-            setMode('custom');
-            setIssue(null);
-          }}
-          style={styles.modeButton}
-          variant={mode === 'custom' ? 'primary' : 'secondary'}
+          onPress={() => applyClockInstant('tonight')}
+          style={styles.quickButton}
+          variant="secondary"
         />
       </View>
-
-      {mode === 'tonight' ? (
-        <>
-          <FormField
-            autoCapitalize="none"
-            label="Tonight date"
-            onChangeText={(value) => {
-              setTonightDate(value);
-              setIssue(null);
-            }}
-            value={tonightDate}
-          />
-          <AppText tone="muted">
-            Uses astronomical dusk through dawn. Polar dates fall back to
-            sunset–sunrise, then 18:00–06:00 when solar crossings are absent.
-          </AppText>
-          <ActionButton
-            label="Use Tonight"
-            loading={submitting}
-            onPress={applyTonight}
-          />
-        </>
-      ) : (
-        <>
-          <View style={styles.fieldRow}>
-            <FormField
-              containerStyle={styles.dateField}
-              label="Start date"
-              onChangeText={(value) => updateForm('startDate', value)}
-              value={form.startDate}
-            />
-            <FormField
-              containerStyle={styles.timeField}
-              label="Start time"
-              onChangeText={(value) => updateForm('startTime', value)}
-              value={form.startTime}
-            />
-          </View>
-          {issue === 'startAmbiguous' ? (
-            <AmbiguityChoice
-              label="Start repeated-time choice"
-              onChange={setStartAmbiguity}
-              value={startAmbiguity}
-            />
-          ) : null}
-          <View style={styles.fieldRow}>
-            <FormField
-              containerStyle={styles.dateField}
-              label="End date"
-              onChangeText={(value) => updateForm('endDate', value)}
-              value={form.endDate}
-            />
-            <FormField
-              containerStyle={styles.timeField}
-              label="End time"
-              onChangeText={(value) => updateForm('endTime', value)}
-              value={form.endTime}
-            />
-          </View>
-          {issue === 'endAmbiguous' ? (
-            <AmbiguityChoice
-              label="End repeated-time choice"
-              onChange={setEndAmbiguity}
-              value={endAmbiguity}
-            />
-          ) : null}
-          <AppText tone="muted">Maximum elapsed duration: 24 hours.</AppText>
-          <ActionButton
-            label="Apply interval"
-            loading={submitting}
-            onPress={applyCustom}
-          />
-        </>
-      )}
-
-      {issue ? (
-        <AppText accessibilityLiveRegion="polite" style={styles.errorText}>
-          {issue === 'invalidTonightDate'
-            ? 'Enter the Tonight date as YYYY-MM-DD.'
-            : issueMessage(issue)}
-        </AppText>
-      ) : null}
-
       <View style={styles.currentWindow}>
-        <AppText tone="label">Current window</AppText>
-        <AppText>{formatObservingWindowRange(window, timeZoneId)}</AppText>
-        {window.note ? (
-          <AppText style={styles.note}>{window.note}</AppText>
-        ) : null}
-        {window.warnings.map((warning) => (
-          <AppText key={warning} style={styles.warning}>
-            {warning}
-          </AppText>
-        ))}
+        <AppText tone="label">Trajectory period</AppText>
+        <AppText>{formatObservingWindowRange(localWindow, timeZoneId)}</AppText>
+        <AppText tone="muted">Fixed at 24 elapsed hours.</AppText>
       </View>
     </ModalSheet>
   );
 };
 
-const AmbiguityChoice = ({
-  label,
-  onChange,
-  value,
-}: {
-  label: string;
-  onChange: (value: AmbiguousTimeChoice) => void;
-  value: AmbiguousTimeChoice | undefined;
-}) => (
-  <View style={styles.ambiguity}>
-    <AppText style={styles.warning}>{label}</AppText>
-    <View style={styles.modeRow}>
-      <ActionButton
-        label="First occurrence"
-        onPress={() => onChange('earlier')}
-        style={styles.modeButton}
-        variant={value === 'earlier' ? 'primary' : 'secondary'}
-      />
-      <ActionButton
-        label="Second occurrence"
-        onPress={() => onChange('later')}
-        style={styles.modeButton}
-        variant={value === 'later' ? 'primary' : 'secondary'}
-      />
-    </View>
-  </View>
-);
-
 const styles = StyleSheet.create({
-  ambiguity: {
+  calendar: {
     backgroundColor: colors.surfaceRaised,
-    borderRadius: 8,
-    gap: 8,
-    padding: 10,
+    borderRadius: layout.controlRadius,
+    gap: 6,
+    padding: 8,
   },
+  calendarDay: {
+    alignItems: 'center',
+    borderRadius: 18,
+    height: 36,
+    justifyContent: 'center',
+    width: '14.285%',
+  },
+  calendarGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  calendarHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  calendarTitle: { fontWeight: '800' },
   currentWindow: {
     backgroundColor: colors.surfaceRaised,
-    borderRadius: 8,
+    borderRadius: layout.controlRadius,
     gap: 4,
     padding: 12,
   },
-  dateField: { flex: 1.45 },
-  errorText: { color: colors.danger },
-  fieldRow: { flexDirection: 'row', gap: 10 },
-  modeButton: { flex: 1 },
-  modeRow: { flexDirection: 'row', gap: 8 },
-  note: { color: colors.warning },
-  timeField: { flex: 1 },
-  warning: { color: colors.warning },
+  dateButton: {
+    backgroundColor: colors.surfaceRaised,
+    borderColor: colors.outline,
+    borderRadius: layout.controlRadius,
+    borderWidth: 1,
+    gap: 3,
+    minHeight: layout.minimumTouchTarget,
+    padding: 12,
+  },
+  dateValue: { fontSize: 18, fontWeight: '800' },
+  labelRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  quickActions: { flexDirection: 'row', gap: 8 },
+  quickButton: { flex: 1 },
+  selectedCalendarDay: { backgroundColor: colors.primaryPressed },
+  sliderEnds: { flexDirection: 'row', justifyContent: 'space-between' },
+  sliderField: { gap: 3 },
+  sliderFill: {
+    backgroundColor: colors.primary,
+    borderRadius: 3,
+    height: 6,
+  },
+  sliderThumb: {
+    backgroundColor: colors.text,
+    borderColor: colors.primary,
+    borderRadius: 11,
+    borderWidth: 3,
+    height: 22,
+    marginLeft: -11,
+    marginTop: -14,
+    position: 'absolute',
+    width: 22,
+  },
+  sliderTouchTrack: {
+    justifyContent: 'center',
+    minHeight: layout.minimumTouchTarget,
+  },
+  sliderTrack: {
+    backgroundColor: colors.outline,
+    borderRadius: 3,
+    height: 6,
+  },
+  timeValue: { color: colors.primary, fontSize: 18, fontWeight: '800' },
+  weekday: {
+    color: colors.mutedText,
+    textAlign: 'center',
+    width: '14.285%',
+  },
 });

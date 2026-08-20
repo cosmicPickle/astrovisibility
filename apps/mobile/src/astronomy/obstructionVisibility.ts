@@ -10,7 +10,7 @@ import {
 } from './horizontalCoordinates';
 import { localCivilDateTimeAtInstant } from './localCivilTime';
 import {
-  createThirtyMinuteMarkers,
+  createHourlyMarkers,
   unwrapTrajectoryAzimuths,
   type EquatorialTarget,
   type SelectedTargetTrajectory,
@@ -545,7 +545,7 @@ export async function calculateObstructionAwareTrajectory(
     .map(intervalForRun);
   const aboveHorizonIntervals = mergeAboveHorizonRuns(runs);
   const markerCoordinates = await Promise.all(
-    createThirtyMinuteMarkers({
+    createHourlyMarkers({
       ...input.window,
       timeZoneId: input.timeZoneId,
     }).map(async (marker): Promise<TrajectoryMarker> => {

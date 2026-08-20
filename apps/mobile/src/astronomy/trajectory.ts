@@ -33,13 +33,13 @@ export interface AboveHorizonInterval {
   durationMilliseconds: number;
 }
 
-export interface ThirtyMinuteMarker {
+export interface TrajectoryTimeMarker {
   timestampUtc: string;
   localTimeLabel: string;
 }
 
 export interface TrajectoryMarker
-  extends ThirtyMinuteMarker, HorizontalCoordinates {
+  extends TrajectoryTimeMarker, HorizontalCoordinates {
   assessment: TrajectoryAssessment;
 }
 
@@ -118,11 +118,11 @@ export const unwrapTrajectoryAzimuths = (
 const formatLocalTimeLabel = (hour: number, minute: number) =>
   `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 
-export const createThirtyMinuteMarkers = (input: {
+export const createHourlyMarkers = (input: {
   startTimestampUtc: string;
   endTimestampUtc: string;
   timeZoneId: string;
-}): ThirtyMinuteMarker[] => {
+}): TrajectoryTimeMarker[] => {
   const { startMilliseconds, endMilliseconds } = parseWindow(input);
   const firstLocal = localCivilDateTimeAtInstant(
     input.startTimestampUtc,
@@ -140,11 +140,11 @@ export const createThirtyMinuteMarkers = (input: {
         Date.UTC(firstDate.year, firstDate.month - 1, firstDate.day)) /
         (24 * 60 * 60 * 1000),
     ) + 1;
-  const candidates: ThirtyMinuteMarker[] = [];
+  const candidates: TrajectoryTimeMarker[] = [];
   for (let dayOffset = 0; dayOffset < dateCount; dayOffset += 1) {
     const localDate = addDaysToLocalDate(firstDate, dayOffset);
     for (let hour = 0; hour < 24; hour += 1) {
-      for (const minute of [0, 30] as const) {
+      for (const minute of [0] as const) {
         const resolution = resolveLocalCivilDateTime(
           { ...localDate, hour, minute },
           input.timeZoneId,
@@ -271,7 +271,7 @@ export const createSelectedTargetTrajectory = (input: {
     });
   }
 
-  const markers = createThirtyMinuteMarkers({
+  const markers = createHourlyMarkers({
     ...input.window,
     timeZoneId: input.timeZoneId,
   }).map((marker) => {

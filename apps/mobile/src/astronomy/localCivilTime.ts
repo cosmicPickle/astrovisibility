@@ -21,7 +21,12 @@ export type LocalCivilTimeResolution =
 export type AmbiguousTimeChoice = 'earlier' | 'later';
 
 export interface ObservingWindow {
-  kind: 'astronomicalDarkness' | 'sunsetSunrise' | 'civilFallback' | 'custom';
+  kind:
+    | 'astronomicalDarkness'
+    | 'sunsetSunrise'
+    | 'civilFallback'
+    | 'custom'
+    | 'day';
   startTimestampUtc: string;
   endTimestampUtc: string;
   note: string | null;

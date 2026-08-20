@@ -296,6 +296,7 @@ export const queryCataloguePlanetarium = (
     camera.fieldOfViewDegrees;
   const candidates = targets
     .filter((item) => {
+      if (item.altitudeDegrees < 0) return false;
       if (item.target.prominenceTier > prominenceTierLimit) return false;
       const direction = horizontalDirectionToVector(item);
       return (

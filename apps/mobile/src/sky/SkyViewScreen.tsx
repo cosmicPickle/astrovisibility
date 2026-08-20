@@ -22,14 +22,17 @@ import {
   type VisibilityCalculationCache,
   type VisibilityCalculationOptions,
 } from '../astronomy/obstructionVisibility';
-import type { ObservingWindow } from '../astronomy/localCivilTime';
+import {
+  localCivilDateTimeAtInstant,
+  type ObservingWindow,
+} from '../astronomy/localCivilTime';
 import {
   formatAboveHorizonIntervals,
   formatDuration,
   formatObservingWindowRange,
-  formatWindowControlLabel,
+  formatSceneControlLabel,
 } from '../astronomy/observingWindowPresentation';
-import { createDefaultObservingContext } from '../astronomy/observingWindow';
+import { createDateObservingWindow } from '../astronomy/observingWindow';
 import {
   createTargetDiurnalOrbit,
   type TargetDiurnalOrbit,
@@ -53,7 +56,10 @@ import type { ProfileRecord } from '../storage/profileRepository';
 import { colors, layout } from '../theme/tokens';
 import { projectCatalogueAtInstant } from './catalogueProjection';
 import type { HorizontalCatalogueTarget } from './catalogueViewport';
-import { ObservingWindowSheet } from './ObservingWindowSheet';
+import {
+  ObservingWindowSheet,
+  type ObservingWindowChange,
+} from './ObservingWindowSheet';
 import { createCelestialEquatorGuide } from './planetariumGuides';
 import { SkyCanvas } from './SkyCanvas';
 
@@ -127,19 +133,8 @@ export const skyViewController: SkyViewController = {
         storage.panoramas.getActiveForProfile(profileId),
       ]);
     if (!profile) throw new Error(`Profile not found: ${profileId}`);
-    const observer = {
-      latitudeDegreesNorth: profile.latitudeDegreesNorth,
-      longitudeDegreesEast: profile.longitudeDegreesEast,
-      elevationMetersAboveMeanSeaLevel:
-        profile.elevationMetersAboveMeanSeaLevel,
-    };
-    const timestampUtc = requestedTimestampUtc
-      ? requestedTimestampUtc
-      : createDefaultObservingContext({
-          nowTimestampUtc,
-          observer,
-          timeZoneId: profile.timeZoneId,
-        }).sceneTimestampUtc;
+    const observer = observerForProfile(profile);
+    const timestampUtc = requestedTimestampUtc ?? nowTimestampUtc;
     const projectedTargets = projectCatalogueAtInstant(catalogue, {
       observer,
       timestampUtc,
@@ -189,11 +184,13 @@ const observerForProfile = (profile: ProfileRecord) => ({
 });
 
 const createDefaultObservingWindow = (data: SkyViewData) => {
-  return createDefaultObservingContext({
-    nowTimestampUtc: data.timestampUtc,
-    observer: observerForProfile(data.profile),
+  return createDateObservingWindow({
+    civilDate: localCivilDateTimeAtInstant(
+      data.timestampUtc,
+      data.profile.timeZoneId,
+    ),
     timeZoneId: data.profile.timeZoneId,
-  }).window;
+  });
 };
 
 export const SkyViewScreen = ({
@@ -224,6 +221,9 @@ export const SkyViewScreen = ({
   const [data, setData] = useState<SkyViewData | null>(null);
   const [observingWindow, setObservingWindow] =
     useState<ObservingWindow | null>(null);
+  const [sceneTimestampUtc, setSceneTimestampUtc] = useState<string | null>(
+    null,
+  );
   const [error, setError] = useState(false);
   const [selectedTarget, setSelectedTarget] = useState<CatalogueTarget | null>(
     null,
@@ -253,9 +253,11 @@ export const SkyViewScreen = ({
         const loadedData = await controller.load(profileId, timestampUtc);
         setData(loadedData);
         setObservingWindow(createDefaultObservingWindow(loadedData));
+        setSceneTimestampUtc(loadedData.timestampUtc);
       } catch {
         setData(null);
         setObservingWindow(null);
+        setSceneTimestampUtc(null);
         setError(true);
       }
     },
@@ -271,6 +273,7 @@ export const SkyViewScreen = ({
           if (!active) return;
           setError(false);
           setData(loadedData);
+          setSceneTimestampUtc(loadedData.timestampUtc);
           setObservingWindow(
             initialObservingWindow ?? createDefaultObservingWindow(loadedData),
           );
@@ -286,6 +289,7 @@ export const SkyViewScreen = ({
           if (!active) return;
           setData(null);
           setObservingWindow(null);
+          setSceneTimestampUtc(null);
           setError(true);
         },
       );
@@ -300,31 +304,39 @@ export const SkyViewScreen = ({
       null,
     [data],
   );
-  const celestialEquatorDirections = useMemo(
+  const projectedTargets = useMemo(
     () =>
-      data
-        ? createCelestialEquatorGuide({
+      data && sceneTimestampUtc
+        ? projectCatalogueAtInstant(data.catalogueTargets, {
             observer: observerForProfile(data.profile),
-            timestampUtc: data.timestampUtc,
+            timestampUtc: sceneTimestampUtc,
           })
         : [],
-    [data],
+    [data, sceneTimestampUtc],
+  );
+  const celestialEquatorDirections = useMemo(
+    () =>
+      data && sceneTimestampUtc
+        ? createCelestialEquatorGuide({
+            observer: observerForProfile(data.profile),
+            timestampUtc: sceneTimestampUtc,
+          })
+        : [],
+    [data, sceneTimestampUtc],
   );
   const selectedDirection = useMemo(() => {
-    if (!data || !selectedTarget) return null;
+    if (!data || !sceneTimestampUtc || !selectedTarget) return null;
     const horizontal = equatorialJ2000ToHorizontal({
       rightAscensionJ2000Hours: selectedTarget.rightAscensionJ2000Hours,
       declinationJ2000Degrees: selectedTarget.declinationJ2000Degrees,
       observer: observerForProfile(data.profile),
-      timestampUtc: data.timestampUtc,
+      timestampUtc: sceneTimestampUtc,
     });
-    return horizontal.refractedAltitudeDegrees < 0
-      ? null
-      : {
-          altitudeDegrees: horizontal.refractedAltitudeDegrees,
-          azimuthDegrees: horizontal.azimuthDegreesClockwiseFromNorth,
-        };
-  }, [data, selectedTarget]);
+    return {
+      altitudeDegrees: horizontal.refractedAltitudeDegrees,
+      azimuthDegrees: horizontal.azimuthDegreesClockwiseFromNorth,
+    };
+  }, [data, sceneTimestampUtc, selectedTarget]);
   const diurnalOrbit = useMemo(
     () =>
       data && observingWindow && selectedTarget
@@ -336,18 +348,6 @@ export const SkyViewScreen = ({
         : null,
     [data, observingWindow, selectedTarget],
   );
-  const rendererSelectedDirection = useMemo(() => {
-    if (selectedDirection) return selectedDirection;
-    const sample = trajectory?.samples.find(
-      ({ refractedAltitudeDegrees }) => refractedAltitudeDegrees >= 0,
-    );
-    return sample
-      ? {
-          altitudeDegrees: sample.refractedAltitudeDegrees,
-          azimuthDegrees: sample.azimuthDegreesClockwiseFromNorth,
-        }
-      : null;
-  }, [selectedDirection, trajectory]);
   useEffect(() => {
     if (!data || !observingWindow || !selectedTarget) {
       return;
@@ -466,24 +466,19 @@ export const SkyViewScreen = ({
     }
   };
 
-  const applyObservingWindow = async (window: ObservingWindow) => {
-    if (!data) return false;
-    setMutationError(null);
-    try {
-      const loadedData = await controller.load(
-        data.profile.id,
-        window.startTimestampUtc,
-      );
-      setData(loadedData);
-      setObservingWindow(window);
-      setInspectedMarker(null);
+  const applyObservingTime = ({
+    sceneTimestampUtc: nextSceneTimestampUtc,
+    window,
+  }: ObservingWindowChange) => {
+    const windowChanged =
+      window.startTimestampUtc !== observingWindow?.startTimestampUtc ||
+      window.endTimestampUtc !== observingWindow?.endTimestampUtc;
+    setSceneTimestampUtc(nextSceneTimestampUtc);
+    setObservingWindow(window);
+    setInspectedMarker(null);
+    if (windowChanged && selectedTarget) {
       setTrajectory(null);
       setTrajectoryStatus('calculating');
-      setOpenSheet(null);
-      return true;
-    } catch {
-      setMutationError('The observing window could not be applied. Try again.');
-      return false;
     }
   };
 
@@ -521,7 +516,7 @@ export const SkyViewScreen = ({
     );
   };
 
-  if (!data || !observingWindow) {
+  if (!data || !observingWindow || !sceneTimestampUtc) {
     return (
       <SafeAreaView style={styles.centered}>
         {error ? (
@@ -559,7 +554,10 @@ export const SkyViewScreen = ({
             {data.profile.name}
           </AppText>
           <AppText numberOfLines={1} tone="muted">
-            {data.projectedTargets.length.toLocaleString()} above horizon
+            {projectedTargets
+              .filter(({ altitudeDegrees }) => altitudeDegrees >= 0)
+              .length.toLocaleString()}{' '}
+            above horizon
           </AppText>
         </View>
         <Pressable
@@ -569,7 +567,10 @@ export const SkyViewScreen = ({
           style={styles.timeButton}
         >
           <AppText style={styles.timeText}>
-            {formatWindowControlLabel(observingWindow, data.profile.timeZoneId)}
+            {formatSceneControlLabel(
+              sceneTimestampUtc,
+              data.profile.timeZoneId,
+            )}
           </AppText>
         </Pressable>
         <Pressable
@@ -594,9 +595,9 @@ export const SkyViewScreen = ({
             setTrajectory(null);
             setTrajectoryStatus('calculating');
           }}
-          selectedDirection={rendererSelectedDirection}
+          selectedDirection={selectedDirection}
           selectedTargetId={selectedTarget?.id ?? null}
-          targets={data.projectedTargets}
+          targets={projectedTargets}
           trajectory={trajectory}
           panoramaOverlay={
             data.panorama
@@ -949,8 +950,9 @@ export const SkyViewScreen = ({
 
       <ObservingWindowSheet
         observer={observerForProfile(data.profile)}
-        onApply={applyObservingWindow}
+        onChange={applyObservingTime}
         onClose={() => setOpenSheet(null)}
+        sceneTimestampUtc={sceneTimestampUtc}
         timeZoneId={data.profile.timeZoneId}
         visible={openSheet === 'time'}
         window={observingWindow}

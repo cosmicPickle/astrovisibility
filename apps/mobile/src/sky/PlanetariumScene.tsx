@@ -20,7 +20,6 @@ import { useDerivedValue, type SharedValue } from 'react-native-reanimated';
 
 import type { SelectedTargetTrajectory } from '../astronomy/trajectory';
 import type { TargetDiurnalOrbit } from '../astronomy/diurnalTrajectory';
-import { createRotatedFieldOfViewRectangle } from '../equipment/fieldOfView';
 import type { VisibilityMask } from '../mask/visibilityMask';
 import type { EquipmentRecord } from '../storage/equipmentRepository';
 import type { ActivePanoramaTile } from '../storage/panoramaDraftRepository';
@@ -29,10 +28,18 @@ import type { ViewportCatalogueTarget } from './catalogueViewport';
 import {
   angularSizeDegreesToPixelsAtDirection,
   densifyHorizontalPath,
+  getPlanetariumCameraCenter,
   projectHorizontalDirection,
   type PlanetariumCamera,
 } from './planetariumProjection';
 import { createPlanetariumPanoramaMesh } from './planetariumPanoramaGeometry';
+import { createRectilinearFieldOfViewFootprint } from './fieldOfViewGeometry';
+import {
+  CARDINAL_LABEL_FONT_SIZE_PIXELS,
+  CARDINAL_LABELS,
+  createHorizonDirections,
+  shouldInvertGroundClip,
+} from './planetariumGround';
 import type {
   CanvasSizePixels,
   HorizontalDirectionDegrees,
@@ -54,6 +61,11 @@ const markerFont = matchFont({
   fontFamily: 'sans-serif',
   fontSize: 9,
   fontWeight: '700',
+});
+const cardinalFont = matchFont({
+  fontFamily: 'sans-serif',
+  fontSize: CARDINAL_LABEL_FONT_SIZE_PIXELS,
+  fontWeight: '900',
 });
 
 const angularSizeToPixels = (
@@ -261,23 +273,14 @@ const horizontalGrid = (() => {
   return lines;
 })();
 
-const gridLabels = [
-  ...[15, 30, 45, 60, 75].flatMap((altitudeDegrees) =>
-    [0, 180].map((azimuthDegrees) => ({
-      direction: { altitudeDegrees, azimuthDegrees },
-      label: `${altitudeDegrees}°`,
-    })),
-  ),
-  ...[
-    { azimuthDegrees: 0, label: 'N' },
-    { azimuthDegrees: 90, label: 'E' },
-    { azimuthDegrees: 180, label: 'S' },
-    { azimuthDegrees: 270, label: 'W' },
-  ].map(({ azimuthDegrees, label }) => ({
-    direction: { altitudeDegrees: 2, azimuthDegrees },
-    label,
+const gridLabels = [15, 30, 45, 60, 75].flatMap((altitudeDegrees) =>
+  [0, 180].map((azimuthDegrees) => ({
+    direction: { altitudeDegrees, azimuthDegrees },
+    label: `${altitudeDegrees}°`,
   })),
-];
+);
+
+const horizonDirections = createHorizonDirections(5);
 
 function PlanetariumGrid({
   camera,
@@ -317,6 +320,61 @@ function PlanetariumGrid({
         />
       ))}
     </Group>
+  );
+}
+
+function GroundLayer({
+  camera,
+  canvas,
+}: {
+  camera: SharedValue<PlanetariumCamera>;
+  canvas: CanvasSizePixels;
+}) {
+  const path = useDerivedValue(() => {
+    return createPath(horizonDirections, camera.value, canvas, true);
+  });
+  const invertClip = useDerivedValue(() =>
+    shouldInvertGroundClip(
+      getPlanetariumCameraCenter(camera.value).altitudeDegrees,
+    ),
+  );
+  return (
+    <Group clip={path} invertClip={invertClip}>
+      <Fill color={colors.ground} />
+    </Group>
+  );
+}
+
+function HorizonAndCardinals({
+  camera,
+  canvas,
+}: {
+  camera: SharedValue<PlanetariumCamera>;
+  canvas: CanvasSizePixels;
+}) {
+  return (
+    <>
+      <ProjectedPath
+        camera={camera}
+        canvas={canvas}
+        color={colors.outline}
+        directions={horizonDirections}
+        strokeOpacity={1}
+        strokeWidth={2}
+      />
+      {CARDINAL_LABELS.map(({ direction, label }) => (
+        <ProjectedText
+          camera={camera}
+          canvas={canvas}
+          color={colors.danger}
+          direction={direction}
+          font={cardinalFont}
+          key={label}
+          text={label}
+          verticalOffsetPixels={-CARDINAL_LABEL_FONT_SIZE_PIXELS / 2}
+        />
+      ))}
+    </>
   );
 }
 
@@ -486,7 +544,7 @@ function TrajectoryLayer({
           verticalOffsetPixels={-18}
         />
       ))}
-      {trajectory?.markers.map((marker, index) =>
+      {trajectory?.markers.map((marker) =>
         marker.assessment === 'belowHorizon' ? null : (
           <Group key={marker.timestampUtc}>
             <ProjectedMarker
@@ -504,20 +562,18 @@ function TrajectoryLayer({
                 azimuthDegrees: marker.azimuthDegreesClockwiseFromNorth,
               }}
             />
-            {index % 2 === 0 ? (
-              <ProjectedText
-                camera={camera}
-                canvas={canvas}
-                color={colors.text}
-                direction={{
-                  altitudeDegrees: marker.refractedAltitudeDegrees,
-                  azimuthDegrees: marker.azimuthDegreesClockwiseFromNorth,
-                }}
-                font={markerFont}
-                text={marker.localTimeLabel}
-                verticalOffsetPixels={-20}
-              />
-            ) : null}
+            <ProjectedText
+              camera={camera}
+              canvas={canvas}
+              color={colors.text}
+              direction={{
+                altitudeDegrees: marker.refractedAltitudeDegrees,
+                azimuthDegrees: marker.azimuthDegreesClockwiseFromNorth,
+              }}
+              font={markerFont}
+              text={marker.localTimeLabel}
+              verticalOffsetPixels={-20}
+            />
           </Group>
         ),
       )}
@@ -702,28 +758,22 @@ function FieldOfViewLayer({
 }: {
   camera: SharedValue<PlanetariumCamera>;
   canvas: CanvasSizePixels;
-  direction: HorizontalDirectionDegrees;
+  direction: HorizontalDirectionDegrees | null;
   equipment: EquipmentRecord;
 }) {
-  const rectangle = createRotatedFieldOfViewRectangle(equipment);
-  const directions = densifyHorizontalPath(
-    rectangle.corners.map((corner) => ({
-      altitudeDegrees: direction.altitudeDegrees + corner.verticalOffsetDegrees,
-      azimuthDegrees: direction.azimuthDegrees + corner.horizontalOffsetDegrees,
-    })),
-    0.5,
-    true,
-  );
+  const path = useDerivedValue(() => {
+    const footprint = createRectilinearFieldOfViewFootprint({
+      center: direction ?? getPlanetariumCameraCenter(camera.value),
+      equipment,
+      maximumStepDegrees: 0.25,
+    });
+    return createPath(footprint.boundary, camera.value, canvas, true);
+  });
   return (
-    <ProjectedPath
-      camera={camera}
-      canvas={canvas}
-      closed
-      color={colors.primary}
-      directions={directions}
-      fillOpacity={0.06}
-      strokeWidth={2}
-    />
+    <>
+      <Path color={colors.primary} opacity={0.06} path={path} style="fill" />
+      <Path color={colors.primary} path={path} strokeWidth={2} style="stroke" />
+    </>
   );
 }
 
@@ -787,7 +837,7 @@ export function PlanetariumScene({
         diurnalOrbit={diurnalOrbit}
         trajectory={trajectory}
       />
-      {selectedDirection && equipment ? (
+      {equipment ? (
         <FieldOfViewLayer
           camera={camera}
           canvas={canvas}
@@ -804,6 +854,8 @@ export function PlanetariumScene({
           selected={item.target.id === selectedTargetId}
         />
       ))}
+      <GroundLayer camera={camera} canvas={canvas} />
+      <HorizonAndCardinals camera={camera} canvas={canvas} />
     </Canvas>
   );
 }

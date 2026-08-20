@@ -349,10 +349,10 @@ export const projectVectorToCanvas = (
   return {
     visible:
       angularDistanceRadians <= Math.PI + VECTOR_EPSILON &&
-      xPixels >= 0 &&
-      xPixels <= canvas.widthPixels &&
-      yPixels >= 0 &&
-      yPixels <= canvas.heightPixels,
+      xPixels >= -VECTOR_EPSILON &&
+      xPixels <= canvas.widthPixels + VECTOR_EPSILON &&
+      yPixels >= -VECTOR_EPSILON &&
+      yPixels <= canvas.heightPixels + VECTOR_EPSILON,
     xPixels,
     yPixels,
   };

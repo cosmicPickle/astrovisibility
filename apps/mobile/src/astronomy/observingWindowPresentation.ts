@@ -28,22 +28,17 @@ export const formatObservingWindowRange = (
   return `${formatter.format(new Date(window.startTimestampUtc))} – ${formatter.format(new Date(window.endTimestampUtc))}`;
 };
 
-export const formatWindowControlLabel = (
-  window: ObservingWindow,
+export const formatSceneControlLabel = (
+  timestampUtc: string,
   timeZoneId: string,
 ) => {
-  const start = localCivilDateTimeAtInstant(
-    window.startTimestampUtc,
-    timeZoneId,
-  );
+  const local = localCivilDateTimeAtInstant(timestampUtc, timeZoneId);
   const dateLabel = new Intl.DateTimeFormat(undefined, {
     day: 'numeric',
     month: 'short',
     timeZone: timeZoneId,
-  }).format(new Date(window.startTimestampUtc));
-  return window.kind === 'custom'
-    ? `${formatLocalTimeInput(start)} · ${dateLabel}`
-    : `Tonight · ${dateLabel}`;
+  }).format(new Date(timestampUtc));
+  return `${formatLocalTimeInput(local)} · ${dateLabel}`;
 };
 
 export const formatDuration = (durationMilliseconds: number) => {

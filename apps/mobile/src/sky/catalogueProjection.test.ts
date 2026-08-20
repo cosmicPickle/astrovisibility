@@ -42,7 +42,7 @@ describe('projectCatalogueAtInstant', () => {
     },
   );
 
-  it('omits targets below the astronomical horizon from the browse snapshot', () => {
+  it('retains targets below the astronomical horizon in the complete sky sphere', () => {
     const target: CatalogueTarget = {
       id: 'below',
       preferredName: 'Below horizon',
@@ -54,15 +54,15 @@ describe('projectCatalogueAtInstant', () => {
       memberships: { messier: [], ngc: [], ic: [] },
       prominenceTier: 1,
     };
-    expect(
-      projectCatalogueAtInstant([target], {
-        timestampUtc: '2026-01-15T20:00:00.000Z',
-        observer: {
-          latitudeDegreesNorth: 80,
-          longitudeDegreesEast: 0,
-          elevationMetersAboveMeanSeaLevel: 0,
-        },
-      }),
-    ).toEqual([]);
+    const [projected] = projectCatalogueAtInstant([target], {
+      timestampUtc: '2026-01-15T20:00:00.000Z',
+      observer: {
+        latitudeDegreesNorth: 80,
+        longitudeDegreesEast: 0,
+        elevationMetersAboveMeanSeaLevel: 0,
+      },
+    });
+    expect(projected?.target.id).toBe('below');
+    expect(projected?.altitudeDegrees).toBeLessThan(0);
   });
 });

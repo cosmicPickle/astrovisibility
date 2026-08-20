@@ -129,4 +129,21 @@ describe('SkyCanvas selection camera stability', () => {
       expect(camera.up).toEqual(initialCamera.up);
     }
   });
+
+  it('starts with the complete horizon dome centred on the zenith', async () => {
+    await render(
+      <SkyCanvas
+        {...commonProps}
+        selectedDirection={null}
+        selectedTargetId={null}
+        trajectory={null}
+      />,
+    );
+
+    expect(getPlanetariumCameraCenter(mockObservedCameras.at(-1)!)).toEqual({
+      altitudeDegrees: 90,
+      azimuthDegrees: expect.any(Number),
+    });
+    expect(mockObservedCameras.at(-1)!.fieldOfViewDegrees).toBe(180);
+  });
 });

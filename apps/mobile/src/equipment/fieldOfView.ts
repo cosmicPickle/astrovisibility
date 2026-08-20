@@ -15,6 +15,7 @@ export interface FieldOfViewCorner {
 }
 
 const assertPositiveFinite = (value: number, name: string): void => {
+  'worklet';
   if (!Number.isFinite(value) || value <= 0) {
     throw new RangeError(`${name} must be a positive finite number`);
   }
@@ -23,6 +24,7 @@ const assertPositiveFinite = (value: number, name: string): void => {
 export const calculateAngularFieldOfView = (
   input: FieldOfViewInput,
 ): AngularFieldOfView => {
+  'worklet';
   assertPositiveFinite(input.focalLengthMillimeters, 'focalLengthMillimeters');
   assertPositiveFinite(input.sensorWidthMillimeters, 'sensorWidthMillimeters');
   assertPositiveFinite(

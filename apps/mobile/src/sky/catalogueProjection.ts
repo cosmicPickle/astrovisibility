@@ -22,7 +22,6 @@ export const projectCatalogueAtInstant = (
       observer: context.observer,
       timestampUtc: context.timestampUtc,
     });
-    if (horizontal.refractedAltitudeDegrees < 0) continue;
     projectedTargets.push({
       altitudeDegrees: horizontal.refractedAltitudeDegrees,
       azimuthDegrees: horizontal.azimuthDegreesClockwiseFromNorth,

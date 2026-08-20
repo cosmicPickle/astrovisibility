@@ -72,8 +72,8 @@ export const SkyCanvas = ({
   const [canvas, setCanvas] = useState({ widthPixels: 1, heightPixels: 1 });
   const [cameraState, setCameraState] = useState<PlanetariumCamera>(() =>
     createEquatorialPlanetariumCamera({
-      centerAltitudeDegrees: 45,
-      centerAzimuthDegrees: 180,
+      centerAltitudeDegrees: 90,
+      centerAzimuthDegrees: 0,
       fieldOfViewDegrees: 180,
       observerLatitudeDegrees,
     }),
@@ -116,6 +116,7 @@ export const SkyCanvas = ({
         return;
       }
       const targetMatch = visibleTargets
+        .filter(({ altitudeDegrees }) => altitudeDegrees >= 0)
         .map((target) => {
           const point = projectHorizontalDirection(target, tapCamera, canvas);
           return {
