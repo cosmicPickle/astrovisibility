@@ -29,6 +29,9 @@ import { colors, layout } from '../theme/tokens';
 import {
   applyTileCorrection,
   createCapturedTile,
+  guidedCaptureAltitudeStatus,
+  MAXIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES,
+  MINIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES,
   type CapturedProofTile,
 } from './captureSession';
 import { useCaptureOrientation } from './useCaptureOrientation';
@@ -163,6 +166,8 @@ const defaultPickImage = async (): Promise<PickedPanoramaImage | null> => {
 const countLabel = (count: number) =>
   `${count} tile${count === 1 ? '' : 's'} · 360° not required`;
 const degrees = (value: number) => `${Math.round(value)}°`;
+const captureAltitudeMessage = (status: 'too-high' | 'too-low') =>
+  `${status === 'too-low' ? 'Aim higher' : 'Aim lower'}. Keep the camera between ${MINIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES}° and ${MAXIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES}° altitude.`;
 
 export const PanoramaCaptureScreen = ({
   controller = panoramaCaptureController,
@@ -191,6 +196,10 @@ export const PanoramaCaptureScreen = ({
     mode === 'capture',
     locationGranted,
   );
+  const captureAltitudeStatus = guidedCaptureAltitudeStatus(
+    orientation.estimatedAltitudeDegrees,
+  );
+  const captureAltitudeAllowed = captureAltitudeStatus === 'allowed';
 
   const native = useMemo<PanoramaCaptureServices>(
     () =>
@@ -337,6 +346,7 @@ export const PanoramaCaptureScreen = ({
   };
 
   const captureTile = async () => {
+    if (!captureAltitudeAllowed) return;
     setBusy(true);
     setError(null);
     try {
@@ -586,7 +596,13 @@ export const PanoramaCaptureScreen = ({
                   </AppText>
                 </View>
               )}
-              <View pointerEvents="none" style={styles.reticle} />
+              <View
+                pointerEvents="none"
+                style={[
+                  styles.reticle,
+                  !captureAltitudeAllowed && styles.reticleOutOfRange,
+                ]}
+              />
               <View style={styles.sensorPanel}>
                 <AppText style={styles.sensorValue}>
                   {degrees(orientation.trueHeadingDegrees)} az ·{' '}
@@ -605,6 +621,11 @@ export const PanoramaCaptureScreen = ({
               orientation={orientation}
               tiles={draft?.tiles ?? []}
             />
+            {captureAltitudeStatus !== 'allowed' ? (
+              <AppText accessibilityRole="alert" style={styles.captureLimit}>
+                {captureAltitudeMessage(captureAltitudeStatus)}
+              </AppText>
+            ) : null}
             {orientation.headingAccuracyDegrees === null ||
             orientation.headingAccuracyDegrees > 25 ? (
               <AppText style={styles.warning}>
@@ -622,7 +643,7 @@ export const PanoramaCaptureScreen = ({
               </AppText>
             ) : null}
             <ActionButton
-              disabled={!cameraGranted}
+              disabled={!cameraGranted || !captureAltitudeAllowed}
               label="Capture tile"
               loading={busy}
               onPress={() => void captureTile()}
@@ -754,6 +775,10 @@ const styles = StyleSheet.create({
     height: 390,
     overflow: 'hidden',
   },
+  captureLimit: {
+    color: colors.danger,
+    fontWeight: '800',
+  },
   centered: {
     alignItems: 'center',
     backgroundColor: colors.background,
@@ -788,6 +813,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: '50%',
     width: 48,
+  },
+  reticleOutOfRange: {
+    borderColor: colors.danger,
   },
   screen: {
     backgroundColor: colors.background,

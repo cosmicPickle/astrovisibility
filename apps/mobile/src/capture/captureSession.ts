@@ -57,6 +57,22 @@ const clamp = (value: number, minimum: number, maximum: number) =>
 
 export const MAXIMUM_CAPTURE_EDGE_PIXELS = 12_000;
 export const MAXIMUM_CAPTURE_PIXELS = 40_000_000;
+export const MINIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES = 20;
+export const MAXIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES = 80;
+
+export type GuidedCaptureAltitudeStatus = 'allowed' | 'too-high' | 'too-low';
+
+export const guidedCaptureAltitudeStatus = (
+  altitudeDegrees: number,
+): GuidedCaptureAltitudeStatus => {
+  if (altitudeDegrees < MINIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES) {
+    return 'too-low';
+  }
+  if (altitudeDegrees > MAXIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES) {
+    return 'too-high';
+  }
+  return 'allowed';
+};
 
 export function assertCaptureDimensionsWithinLimits(
   widthPixels: number,

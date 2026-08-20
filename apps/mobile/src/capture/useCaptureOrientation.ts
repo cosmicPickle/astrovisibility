@@ -8,7 +8,11 @@ const radiansToDegrees = (radians: number) => (radians * 180) / Math.PI;
 const clamp = (value: number, minimum: number, maximum: number) =>
   Math.max(minimum, Math.min(maximum, value));
 const SENSOR_SMOOTHING_FACTOR = 0.25;
+const HEADING_DEADBAND_DEGREES = 0.75;
+const MOTION_DEADBAND_DEGREES = 0.6;
 const normalizeDegrees = (degrees: number) => ((degrees % 360) + 360) % 360;
+const normalizeAxialDegrees = (degrees: number) =>
+  ((((degrees + 90) % 180) + 180) % 180) - 90;
 
 export const smoothHeadingDegrees = (
   currentDegrees: number,
@@ -16,13 +20,37 @@ export const smoothHeadingDegrees = (
 ) => {
   const shortestDeltaDegrees =
     ((nextDegrees - currentDegrees + 540) % 360) - 180;
+  if (Math.abs(shortestDeltaDegrees) < HEADING_DEADBAND_DEGREES) {
+    return normalizeDegrees(currentDegrees);
+  }
   return normalizeDegrees(
     currentDegrees + shortestDeltaDegrees * SENSOR_SMOOTHING_FACTOR,
   );
 };
 
 const smoothLinear = (current: number, next: number) =>
-  current + (next - current) * SENSOR_SMOOTHING_FACTOR;
+  Math.abs(next - current) < MOTION_DEADBAND_DEGREES
+    ? current
+    : current + (next - current) * SENSOR_SMOOTHING_FACTOR;
+
+export const cameraRollDegreesFromGammaRadians = (gammaRadians: number) =>
+  normalizeAxialDegrees(radiansToDegrees(gammaRadians));
+
+export const smoothCameraRollDegrees = (
+  currentDegrees: number,
+  nextDegrees: number,
+) => {
+  // A rectangular footprint is unchanged by a 180-degree rotation. Treat roll
+  // as an axial angle so Android's +180/-180 wrap cannot spin the guide.
+  const shortestDeltaDegrees =
+    ((((nextDegrees - currentDegrees + 90) % 180) + 180) % 180) - 90;
+  if (Math.abs(shortestDeltaDegrees) < MOTION_DEADBAND_DEGREES) {
+    return normalizeAxialDegrees(currentDegrees);
+  }
+  return normalizeAxialDegrees(
+    currentDegrees + shortestDeltaDegrees * SENSOR_SMOOTHING_FACTOR,
+  );
+};
 
 export const rearCameraAltitudeDegrees = (
   betaRadians: number,
@@ -58,7 +86,7 @@ export const orientationFromDeviceMotion = (
     rotation.beta,
     rotation.gamma,
   );
-  const measuredRollDegrees = radiansToDegrees(rotation.gamma);
+  const measuredRollDegrees = cameraRollDegreesFromGammaRadians(rotation.gamma);
   const hasPreviousMotionSample = current.rawRotation !== null;
 
   return {
@@ -68,7 +96,7 @@ export const orientationFromDeviceMotion = (
       ? smoothLinear(current.estimatedAltitudeDegrees, measuredAltitudeDegrees)
       : measuredAltitudeDegrees,
     rollDegrees: hasPreviousMotionSample
-      ? smoothLinear(current.rollDegrees, measuredRollDegrees)
+      ? smoothCameraRollDegrees(current.rollDegrees, measuredRollDegrees)
       : measuredRollDegrees,
     rawRotation: {
       alphaRadians: rotation.alpha,

@@ -1,9 +1,11 @@
 import type { DeviceMotionMeasurement } from 'expo-sensors';
 
 import {
+  cameraRollDegreesFromGammaRadians,
   headingUncertaintyDegrees,
   orientationFromDeviceMotion,
   rearCameraAltitudeDegrees,
+  smoothCameraRollDegrees,
   smoothHeadingDegrees,
 } from './useCaptureOrientation';
 
@@ -58,6 +60,44 @@ describe('capture orientation samples', () => {
     expect(subsequent.estimatedAltitudeDegrees).toBeGreaterThan(30);
     expect(subsequent.estimatedAltitudeDegrees).toBeLessThan(90);
     expect(subsequent.rollDegrees).toBeCloseTo(first.rollDegrees);
+  });
+
+  it('treats a rectangular footprint roll as a 180-degree axial angle', () => {
+    expect(
+      cameraRollDegreesFromGammaRadians((179 * Math.PI) / 180),
+    ).toBeCloseTo(-1);
+    expect(
+      cameraRollDegreesFromGammaRadians((-179 * Math.PI) / 180),
+    ).toBeCloseTo(1);
+    expect(smoothCameraRollDegrees(-1, 1)).toBeCloseTo(-0.5);
+    expect(smoothCameraRollDegrees(89, -89)).toBeCloseTo(89.5);
+  });
+
+  it('ignores small stationary-pose noise before smoothing larger motion', () => {
+    expect(smoothHeadingDegrees(120, 120.4)).toBe(120);
+
+    const steady = orientationFromDeviceMotion(
+      {
+        ...initial,
+        estimatedAltitudeDegrees: 30,
+        rollDegrees: 0,
+        rawRotation: {
+          alphaRadians: 0,
+          betaRadians: -Math.PI / 3,
+          gammaRadians: Math.PI,
+        },
+      },
+      {
+        rotation: {
+          alpha: 0,
+          beta: (-59.7 * Math.PI) / 180,
+          gamma: (179.7 * Math.PI) / 180,
+        },
+      } as DeviceMotionMeasurement,
+    );
+
+    expect(steady.estimatedAltitudeDegrees).toBe(30);
+    expect(steady.rollDegrees).toBe(0);
   });
 
   it('smooths headings across north using the short circular path', () => {

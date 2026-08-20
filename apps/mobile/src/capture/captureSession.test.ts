@@ -3,6 +3,7 @@ import {
   assertCaptureDimensionsWithinLimits,
   captureOrientationConfidence,
   createCapturedTile,
+  guidedCaptureAltitudeStatus,
   type OrientationSnapshot,
 } from './captureSession';
 
@@ -15,6 +16,13 @@ const orientation: OrientationSnapshot = {
 };
 
 describe('capture proof tile representation', () => {
+  it('allows camera capture centres inclusively from 20 through 80 degrees', () => {
+    expect(guidedCaptureAltitudeStatus(19.9)).toBe('too-low');
+    expect(guidedCaptureAltitudeStatus(20)).toBe('allowed');
+    expect(guidedCaptureAltitudeStatus(80)).toBe('allowed');
+    expect(guidedCaptureAltitudeStatus(80.1)).toBe('too-high');
+  });
+
   it('rejects oversized or invalid image dimensions before durable storage', () => {
     expect(() =>
       assertCaptureDimensionsWithinLimits(12_000, 3_000),

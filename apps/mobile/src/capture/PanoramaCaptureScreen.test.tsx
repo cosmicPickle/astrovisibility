@@ -13,13 +13,14 @@ jest.mock('expo-camera', () => ({
   CameraView: 'CameraView',
   useCameraPermissions: () => [{ granted: false }, jest.fn()],
 }));
+let mockCaptureAltitudeDegrees = 30;
 jest.mock('./useCaptureOrientation', () => ({
   useCaptureOrientation: () => ({
     motionAvailable: false,
     orientation: {
       trueHeadingDegrees: 180,
       headingAccuracyDegrees: null,
-      estimatedAltitudeDegrees: 30,
+      estimatedAltitudeDegrees: mockCaptureAltitudeDegrees,
       rollDegrees: 0,
       rawRotation: null,
     },
@@ -104,6 +105,10 @@ const services = (): PanoramaCaptureServices => ({
 });
 
 describe('PanoramaCaptureScreen', () => {
+  beforeEach(() => {
+    mockCaptureAltitudeDegrees = 30;
+  });
+
   it('rechecks revocable permissions when capture returns to the foreground', async () => {
     const native: PanoramaCaptureServices = {
       ...services(),
@@ -227,4 +232,47 @@ describe('PanoramaCaptureScreen', () => {
       expect(controller.discardDraft).toHaveBeenCalledWith('draft-1'),
     );
   });
+
+  it.each([
+    [19, /Aim higher.*20°.*80°/i],
+    [81, /Aim lower.*20°.*80°/i],
+  ])(
+    'blocks camera capture at %i degrees and explains the valid altitude range',
+    async (altitudeDegrees, expectedMessage) => {
+      mockCaptureAltitudeDegrees = altitudeDegrees;
+      const native = {
+        ...services(),
+        requestCameraPermission: jest.fn().mockResolvedValue(true),
+        requestLocationPermission: jest.fn().mockResolvedValue(true),
+        takePicture: jest.fn(),
+      };
+      const controller: PanoramaCaptureController = {
+        load: jest.fn().mockResolvedValue({
+          profileName: 'Bedroom window',
+          activePanorama: null,
+          draft: null,
+        }),
+        createDraft: jest.fn().mockResolvedValue(emptyDraft),
+        addTile: jest.fn(),
+        updateTilePlacement: jest.fn(),
+        discardDraft: jest.fn(),
+        completeDraft: jest.fn(),
+      };
+      const screen = await renderScreen(controller, native);
+      await waitFor(() => screen.getByText('Capture surroundings'));
+      await act(async () => fireEvent.press(screen.getByText('Start capture')));
+      await waitFor(() => screen.getByText(expectedMessage));
+
+      expect(
+        screen.getByLabelText(/red out-of-range live capture footprint/i),
+      ).toBeTruthy();
+      expect(
+        screen.getByRole('button', { name: 'Capture tile' }).props
+          .accessibilityState,
+      ).toEqual({ disabled: true });
+      fireEvent.press(screen.getByRole('button', { name: 'Capture tile' }));
+      expect(native.takePicture).not.toHaveBeenCalled();
+      expect(screen.getByRole('button', { name: 'Import image' })).toBeTruthy();
+    },
+  );
 });

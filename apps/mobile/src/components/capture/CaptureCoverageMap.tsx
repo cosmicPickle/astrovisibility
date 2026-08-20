@@ -5,6 +5,7 @@ import type {
   CapturedProofTile,
   OrientationSnapshot,
 } from '../../capture/captureSession';
+import { guidedCaptureAltitudeStatus } from '../../capture/captureSession';
 import { colors } from '../../theme/tokens';
 import {
   captureCoverageXForAzimuth,
@@ -35,6 +36,18 @@ const liveFootprints = (orientation: OrientationSnapshot) =>
     MAP_SIZE,
   );
 
+const liveFootprintColor = (orientation: OrientationSnapshot) =>
+  guidedCaptureAltitudeStatus(orientation.estimatedAltitudeDegrees) ===
+  'allowed'
+    ? colors.primary
+    : colors.danger;
+
+const liveFootprintDescription = (orientation: OrientationSnapshot) =>
+  guidedCaptureAltitudeStatus(orientation.estimatedAltitudeDegrees) ===
+  'allowed'
+    ? 'a blue live capture footprint'
+    : 'a red out-of-range live capture footprint';
+
 export const CaptureCoverageMap = ({
   orientation,
   tiles,
@@ -43,7 +56,7 @@ export const CaptureCoverageMap = ({
   tiles: readonly CapturedProofTile[];
 }) => (
   <View
-    accessibilityLabel={`Unfolded sky map with red cardinal directions, ${tiles.length} green captured footprints, and a blue live capture footprint`}
+    accessibilityLabel={`Unfolded sky map with red cardinal directions, ${tiles.length} green captured footprints, and ${liveFootprintDescription(orientation)}`}
     style={styles.container}
   >
     <Svg height="100%" viewBox={`0 0 ${WIDTH} ${HEIGHT}`} width="100%">
@@ -89,13 +102,13 @@ export const CaptureCoverageMap = ({
       })}
       {liveFootprints(orientation).map((footprint, index) => (
         <Rect
-          fill={colors.primary}
+          fill={liveFootprintColor(orientation)}
           fillOpacity={0.14}
           height={footprint.height}
           key={`live-${index}`}
-          stroke={colors.primary}
+          stroke={liveFootprintColor(orientation)}
           strokeDasharray="5 3"
-          strokeOpacity={0.78}
+          strokeOpacity={0.9}
           strokeWidth={2}
           transform={`rotate(${footprint.rotationDegrees} ${footprint.centerX} ${footprint.centerY})`}
           width={footprint.width}
