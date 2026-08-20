@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { LayoutChangeEvent } from 'react-native';
 import { StyleSheet, View } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
@@ -16,8 +16,7 @@ import {
   type HorizontalCatalogueTarget,
 } from './catalogueViewport';
 import {
-  createPlanetariumCamera,
-  createPlanetariumInspectionCamera,
+  createEquatorialPlanetariumCamera,
   projectHorizontalDirection,
   type PlanetariumCamera,
 } from './planetariumProjection';
@@ -51,13 +50,8 @@ export interface SkyCanvasProps {
     opacityPercent: number;
     visible: boolean;
   } | null;
+  observerLatitudeDegrees: number;
 }
-
-const initialCamera = createPlanetariumCamera({
-  centerAltitudeDegrees: 45,
-  centerAzimuthDegrees: 180,
-  fieldOfViewDegrees: 180,
-});
 
 export const SkyCanvas = ({
   celestialEquatorDirections,
@@ -70,77 +64,22 @@ export const SkyCanvas = ({
   trajectory,
   panoramaOverlay,
   maskOverlay,
+  observerLatitudeDegrees,
 }: SkyCanvasProps) => {
   const [canvas, setCanvas] = useState({ widthPixels: 1, heightPixels: 1 });
-  const [cameraState, setCameraState] =
-    useState<PlanetariumCamera>(initialCamera);
-  const selectionFitRef = useRef<{
-    directionFitted: boolean;
-    manuallyNavigated: boolean;
-    targetId: string | null;
-    trajectoryFitted: boolean;
-  }>({
-    directionFitted: false,
-    manuallyNavigated: false,
-    targetId: null,
-    trajectoryFitted: false,
-  });
+  const [cameraState, setCameraState] = useState<PlanetariumCamera>(() =>
+    createEquatorialPlanetariumCamera({
+      centerAltitudeDegrees: 45,
+      centerAzimuthDegrees: 180,
+      fieldOfViewDegrees: 180,
+      observerLatitudeDegrees,
+    }),
+  );
 
   const visibleTargets = useMemo(
     () => queryCataloguePlanetarium(targets, cameraState, canvas),
     [canvas, cameraState, targets],
   );
-
-  useEffect(() => {
-    if (!selectedTargetId) {
-      selectionFitRef.current.targetId = null;
-      return;
-    }
-    if (selectionFitRef.current.targetId !== selectedTargetId) {
-      selectionFitRef.current = {
-        directionFitted: false,
-        manuallyNavigated: false,
-        targetId: selectedTargetId,
-        trajectoryFitted: false,
-      };
-    }
-    const fit = selectionFitRef.current;
-    if (
-      fit.manuallyNavigated ||
-      (trajectory ? fit.trajectoryFitted : fit.directionFitted)
-    ) {
-      return;
-    }
-    const trajectoryDirections =
-      trajectory?.samples
-        .filter(({ assessment }) => assessment !== 'belowHorizon')
-        .map((sample) => ({
-          altitudeDegrees: sample.refractedAltitudeDegrees,
-          azimuthDegrees: sample.azimuthDegreesClockwiseFromNorth,
-        })) ?? [];
-    const inspectionCamera =
-      createPlanetariumInspectionCamera(trajectoryDirections);
-    const nextCamera = inspectionCamera
-      ? inspectionCamera
-      : selectedDirection
-        ? createPlanetariumCamera({
-            centerAltitudeDegrees: selectedDirection.altitudeDegrees,
-            centerAzimuthDegrees: selectedDirection.azimuthDegrees,
-            fieldOfViewDegrees: 60,
-          })
-        : null;
-    if (!nextCamera) return;
-    if (trajectory) fit.trajectoryFitted = true;
-    else fit.directionFitted = true;
-    const timeoutId = setTimeout(() => {
-      setCameraState(nextCamera);
-    }, 0);
-    return () => clearTimeout(timeoutId);
-  }, [selectedDirection, selectedTargetId, trajectory]);
-
-  const markManualNavigation = useCallback(() => {
-    selectionFitRef.current.manuallyNavigated = true;
-  }, []);
 
   const handleTap = useCallback(
     (xPixels: number, yPixels: number, tapCamera: PlanetariumCamera) => {
@@ -210,7 +149,6 @@ export const SkyCanvas = ({
     cameraState,
     canvas,
     onCameraCommit: handleCameraCommit,
-    onManualNavigation: markManualNavigation,
     onTap: handleTap,
   });
 

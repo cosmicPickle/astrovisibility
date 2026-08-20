@@ -53,7 +53,6 @@ const Harness = ({
     canvas,
     onCameraCommit,
     onCameraPreview,
-    onManualNavigation: jest.fn(),
     onTap: jest.fn(),
   });
   return null;

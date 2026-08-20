@@ -12,9 +12,17 @@ export interface Vector3 {
   z: number;
 }
 
+export interface PlanetariumMountFrame {
+  kind: 'equatorial' | 'horizontal';
+  pole: Vector3;
+  quarterLongitude: Vector3;
+  zeroLongitude: Vector3;
+}
+
 export interface PlanetariumCamera {
   fieldOfViewDegrees: number;
   forward: Vector3;
+  mountFrame: PlanetariumMountFrame;
   right: Vector3;
   up: Vector3;
 }
@@ -80,6 +88,128 @@ const addVectors = (left: Vector3, right: Vector3): Vector3 => {
   };
 };
 
+const HORIZONTAL_MOUNT_FRAME: PlanetariumMountFrame = {
+  kind: 'horizontal',
+  pole: { x: 0, y: 1, z: 0 },
+  quarterLongitude: { x: 1, y: 0, z: 0 },
+  zeroLongitude: { x: 0, y: 0, z: 1 },
+};
+
+export const createEquatorialMountFrame = (
+  observerLatitudeDegrees: number,
+): PlanetariumMountFrame => {
+  'worklet';
+  if (
+    !Number.isFinite(observerLatitudeDegrees) ||
+    observerLatitudeDegrees < -90 ||
+    observerLatitudeDegrees > 90
+  ) {
+    throw new RangeError('observerLatitudeDegrees must be -90..90');
+  }
+  const latitudeRadians = observerLatitudeDegrees * DEGREES_TO_RADIANS;
+  const pole = {
+    x: 0,
+    y: Math.sin(latitudeRadians),
+    z: Math.cos(latitudeRadians),
+  };
+  const quarterLongitude = { x: 1, y: 0, z: 0 };
+  return {
+    kind: 'equatorial',
+    pole,
+    quarterLongitude,
+    zeroLongitude: normalize(cross(quarterLongitude, pole)),
+  };
+};
+
+const mountDirectionToVector = (
+  mountFrame: PlanetariumMountFrame,
+  direction: { latitudeDegrees: number; longitudeDegrees: number },
+): Vector3 => {
+  'worklet';
+  const longitudeRadians = direction.longitudeDegrees * DEGREES_TO_RADIANS;
+  const latitudeRadians = direction.latitudeDegrees * DEGREES_TO_RADIANS;
+  const equatorialRadius = Math.cos(latitudeRadians);
+  return addVectors(
+    addVectors(
+      scaleVector(
+        mountFrame.zeroLongitude,
+        equatorialRadius * Math.cos(longitudeRadians),
+      ),
+      scaleVector(
+        mountFrame.quarterLongitude,
+        equatorialRadius * Math.sin(longitudeRadians),
+      ),
+    ),
+    scaleVector(mountFrame.pole, Math.sin(latitudeRadians)),
+  );
+};
+
+const vectorToMountDirection = (
+  mountFrame: PlanetariumMountFrame,
+  rawVector: Vector3,
+) => {
+  'worklet';
+  const vector = normalize(rawVector);
+  return {
+    latitudeDegrees:
+      Math.asin(clamp(dot(vector, mountFrame.pole), -1, 1)) *
+      RADIANS_TO_DEGREES,
+    longitudeDegrees:
+      (((Math.atan2(
+        dot(vector, mountFrame.quarterLongitude),
+        dot(vector, mountFrame.zeroLongitude),
+      ) *
+        RADIANS_TO_DEGREES) %
+        360) +
+        360) %
+      360,
+  };
+};
+
+export const mountDirectionToHorizontalDirection = (
+  mountFrame: PlanetariumMountFrame,
+  direction: { latitudeDegrees: number; longitudeDegrees: number },
+): HorizontalDirectionDegrees =>
+  vectorToHorizontalDirection(mountDirectionToVector(mountFrame, direction));
+
+const createCameraInMountFrame = ({
+  centerLatitudeDegrees,
+  centerLongitudeDegrees,
+  fieldOfViewDegrees,
+  mountFrame,
+}: {
+  centerLatitudeDegrees: number;
+  centerLongitudeDegrees: number;
+  fieldOfViewDegrees: number;
+  mountFrame: PlanetariumMountFrame;
+}): PlanetariumCamera => {
+  'worklet';
+  const longitudeRadians = centerLongitudeDegrees * DEGREES_TO_RADIANS;
+  const latitudeRadians = centerLatitudeDegrees * DEGREES_TO_RADIANS;
+  const longitudeDirection = addVectors(
+    scaleVector(mountFrame.zeroLongitude, Math.cos(longitudeRadians)),
+    scaleVector(mountFrame.quarterLongitude, Math.sin(longitudeRadians)),
+  );
+  const right = addVectors(
+    scaleVector(mountFrame.zeroLongitude, -Math.sin(longitudeRadians)),
+    scaleVector(mountFrame.quarterLongitude, Math.cos(longitudeRadians)),
+  );
+  const up = addVectors(
+    scaleVector(longitudeDirection, -Math.sin(latitudeRadians)),
+    scaleVector(mountFrame.pole, Math.cos(latitudeRadians)),
+  );
+  return {
+    fieldOfViewDegrees,
+    forward: mountDirectionToVector(mountFrame, {
+      latitudeDegrees: centerLatitudeDegrees,
+      longitudeDegrees: centerLongitudeDegrees,
+    }),
+    mountFrame,
+    right: normalize(right),
+    up: normalize(up),
+  };
+};
+
 export const horizontalDirectionToVector = (
   direction: HorizontalDirectionDegrees,
 ): Vector3 => {
@@ -133,27 +263,42 @@ export const createPlanetariumCamera = ({
   ) {
     throw new RangeError('centerAltitudeDegrees must be -90..90');
   }
-  const azimuthRadians = centerAzimuthDegrees * DEGREES_TO_RADIANS;
-  const altitudeRadians = centerAltitudeDegrees * DEGREES_TO_RADIANS;
-  const right = {
-    x: Math.cos(azimuthRadians),
-    y: 0,
-    z: -Math.sin(azimuthRadians),
-  };
-  const up = {
-    x: -Math.sin(altitudeRadians) * Math.sin(azimuthRadians),
-    y: Math.cos(altitudeRadians),
-    z: -Math.sin(altitudeRadians) * Math.cos(azimuthRadians),
-  };
-  return {
+  return createCameraInMountFrame({
+    centerLatitudeDegrees: centerAltitudeDegrees,
+    centerLongitudeDegrees: centerAzimuthDegrees,
     fieldOfViewDegrees,
-    forward: horizontalDirectionToVector({
-      altitudeDegrees: centerAltitudeDegrees,
-      azimuthDegrees: centerAzimuthDegrees,
-    }),
-    right,
-    up,
-  };
+    mountFrame: HORIZONTAL_MOUNT_FRAME,
+  });
+};
+
+export const createEquatorialPlanetariumCamera = ({
+  centerAltitudeDegrees,
+  centerAzimuthDegrees,
+  fieldOfViewDegrees,
+  observerLatitudeDegrees,
+}: {
+  centerAltitudeDegrees: number;
+  centerAzimuthDegrees: number;
+  fieldOfViewDegrees: number;
+  observerLatitudeDegrees: number;
+}): PlanetariumCamera => {
+  'worklet';
+  const validatedHorizontalCamera = createPlanetariumCamera({
+    centerAltitudeDegrees,
+    centerAzimuthDegrees,
+    fieldOfViewDegrees,
+  });
+  const mountFrame = createEquatorialMountFrame(observerLatitudeDegrees);
+  const mountCenter = vectorToMountDirection(
+    mountFrame,
+    validatedHorizontalCamera.forward,
+  );
+  return createCameraInMountFrame({
+    centerLatitudeDegrees: mountCenter.latitudeDegrees,
+    centerLongitudeDegrees: mountCenter.longitudeDegrees,
+    fieldOfViewDegrees,
+    mountFrame,
+  });
 };
 
 export const getPlanetariumCameraCenter = (
@@ -281,7 +426,7 @@ const normalizeSignedDegrees = (degrees: number) => {
 const STELLARIUM_MANUAL_POLE_MARGIN_DEGREES = 0.000001;
 
 /**
- * Incremental level Alt/Az drag matching Stellarium's dragView/panView model.
+ * Incremental mount-frame drag matching Stellarium's dragView/panView model.
  * Both pointer directions are evaluated in the current mount frame. The next
  * camera is rebuilt from azimuth/altitude, so a drag cannot accumulate roll.
  */
@@ -304,20 +449,35 @@ export const applyPlanetariumPan = (
   );
   if (!previousDirection || !currentDirection) return currentCamera;
 
-  const center = getPlanetariumCameraCenter(currentCamera);
-  const pointerAzimuthDeltaDegrees = normalizeSignedDegrees(
-    currentDirection.azimuthDegrees - previousDirection.azimuthDegrees,
+  const previousMountDirection = vectorToMountDirection(
+    currentCamera.mountFrame,
+    horizontalDirectionToVector(previousDirection),
   );
-  const altitudeDeltaDegrees =
-    previousDirection.altitudeDegrees - currentDirection.altitudeDegrees;
-  return createPlanetariumCamera({
-    centerAltitudeDegrees: clamp(
-      center.altitudeDegrees + altitudeDeltaDegrees,
+  const currentMountDirection = vectorToMountDirection(
+    currentCamera.mountFrame,
+    horizontalDirectionToVector(currentDirection),
+  );
+  const center = vectorToMountDirection(
+    currentCamera.mountFrame,
+    currentCamera.forward,
+  );
+  const pointerLongitudeDeltaDegrees = normalizeSignedDegrees(
+    currentMountDirection.longitudeDegrees -
+      previousMountDirection.longitudeDegrees,
+  );
+  const latitudeDeltaDegrees =
+    previousMountDirection.latitudeDegrees -
+    currentMountDirection.latitudeDegrees;
+  return createCameraInMountFrame({
+    centerLatitudeDegrees: clamp(
+      center.latitudeDegrees + latitudeDeltaDegrees,
       -90 + STELLARIUM_MANUAL_POLE_MARGIN_DEGREES,
       90 - STELLARIUM_MANUAL_POLE_MARGIN_DEGREES,
     ),
-    centerAzimuthDegrees: center.azimuthDegrees - pointerAzimuthDeltaDegrees,
+    centerLongitudeDegrees:
+      center.longitudeDegrees - pointerLongitudeDeltaDegrees,
     fieldOfViewDegrees: currentCamera.fieldOfViewDegrees,
+    mountFrame: currentCamera.mountFrame,
   });
 };
 
@@ -442,36 +602,4 @@ export const densifyHorizontalPath = (
     }
   }
   return densified;
-};
-
-export const createPlanetariumInspectionCamera = (
-  directions: readonly HorizontalDirectionDegrees[],
-): PlanetariumCamera | null => {
-  if (directions.length === 0) return null;
-  const sum = directions.reduce(
-    (total, direction) =>
-      addVectors(total, horizontalDirectionToVector(direction)),
-    { x: 0, y: 0, z: 0 },
-  );
-  const centerVector =
-    magnitude(sum) <= VECTOR_EPSILON
-      ? horizontalDirectionToVector(
-          directions[Math.floor(directions.length / 2)]!,
-        )
-      : normalize(sum);
-  const center = vectorToHorizontalDirection(centerVector);
-  const maximumDistance = Math.max(
-    ...directions.map((direction) =>
-      angularSeparationDegrees(center, direction),
-    ),
-  );
-  return createPlanetariumCamera({
-    centerAltitudeDegrees: center.altitudeDegrees,
-    centerAzimuthDegrees: center.azimuthDegrees,
-    fieldOfViewDegrees: clamp(
-      Math.max(24, maximumDistance * 2.4),
-      MINIMUM_PLANETARIUM_FIELD_OF_VIEW_DEGREES,
-      MAXIMUM_PLANETARIUM_FIELD_OF_VIEW_DEGREES,
-    ),
-  });
 };

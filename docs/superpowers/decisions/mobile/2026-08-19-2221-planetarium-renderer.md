@@ -6,9 +6,11 @@
 **Correction:** Revised on 2026-08-20 after release interaction review. The
 equidistant 360-degree decision was incorrect and is superseded by the
 stereographic 235-degree camera described here. The original focal-anchored
-pinch and free-roll camera behavior is also superseded by the level horizontal
-mount and centred FOV-only zoom in
+pinch and free-roll camera behavior is superseded by centred FOV-only zoom in
 `docs/superpowers/specs/mobile/2026-08-20-0942-stellarium-sky-engine-rewrite.md`.
+The interim level horizontal mount and automatic target/trajectory fit are
+superseded by the equatorial mount and selection-stable camera in
+`docs/superpowers/specs/mobile/2026-08-20-1037-equatorial-sky-mount-correction.md`.
 
 ## Problem
 
@@ -33,6 +35,10 @@ the cylindrical projection is therefore superseded.
   maximum field of view is 235 degrees; narrower fields remain centred on the
   camera's azimuth/altitude direction. A stereographic projection cannot show
   the camera antipode because it maps to infinity.
+- Use an equatorial camera mount for interactive navigation: the celestial pole
+  defines screen-up, the celestial equator is locally horizontal, and local
+  Alt/Az geometry carries the observer-dependent tilt. Target selection and
+  deselection never move or fit this camera.
 - Reproject the horizontal coordinate grid, cardinal directions, catalogue
   targets, angular outlines, trajectory, transition/time markers, selected
   equipment frame, panorama mesh, and mask geometry through the same camera on

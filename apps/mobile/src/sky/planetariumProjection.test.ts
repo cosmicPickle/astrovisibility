@@ -4,8 +4,11 @@ import {
   applyPlanetariumPan,
   applyPlanetariumZoom,
   createPlanetariumCamera,
+  createEquatorialMountFrame,
+  createEquatorialPlanetariumCamera,
   densifyHorizontalPath,
   getPlanetariumCameraCenter,
+  mountDirectionToHorizontalDirection,
   MAXIMUM_PLANETARIUM_FIELD_OF_VIEW_DEGREES,
   projectHorizontalDirection,
   unprojectCanvasPoint,
@@ -83,6 +86,116 @@ describe('planetarium spherical camera', () => {
     );
 
     expect(Math.max(...radii) - Math.min(...radii)).toBeLessThan(1e-7);
+  });
+
+  it('keeps the equator locally horizontal in the equatorial mount', () => {
+    const observerLatitudeDegrees = 42.7;
+    const mountFrame = createEquatorialMountFrame(observerLatitudeDegrees);
+    const center = mountDirectionToHorizontalDirection(mountFrame, {
+      latitudeDegrees: 0,
+      longitudeDegrees: 35,
+    });
+    const camera = createEquatorialPlanetariumCamera({
+      centerAltitudeDegrees: center.altitudeDegrees,
+      centerAzimuthDegrees: center.azimuthDegrees,
+      fieldOfViewDegrees: 120,
+      observerLatitudeDegrees,
+    });
+    const left = projectHorizontalDirection(
+      mountDirectionToHorizontalDirection(mountFrame, {
+        latitudeDegrees: 0,
+        longitudeDegrees: 25,
+      }),
+      camera,
+      canvas,
+    );
+    const right = projectHorizontalDirection(
+      mountDirectionToHorizontalDirection(mountFrame, {
+        latitudeDegrees: 0,
+        longitudeDegrees: 45,
+      }),
+      camera,
+      canvas,
+    );
+
+    expect(left.yPixels).toBeCloseTo(canvas.heightPixels / 2, 8);
+    expect(right.yPixels).toBeCloseTo(canvas.heightPixels / 2, 8);
+    expect(left.xPixels).toBeLessThan(right.xPixels);
+  });
+
+  it('projects fixed-declination paths as circles around the celestial pole', () => {
+    const observerLatitudeDegrees = 42.7;
+    const mountFrame = createEquatorialMountFrame(observerLatitudeDegrees);
+    const northCelestialPole = mountDirectionToHorizontalDirection(mountFrame, {
+      latitudeDegrees: 90,
+      longitudeDegrees: 0,
+    });
+    const camera = createEquatorialPlanetariumCamera({
+      centerAltitudeDegrees: northCelestialPole.altitudeDegrees,
+      centerAzimuthDegrees: northCelestialPole.azimuthDegrees,
+      fieldOfViewDegrees: 120,
+      observerLatitudeDegrees,
+    });
+    const radii = Array.from({ length: 24 }, (_, index) => {
+      const point = projectHorizontalDirection(
+        mountDirectionToHorizontalDirection(mountFrame, {
+          latitudeDegrees: 68,
+          longitudeDegrees: index * 15,
+        }),
+        camera,
+        canvas,
+      );
+      return Math.hypot(
+        point.xPixels - canvas.widthPixels / 2,
+        point.yPixels - canvas.heightPixels / 2,
+      );
+    });
+
+    expect(Math.max(...radii) - Math.min(...radii)).toBeLessThan(1e-7);
+  });
+
+  it('round-trips horizontal overlays through an equatorial camera', () => {
+    const camera = createEquatorialPlanetariumCamera({
+      centerAltitudeDegrees: 55,
+      centerAzimuthDegrees: 350,
+      fieldOfViewDegrees: 180,
+      observerLatitudeDegrees: 42.7,
+    });
+    for (const direction of [
+      { altitudeDegrees: 0, azimuthDegrees: 359.5 },
+      { altitudeDegrees: 35, azimuthDegrees: 12 },
+      { altitudeDegrees: 89.5, azimuthDegrees: 180 },
+    ]) {
+      const point = projectHorizontalDirection(direction, camera, canvas);
+      const restored = unprojectCanvasPoint(point, camera, canvas);
+      expect(restored).not.toBeNull();
+      expect(angularSeparationDegrees(direction, restored!)).toBeLessThan(1e-7);
+    }
+  });
+
+  it('pans incrementally in the equatorial mount without tilting its frame', () => {
+    const observerLatitudeDegrees = 42.7;
+    const camera = createEquatorialPlanetariumCamera({
+      centerAltitudeDegrees: 45,
+      centerAzimuthDegrees: 180,
+      fieldOfViewDegrees: 100,
+      observerLatitudeDegrees,
+    });
+    const next = applyPlanetariumPan(
+      camera,
+      canvas,
+      { xPixels: 170, yPixels: 430 },
+      { xPixels: 190, yPixels: 415 },
+    );
+    const mountFrame = createEquatorialMountFrame(observerLatitudeDegrees);
+    const poleDotRight =
+      next.right.x * mountFrame.pole.x +
+      next.right.y * mountFrame.pole.y +
+      next.right.z * mountFrame.pole.z;
+
+    expect(next.mountFrame.kind).toBe('equatorial');
+    expect(next.mountFrame.pole).toEqual(mountFrame.pole);
+    expect(poleDotRight).toBeCloseTo(0, 10);
   });
 
   it('round-trips arbitrary directions through projection and inverse projection', () => {

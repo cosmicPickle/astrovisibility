@@ -108,6 +108,7 @@ export interface SkyRendererProps {
     opacityPercent: number;
     visible: boolean;
   } | null;
+  observerLatitudeDegrees: number;
 }
 
 export const skyViewController: SkyViewController = {
@@ -597,6 +598,7 @@ export const SkyViewScreen = ({
                 }
               : null
           }
+          observerLatitudeDegrees={data.profile.latitudeDegreesNorth}
         />
         {!data.hasMask ? (
           <View style={styles.noMaskCallout}>

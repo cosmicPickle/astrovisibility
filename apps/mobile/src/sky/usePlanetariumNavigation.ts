@@ -16,14 +16,12 @@ export function usePlanetariumNavigation({
   canvas,
   onCameraCommit,
   onCameraPreview,
-  onManualNavigation,
   onTap,
 }: {
   cameraState: PlanetariumCamera;
   canvas: CanvasSizePixels;
   onCameraCommit: (camera: PlanetariumCamera) => void;
   onCameraPreview?: (camera: PlanetariumCamera) => void;
-  onManualNavigation: () => void;
   onTap: (xPixels: number, yPixels: number, camera: PlanetariumCamera) => void;
 }) {
   const camera = useSharedValue(cameraState);
@@ -59,7 +57,6 @@ export function usePlanetariumNavigation({
         panPreviousX.set(event.x);
         panPreviousY.set(event.y);
         previewUpdateCount.set(CAMERA_PREVIEW_UPDATE_INTERVAL - 1);
-        runOnJS(onManualNavigation)();
       })
       .onUpdate((event) => {
         if (pinchActive.get() || panSuppressedAfterPinch.get()) return;
@@ -107,7 +104,6 @@ export function usePlanetariumNavigation({
         pinchCommitted.set(false);
         pinchBaseline.set(camera.get());
         previewUpdateCount.set(CAMERA_PREVIEW_UPDATE_INTERVAL - 1);
-        runOnJS(onManualNavigation)();
       })
       .onUpdate((event) => {
         const nextCamera = applyPlanetariumZoom(
@@ -147,7 +143,6 @@ export function usePlanetariumNavigation({
     canvas,
     commitCamera,
     onCameraPreview,
-    onManualNavigation,
     onTap,
     panSuppressedAfterPinch,
     panPreviousX,
