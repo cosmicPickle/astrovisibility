@@ -7,6 +7,7 @@ import type {
   SelectedTargetTrajectory,
   TrajectoryMarker,
 } from '../astronomy/trajectory';
+import type { TargetDiurnalOrbit } from '../astronomy/diurnalTrajectory';
 import type { VisibilityMask } from '../mask/visibilityMask';
 import type { EquipmentRecord } from '../storage/equipmentRepository';
 import type { ActivePanorama } from '../storage/panoramaDraftRepository';
@@ -30,6 +31,7 @@ export interface SkyCanvasProps {
     altitudeDegrees: number;
     azimuthDegrees: number;
   }[];
+  diurnalOrbit: TargetDiurnalOrbit | null;
   fieldOfViewEquipment: EquipmentRecord | null;
   onInspectTrajectoryMarker: (marker: TrajectoryMarker) => void;
   onSelectTarget: (target: HorizontalCatalogueTarget) => void;
@@ -55,6 +57,7 @@ export interface SkyCanvasProps {
 
 export const SkyCanvas = ({
   celestialEquatorDirections,
+  diurnalOrbit,
   fieldOfViewEquipment,
   onInspectTrajectoryMarker,
   onSelectTarget,
@@ -171,6 +174,7 @@ export const SkyCanvas = ({
             camera={navigation.camera}
             canvas={canvas}
             celestialEquatorDirections={celestialEquatorDirections}
+            diurnalOrbit={diurnalOrbit}
             equipment={fieldOfViewEquipment}
             mask={maskOverlay?.visible ? maskOverlay.mask : null}
             maskOpacity={(maskOverlay?.opacityPercent ?? 0) / 100}

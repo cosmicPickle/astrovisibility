@@ -22,17 +22,22 @@ export const createProjectedTrajectoryGroups = (
 ): ProjectedTrajectoryGroup[] => {
   if (!trajectory) return [];
   const groups: ProjectedTrajectoryGroup[] = [];
+  let current: ProjectedTrajectoryGroup | null = null;
   for (const sample of trajectory.samples) {
-    if (sample.assessment === 'belowHorizon') continue;
+    if (sample.assessment === 'belowHorizon') {
+      current = null;
+      continue;
+    }
     const direction = directionForSample(sample);
-    const current = groups.at(-1);
     if (!current) {
-      groups.push({ assessment: sample.assessment, directions: [direction] });
+      current = { assessment: sample.assessment, directions: [direction] };
+      groups.push(current);
       continue;
     }
     if (current.assessment !== sample.assessment) {
       current.directions.push(direction);
-      groups.push({ assessment: sample.assessment, directions: [direction] });
+      current = { assessment: sample.assessment, directions: [direction] };
+      groups.push(current);
       continue;
     }
     current.directions.push(direction);

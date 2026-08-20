@@ -1,4 +1,13 @@
-import { createTonightObservingWindow } from './observingWindow';
+import {
+  createDefaultObservingContext,
+  createTonightObservingWindow,
+} from './observingWindow';
+
+const sofiaObserver = {
+  latitudeDegreesNorth: 42.6977,
+  longitudeDegreesEast: 23.3219,
+  elevationMetersAboveMeanSeaLevel: 550,
+};
 
 describe('Tonight observing window', () => {
   it('uses astronomical dusk through following astronomical dawn across midnight', () => {
@@ -61,5 +70,35 @@ describe('Tonight observing window', () => {
         'Sunset and sunrise are unavailable; using 18:00–06:00 local time.',
       ],
     });
+  });
+});
+
+describe('default observing context', () => {
+  it('uses the current instant when it lies inside the active night', () => {
+    const context = createDefaultObservingContext({
+      nowTimestampUtc: '2026-08-20T00:00:00.000Z',
+      observer: sofiaObserver,
+      timeZoneId: 'Europe/Sofia',
+    });
+
+    expect(Date.parse(context.window.startTimestampUtc)).toBeLessThanOrEqual(
+      Date.parse(context.sceneTimestampUtc),
+    );
+    expect(Date.parse(context.window.endTimestampUtc)).toBeGreaterThanOrEqual(
+      Date.parse(context.sceneTimestampUtc),
+    );
+    expect(context.sceneTimestampUtc).toBe('2026-08-20T00:00:00.000Z');
+    expect(context.window.startTimestampUtc).toMatch(/^2026-08-19T/);
+  });
+
+  it('uses the upcoming night start for a daytime launch', () => {
+    const context = createDefaultObservingContext({
+      nowTimestampUtc: '2026-08-20T07:31:00.000Z',
+      observer: sofiaObserver,
+      timeZoneId: 'Europe/Sofia',
+    });
+
+    expect(context.window.startTimestampUtc).toMatch(/^2026-08-20T/);
+    expect(context.sceneTimestampUtc).toBe(context.window.startTimestampUtc);
   });
 });

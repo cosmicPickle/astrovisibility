@@ -69,6 +69,7 @@ const trajectory: SelectedTargetTrajectory = {
 
 const commonProps = {
   celestialEquatorDirections: [],
+  diurnalOrbit: null,
   fieldOfViewEquipment: null,
   maskOverlay: null,
   observerLatitudeDegrees: 42.7,

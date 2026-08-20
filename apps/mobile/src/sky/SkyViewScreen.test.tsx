@@ -136,6 +136,9 @@ const renderer = ({ onSelectTarget, targets }: SkyRendererProps) => (
 
 const rendererWithStageFourOverlays = (props: SkyRendererProps) => (
   <View accessibilityLabel="Test sky renderer">
+    <Text testID="diurnal-orbit-sample-count">
+      {props.diurnalOrbit?.samples.length ?? 0}
+    </Text>
     <Text testID="trajectory-sample-count">
       {props.trajectory?.samples.length ?? 0}
     </Text>
@@ -568,6 +571,9 @@ describe('SkyViewScreen', () => {
     expect(
       Number(screen.getByTestId('trajectory-sample-count').props.children),
     ).toBeGreaterThan(1);
+    expect(
+      Number(screen.getByTestId('diurnal-orbit-sample-count').props.children),
+    ).toBeGreaterThan(1_400);
     expect(
       Number(screen.getByTestId('trajectory-marker-count').props.children),
     ).toBeGreaterThan(1);

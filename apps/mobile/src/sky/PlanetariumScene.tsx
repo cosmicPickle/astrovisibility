@@ -19,6 +19,7 @@ import {
 import { useDerivedValue, type SharedValue } from 'react-native-reanimated';
 
 import type { SelectedTargetTrajectory } from '../astronomy/trajectory';
+import type { TargetDiurnalOrbit } from '../astronomy/diurnalTrajectory';
 import { createRotatedFieldOfViewRectangle } from '../equipment/fieldOfView';
 import type { VisibilityMask } from '../mask/visibilityMask';
 import type { EquipmentRecord } from '../storage/equipmentRepository';
@@ -419,18 +420,39 @@ function PlanetariumTarget({
 function TrajectoryLayer({
   camera,
   canvas,
+  diurnalOrbit,
   trajectory,
 }: {
   camera: SharedValue<PlanetariumCamera>;
   canvas: CanvasSizePixels;
+  diurnalOrbit: TargetDiurnalOrbit | null;
   trajectory: SelectedTargetTrajectory | null;
 }) {
   const groups = useMemo(
     () => createProjectedTrajectoryGroups(trajectory),
     [trajectory],
   );
+  const diurnalDirections = useMemo(
+    () =>
+      diurnalOrbit?.samples.map((sample) => ({
+        altitudeDegrees: sample.refractedAltitudeDegrees,
+        azimuthDegrees: sample.azimuthDegreesClockwiseFromNorth,
+      })) ?? [],
+    [diurnalOrbit],
+  );
   return (
     <>
+      {diurnalDirections.length > 1 ? (
+        <ProjectedPath
+          camera={camera}
+          canvas={canvas}
+          color={colors.mutedText}
+          dash={[4, 6]}
+          directions={diurnalDirections}
+          strokeOpacity={0.48}
+          strokeWidth={1.5}
+        />
+      ) : null}
       {groups.map((group, index) => (
         <ProjectedPath
           camera={camera}
@@ -709,6 +731,7 @@ export function PlanetariumScene({
   camera,
   canvas,
   celestialEquatorDirections,
+  diurnalOrbit,
   equipment,
   mask,
   maskOpacity,
@@ -722,6 +745,7 @@ export function PlanetariumScene({
   camera: SharedValue<PlanetariumCamera>;
   canvas: CanvasSizePixels;
   celestialEquatorDirections: readonly HorizontalDirectionDegrees[];
+  diurnalOrbit: TargetDiurnalOrbit | null;
   equipment: EquipmentRecord | null;
   mask: VisibilityMask | null;
   maskOpacity: number;
@@ -760,6 +784,7 @@ export function PlanetariumScene({
       <TrajectoryLayer
         camera={camera}
         canvas={canvas}
+        diurnalOrbit={diurnalOrbit}
         trajectory={trajectory}
       />
       {selectedDirection && equipment ? (

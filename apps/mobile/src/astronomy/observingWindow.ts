@@ -8,6 +8,7 @@ import {
 import type { ObserverLocation } from './horizontalCoordinates';
 import {
   addDaysToLocalDate,
+  localCivilDateTimeAtInstant,
   type LocalCivilDate,
   type LocalCivilTimeResolution,
   type ObservingWindow,
@@ -155,4 +156,43 @@ export const createTonightObservingWindow = (input: {
       'Sunset and sunrise are unavailable; using 18:00–06:00 local time.',
     ],
   };
+};
+
+export const createDefaultObservingContext = (input: {
+  nowTimestampUtc: string;
+  observer: ObserverLocation;
+  timeZoneId: string;
+}): Readonly<{
+  sceneTimestampUtc: string;
+  window: ObservingWindow;
+}> => {
+  const nowMilliseconds = Date.parse(input.nowTimestampUtc);
+  if (!input.nowTimestampUtc.endsWith('Z') || Number.isNaN(nowMilliseconds)) {
+    throw new TypeError('nowTimestampUtc must be a valid UTC instant');
+  }
+  const localNow = localCivilDateTimeAtInstant(
+    input.nowTimestampUtc,
+    input.timeZoneId,
+  );
+  const todayWindow = createTonightObservingWindow({
+    civilDate: localNow,
+    observer: input.observer,
+    timeZoneId: input.timeZoneId,
+  });
+  const previousWindow = createTonightObservingWindow({
+    civilDate: addDaysToLocalDate(localNow, -1),
+    observer: input.observer,
+    timeZoneId: input.timeZoneId,
+  });
+  const activeWindow = [previousWindow, todayWindow].find(
+    ({ startTimestampUtc, endTimestampUtc }) =>
+      nowMilliseconds >= Date.parse(startTimestampUtc) &&
+      nowMilliseconds <= Date.parse(endTimestampUtc),
+  );
+  return activeWindow
+    ? { sceneTimestampUtc: input.nowTimestampUtc, window: activeWindow }
+    : {
+        sceneTimestampUtc: todayWindow.startTimestampUtc,
+        window: todayWindow,
+      };
 };

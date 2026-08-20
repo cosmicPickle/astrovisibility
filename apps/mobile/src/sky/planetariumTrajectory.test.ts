@@ -1,9 +1,16 @@
 import type { SelectedTargetTrajectory } from '../astronomy/trajectory';
+import { createWindowHorizontalProjector } from '../astronomy/horizontalCoordinates';
+import { createSelectedTargetTrajectory } from '../astronomy/trajectory';
 import {
+  createEquatorialMountFrame,
+  createEquatorialPlanetariumCamera,
   createPlanetariumCamera,
+  mountDirectionToHorizontalDirection,
   projectHorizontalDirection,
 } from './planetariumProjection';
 import { createProjectedTrajectoryGroups } from './planetariumTrajectory';
+
+const canvas = { widthPixels: 400, heightPixels: 800 };
 
 const trajectory: SelectedTargetTrajectory = {
   samples: [
@@ -70,6 +77,20 @@ describe('planetarium trajectory projection', () => {
     ).toBe(true);
   });
 
+  it('splits above-horizon groups across a below-horizon gap', () => {
+    const groups = createProjectedTrajectoryGroups({
+      ...trajectory,
+      samples: [
+        trajectory.samples[0]!,
+        { ...trajectory.samples[1]!, assessment: 'belowHorizon' },
+        trajectory.samples[2]!,
+      ],
+    });
+
+    expect(groups).toHaveLength(2);
+    expect(groups.map(({ directions }) => directions.length)).toEqual([1, 1]);
+  });
+
   it('keeps a north-crossing path locally continuous after projection', () => {
     const camera = createPlanetariumCamera({
       centerAltitudeDegrees: 50,
@@ -94,5 +115,53 @@ describe('planetarium trajectory projection', () => {
         ),
       ).toBeLessThan(40);
     }
+  });
+
+  it('keeps the real Iris Nebula night track on its small circle around the celestial pole', () => {
+    const observer = {
+      latitudeDegreesNorth: 42.7,
+      longitudeDegreesEast: 23.3,
+      elevationMetersAboveMeanSeaLevel: 550,
+    };
+    const target = {
+      rightAscensionJ2000Hours: 21.03,
+      declinationJ2000Degrees: 68.17,
+    };
+    const window = {
+      startTimestampUtc: '2026-08-20T18:00:00.000Z',
+      endTimestampUtc: '2026-08-21T06:00:00.000Z',
+    };
+    const actualTrajectory = createSelectedTargetTrajectory({
+      observer,
+      projectAt: createWindowHorizontalProjector({ observer, target, window }),
+      target,
+      timeZoneId: 'Europe/Sofia',
+      window,
+    });
+    const mountFrame = createEquatorialMountFrame(
+      observer.latitudeDegreesNorth,
+    );
+    const pole = mountDirectionToHorizontalDirection(mountFrame, {
+      latitudeDegrees: 90,
+      longitudeDegrees: 0,
+    });
+    const poleCamera = createEquatorialPlanetariumCamera({
+      centerAltitudeDegrees: pole.altitudeDegrees,
+      centerAzimuthDegrees: pole.azimuthDegrees,
+      fieldOfViewDegrees: 120,
+      observerLatitudeDegrees: observer.latitudeDegreesNorth,
+    });
+    const radii = createProjectedTrajectoryGroups(actualTrajectory)
+      .flatMap(({ directions }) => directions)
+      .map((direction) => {
+        const point = projectHorizontalDirection(direction, poleCamera, canvas);
+        return Math.hypot(
+          point.xPixels - canvas.widthPixels / 2,
+          point.yPixels - canvas.heightPixels / 2,
+        );
+      });
+
+    expect(radii.length).toBeGreaterThan(600);
+    expect(Math.max(...radii) - Math.min(...radii)).toBeLessThan(0.5);
   });
 });

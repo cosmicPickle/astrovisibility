@@ -22,17 +22,18 @@ import {
   type VisibilityCalculationCache,
   type VisibilityCalculationOptions,
 } from '../astronomy/obstructionVisibility';
-import {
-  localCivilDateTimeAtInstant,
-  type ObservingWindow,
-} from '../astronomy/localCivilTime';
+import type { ObservingWindow } from '../astronomy/localCivilTime';
 import {
   formatAboveHorizonIntervals,
   formatDuration,
   formatObservingWindowRange,
   formatWindowControlLabel,
 } from '../astronomy/observingWindowPresentation';
-import { createTonightObservingWindow } from '../astronomy/observingWindow';
+import { createDefaultObservingContext } from '../astronomy/observingWindow';
+import {
+  createTargetDiurnalOrbit,
+  type TargetDiurnalOrbit,
+} from '../astronomy/diurnalTrajectory';
 import {
   createSelectedTargetTrajectory,
   mergeTrajectoryAssessment,
@@ -89,6 +90,7 @@ export interface SkyRendererProps {
     azimuthDegrees: number;
   }[];
   fieldOfViewEquipment: EquipmentRecord | null;
+  diurnalOrbit: TargetDiurnalOrbit | null;
   onInspectTrajectoryMarker: (marker: TrajectoryMarker) => void;
   onSelectTarget: (target: HorizontalCatalogueTarget) => void;
   selectedDirection: {
@@ -113,7 +115,7 @@ export interface SkyRendererProps {
 
 export const skyViewController: SkyViewController = {
   async load(profileId, requestedTimestampUtc) {
-    const timestampUtc = requestedTimestampUtc ?? new Date().toISOString();
+    const nowTimestampUtc = requestedTimestampUtc ?? new Date().toISOString();
     const storage = await bootstrapStorage();
     const [profile, equipment, selectedEquipment, catalogue, mask, panorama] =
       await Promise.all([
@@ -125,13 +127,21 @@ export const skyViewController: SkyViewController = {
         storage.panoramas.getActiveForProfile(profileId),
       ]);
     if (!profile) throw new Error(`Profile not found: ${profileId}`);
+    const observer = {
+      latitudeDegreesNorth: profile.latitudeDegreesNorth,
+      longitudeDegreesEast: profile.longitudeDegreesEast,
+      elevationMetersAboveMeanSeaLevel:
+        profile.elevationMetersAboveMeanSeaLevel,
+    };
+    const timestampUtc = requestedTimestampUtc
+      ? requestedTimestampUtc
+      : createDefaultObservingContext({
+          nowTimestampUtc,
+          observer,
+          timeZoneId: profile.timeZoneId,
+        }).sceneTimestampUtc;
     const projectedTargets = projectCatalogueAtInstant(catalogue, {
-      observer: {
-        latitudeDegreesNorth: profile.latitudeDegreesNorth,
-        longitudeDegreesEast: profile.longitudeDegreesEast,
-        elevationMetersAboveMeanSeaLevel:
-          profile.elevationMetersAboveMeanSeaLevel,
-      },
+      observer,
       timestampUtc,
     });
     return {
@@ -179,15 +189,11 @@ const observerForProfile = (profile: ProfileRecord) => ({
 });
 
 const createDefaultObservingWindow = (data: SkyViewData) => {
-  const localDate = localCivilDateTimeAtInstant(
-    data.timestampUtc,
-    data.profile.timeZoneId,
-  );
-  return createTonightObservingWindow({
-    civilDate: localDate,
+  return createDefaultObservingContext({
+    nowTimestampUtc: data.timestampUtc,
     observer: observerForProfile(data.profile),
     timeZoneId: data.profile.timeZoneId,
-  });
+  }).window;
 };
 
 export const SkyViewScreen = ({
@@ -319,6 +325,17 @@ export const SkyViewScreen = ({
           azimuthDegrees: horizontal.azimuthDegreesClockwiseFromNorth,
         };
   }, [data, selectedTarget]);
+  const diurnalOrbit = useMemo(
+    () =>
+      data && observingWindow && selectedTarget
+        ? createTargetDiurnalOrbit({
+            anchorTimestampUtc: observingWindow.startTimestampUtc,
+            observer: observerForProfile(data.profile),
+            target: selectedTarget,
+          })
+        : null,
+    [data, observingWindow, selectedTarget],
+  );
   const rendererSelectedDirection = useMemo(() => {
     if (selectedDirection) return selectedDirection;
     const sample = trajectory?.samples.find(
@@ -568,6 +585,7 @@ export const SkyViewScreen = ({
       <View style={styles.skyArea}>
         <SkyRenderer
           celestialEquatorDirections={celestialEquatorDirections}
+          diurnalOrbit={diurnalOrbit}
           fieldOfViewEquipment={selectedEquipment}
           onInspectTrajectoryMarker={setInspectedMarker}
           onSelectTarget={(target) => {
