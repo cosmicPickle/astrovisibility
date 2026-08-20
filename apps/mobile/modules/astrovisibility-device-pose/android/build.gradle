@@ -1,0 +1,15 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.cosmicpickle.astrovisibility.devicepose'
+version = '0.1.0'
+
+android {
+  namespace 'com.cosmicpickle.astrovisibility.devicepose'
+  defaultConfig {
+    versionCode 1
+    versionName '0.1.0'
+  }
+}

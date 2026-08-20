@@ -25,6 +25,9 @@ importers:
       astronomy-engine:
         specifier: 2.1.19
         version: 2.1.19
+      astrovisibility-device-pose:
+        specifier: file:modules/astrovisibility-device-pose
+        version: file:apps/mobile/modules/astrovisibility-device-pose(expo@57.0.2)(react-native@0.86.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/jest-preset@0.86.0(@babel/core@7.29.7(supports-color@8.1.1))(react@19.2.8)(supports-color@8.1.1))(@react-native/metro-config@0.86.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.2.15)(react@19.2.8)(supports-color@8.1.1))
       expo:
         specifier: 57.0.2
         version: 57.0.2(222cb689075469d44a8c2254fa103c37)
@@ -2931,6 +2934,16 @@ packages:
       {
         integrity: sha512-8yWKNf7UeNbH458h3sAJ6ZgAjE5jTXp/mNNRFoC20j2SHwZIjAQeEsBB2Q3uCFRaTCCJRv33K2XhkhZQMXoX6w==,
       }
+
+  astrovisibility-device-pose@file:apps/mobile/modules/astrovisibility-device-pose:
+    resolution:
+      {
+        directory: apps/mobile/modules/astrovisibility-device-pose,
+        type: directory,
+      }
+    peerDependencies:
+      expo: '*'
+      react-native: '*'
 
   asynckit@0.4.0:
     resolution:
@@ -10009,6 +10022,11 @@ snapshots:
   asap@2.0.6: {}
 
   astronomy-engine@2.1.19: {}
+
+  astrovisibility-device-pose@file:apps/mobile/modules/astrovisibility-device-pose(expo@57.0.2)(react-native@0.86.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/jest-preset@0.86.0(@babel/core@7.29.7(supports-color@8.1.1))(react@19.2.8)(supports-color@8.1.1))(@react-native/metro-config@0.86.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.2.15)(react@19.2.8)(supports-color@8.1.1)):
+    dependencies:
+      expo: 57.0.2(222cb689075469d44a8c2254fa103c37)
+      react-native: 0.86.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/jest-preset@0.86.0(@babel/core@7.29.7(supports-color@8.1.1))(react@19.2.8)(supports-color@8.1.1))(@react-native/metro-config@0.86.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.2.15)(react@19.2.8)(supports-color@8.1.1)
 
   asynckit@0.4.0: {}
 

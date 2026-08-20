@@ -5,6 +5,7 @@ import {
   applyPlanetariumZoom,
   createInitialPlanetariumCamera,
   createPlanetariumCamera,
+  createPlanetariumCameraFromBasis,
   createEquatorialMountFrame,
   createEquatorialPlanetariumCamera,
   densifyHorizontalPath,
@@ -18,6 +19,20 @@ import {
 const canvas = { widthPixels: 400, heightPixels: 800 };
 
 describe('planetarium spherical camera', () => {
+  it('accepts an orthonormal world basis without reducing it to centre angles', () => {
+    const camera = createPlanetariumCameraFromBasis({
+      fieldOfViewDegrees: 80,
+      forward: { x: 0, y: 0, z: 1 },
+      right: { x: Math.SQRT1_2, y: Math.SQRT1_2, z: 0 },
+      up: { x: -Math.SQRT1_2, y: Math.SQRT1_2, z: 0 },
+    });
+    expect(camera.forward).toEqual({ x: 0, y: 0, z: 1 });
+    expect(camera.right.x).toBeCloseTo(Math.SQRT1_2);
+    expect(camera.right.y).toBeCloseTo(Math.SQRT1_2);
+    expect(camera.up.x).toBeCloseTo(-Math.SQRT1_2);
+    expect(camera.up.y).toBeCloseTo(Math.SQRT1_2);
+  });
+
   it('projects the camera direction to the canvas centre', () => {
     const camera = createPlanetariumCamera({
       centerAltitudeDegrees: 45,

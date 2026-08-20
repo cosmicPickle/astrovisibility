@@ -139,6 +139,15 @@ than an independent technology. Building a focused Astrovisibility native module
 is allowed as an architectural pattern, but its platform APIs, permissions, and
 maintenance boundary must be specified.
 
+Astrovisibility adopts the local Android-only `astrovisibility-device-pose`
+Expo module for panorama capture. It uses the platform rotation-vector,
+geomagnetic-declination, and Camera2 characteristics APIs to provide one
+true-north camera basis and the normal rear-camera field of view. It adds no
+runtime service, network path, storage, analytics, or permission beyond the
+already approved camera/location capture flow; its native maintenance boundary
+is specified in
+`docs/superpowers/specs/mobile/2026-08-20-2256-pose-driven-planetarium-capture.md`.
+
 ## Pre-Approved Astronomy Libraries and Data
 
 The product-owner domain approval covers additional popular, maintained

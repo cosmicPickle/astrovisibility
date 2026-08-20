@@ -1,15 +1,8 @@
 import {
   applyTileCorrection,
   assertCaptureDimensionsWithinLimits,
-  CAPTURE_HORIZONTAL_FIELD_OF_VIEW_DEGREES,
   captureOrientationConfidence,
-  CAPTURE_VERTICAL_FIELD_OF_VIEW_DEGREES,
-  createGuidedCapturePlacement,
   createCapturedTile,
-  guidedCaptureAltitudeBounds,
-  guidedCaptureAltitudeStatus,
-  MAXIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES,
-  MINIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES,
   type OrientationSnapshot,
 } from './captureSession';
 
@@ -22,65 +15,6 @@ const orientation: OrientationSnapshot = {
 };
 
 describe('capture proof tile representation', () => {
-  const guidedPlacement = (centerAltitudeDegrees: number, rollDegrees = 0) =>
-    createGuidedCapturePlacement({
-      ...orientation,
-      estimatedAltitudeDegrees: centerAltitudeDegrees,
-      rollDegrees,
-    });
-
-  it('uses the whole camera frame for inclusive 20 through 80 degree limits', () => {
-    const lowerBoundaryCenter =
-      MINIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES +
-      CAPTURE_VERTICAL_FIELD_OF_VIEW_DEGREES / 2;
-    const upperBoundaryCenter =
-      MAXIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES -
-      CAPTURE_VERTICAL_FIELD_OF_VIEW_DEGREES / 2;
-
-    expect(
-      guidedCaptureAltitudeStatus(guidedPlacement(lowerBoundaryCenter - 0.1)),
-    ).toBe('too-low');
-    expect(
-      guidedCaptureAltitudeStatus(guidedPlacement(lowerBoundaryCenter)),
-    ).toBe('allowed');
-    expect(
-      guidedCaptureAltitudeStatus(guidedPlacement(upperBoundaryCenter)),
-    ).toBe('allowed');
-    expect(
-      guidedCaptureAltitudeStatus(guidedPlacement(upperBoundaryCenter + 0.1)),
-    ).toBe('too-high');
-  });
-
-  it('uses rotated top and bottom edges and rejects a frame spanning both limits', () => {
-    const rollDegrees = 10;
-    const rollRadians = (rollDegrees * Math.PI) / 180;
-    const expectedHalfExtent =
-      Math.abs(Math.cos(rollRadians)) *
-        (CAPTURE_VERTICAL_FIELD_OF_VIEW_DEGREES / 2) +
-      Math.abs(Math.sin(rollRadians)) *
-        (CAPTURE_HORIZONTAL_FIELD_OF_VIEW_DEGREES / 2);
-
-    expect(
-      guidedCaptureAltitudeBounds(guidedPlacement(50, rollDegrees)),
-    ).toEqual({
-      highestAltitudeDegrees: 50 + expectedHalfExtent,
-      lowestAltitudeDegrees: 50 - expectedHalfExtent,
-    });
-    expect(guidedCaptureAltitudeStatus(guidedPlacement(50, 90))).toBe(
-      'too-tall',
-    );
-  });
-
-  it('creates live guidance with the shared capture field of view', () => {
-    expect(createGuidedCapturePlacement(orientation)).toEqual({
-      centerAltitudeDegrees: 82,
-      centerAzimuthDegrees: 358,
-      horizontalFieldOfViewDegrees: 62,
-      rollDegrees: -2,
-      verticalFieldOfViewDegrees: 46.5,
-    });
-  });
-
   it('rejects oversized or invalid image dimensions before durable storage', () => {
     expect(() =>
       assertCaptureDimensionsWithinLimits(12_000, 3_000),

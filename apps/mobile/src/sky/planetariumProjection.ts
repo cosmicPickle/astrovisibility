@@ -271,6 +271,47 @@ export const createPlanetariumCamera = ({
   });
 };
 
+export const createPlanetariumCameraFromBasis = ({
+  fieldOfViewDegrees,
+  forward: rawForward,
+  right: rawRight,
+  up: rawUp,
+}: {
+  fieldOfViewDegrees: number;
+  forward: Vector3;
+  right: Vector3;
+  up: Vector3;
+}): PlanetariumCamera => {
+  'worklet';
+  // Reuse the public field-of-view validation without reducing the supplied
+  // orientation to Euler or centre angles.
+  createPlanetariumCamera({
+    centerAltitudeDegrees: 0,
+    centerAzimuthDegrees: 0,
+    fieldOfViewDegrees,
+  });
+  const forward = normalize(rawForward);
+  const upWithoutForward = addVectors(
+    rawUp,
+    scaleVector(forward, -dot(rawUp, forward)),
+  );
+  if (magnitude(upWithoutForward) <= VECTOR_EPSILON) {
+    throw new RangeError('Camera basis is degenerate');
+  }
+  const up = normalize(upWithoutForward);
+  const right = normalize(cross(up, forward));
+  if (dot(right, rawRight) <= 0) {
+    throw new RangeError('Camera basis has inconsistent handedness');
+  }
+  return {
+    fieldOfViewDegrees,
+    forward,
+    mountFrame: HORIZONTAL_MOUNT_FRAME,
+    right,
+    up,
+  };
+};
+
 export const createEquatorialPlanetariumCamera = ({
   centerAltitudeDegrees,
   centerAzimuthDegrees,

@@ -48,6 +48,7 @@ import { AppText } from '../components/ui/AppText';
 import { ModalSheet } from '../components/ui/ModalSheet';
 import { OpacitySlider } from '../components/ui/OpacitySlider';
 import { calculateAngularFieldOfView } from '../equipment/fieldOfView';
+import { observerForProfile } from '../profiles/profileObserver';
 import { bootstrapStorage } from '../storage/bootstrapStorage';
 import type { EquipmentRecord } from '../storage/equipmentRepository';
 import type { ActiveMaskRevision } from '../storage/maskRepository';
@@ -171,12 +172,6 @@ const aliasesFor = (target: CatalogueTarget) =>
     .filter((name) => name !== target.preferredName)
     .slice(0, 3)
     .join(' · ') || target.id;
-
-const observerForProfile = (profile: ProfileRecord) => ({
-  latitudeDegreesNorth: profile.latitudeDegreesNorth,
-  longitudeDegreesEast: profile.longitudeDegreesEast,
-  elevationMetersAboveMeanSeaLevel: profile.elevationMetersAboveMeanSeaLevel,
-});
 
 const createDefaultObservingWindow = (data: SkyViewData) => {
   return createDateObservingWindow({
