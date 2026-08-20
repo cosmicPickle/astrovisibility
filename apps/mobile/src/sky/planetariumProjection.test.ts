@@ -1,8 +1,8 @@
 import {
   angularSeparationDegrees,
   angularSizeDegreesToPixelsAtDirection,
-  applyPlanetariumAnchoredZoom,
-  applyPlanetariumGesture,
+  applyPlanetariumPan,
+  applyPlanetariumZoom,
   createPlanetariumCamera,
   densifyHorizontalPath,
   getPlanetariumCameraCenter,
@@ -99,64 +99,47 @@ describe('planetarium spherical camera', () => {
     expect(angularSeparationDegrees(direction, roundTrip!)).toBeLessThan(1e-7);
   });
 
-  it('rotates the actual celestial sphere while keeping the grabbed sky under the finger', () => {
+  it('applies Stellarium-style incremental Alt/Az drag without camera roll', () => {
     const camera = createPlanetariumCamera({
       centerAltitudeDegrees: 45,
       centerAzimuthDegrees: 180,
       fieldOfViewDegrees: 100,
     });
     const start = { xPixels: 170, yPixels: 430 };
-    const current = { xPixels: 290, yPixels: 360 };
+    const current = { xPixels: 178, yPixels: 426 };
     const grabbedDirection = unprojectCanvasPoint(start, camera, canvas)!;
-    const next = applyPlanetariumGesture(camera, canvas, {
-      currentFocalXPixels: current.xPixels,
-      currentFocalYPixels: current.yPixels,
-      scale: 1,
-      startFocalXPixels: start.xPixels,
-      startFocalYPixels: start.yPixels,
-    });
+    const next = applyPlanetariumPan(camera, canvas, start, current);
     const projectedAfterPan = projectHorizontalDirection(
       grabbedDirection,
       next,
       canvas,
     );
 
-    expect(projectedAfterPan.xPixels).toBeCloseTo(current.xPixels, 7);
-    expect(projectedAfterPan.yPixels).toBeCloseTo(current.yPixels, 7);
+    expect(projectedAfterPan.xPixels).toBeCloseTo(current.xPixels, 0);
+    expect(projectedAfterPan.yPixels).toBeCloseTo(current.yPixels, 0);
     expect(
       angularSeparationDegrees(
         getPlanetariumCameraCenter(camera),
         getPlanetariumCameraCenter(next),
       ),
-    ).toBeGreaterThan(10);
+    ).toBeGreaterThan(1);
   });
 
-  it('keeps focal-point sky fixed during pinch and has no release-only camera change', () => {
+  it('matches Stellarium pinch by changing only field of view', () => {
     const camera = createPlanetariumCamera({
       centerAltitudeDegrees: 30,
       centerAzimuthDegrees: 80,
       fieldOfViewDegrees: 160,
     });
-    const focal = { xPixels: 115, yPixels: 315 };
-    const anchoredDirection = unprojectCanvasPoint(focal, camera, canvas)!;
-    const gesture = {
-      currentFocalXPixels: focal.xPixels,
-      currentFocalYPixels: focal.yPixels,
-      scale: 2.4,
-      startFocalXPixels: focal.xPixels,
-      startFocalYPixels: focal.yPixels,
-    };
-    const duringGesture = applyPlanetariumGesture(camera, canvas, gesture);
-    const releaseResult = applyPlanetariumGesture(camera, canvas, gesture);
-    const projected = projectHorizontalDirection(
-      anchoredDirection,
-      duringGesture,
-      canvas,
-    );
+    const centerBefore = getPlanetariumCameraCenter(camera);
+    const duringGesture = applyPlanetariumZoom(camera, 2.4);
+    const releaseResult = applyPlanetariumZoom(camera, 2.4);
 
     expect(duringGesture.fieldOfViewDegrees).toBeCloseTo(160 / 2.4, 10);
-    expect(projected.xPixels).toBeCloseTo(focal.xPixels, 7);
-    expect(projected.yPixels).toBeCloseTo(focal.yPixels, 7);
+    expect(getPlanetariumCameraCenter(duringGesture)).toEqual(centerBefore);
+    expect(duringGesture.forward).toEqual(camera.forward);
+    expect(duringGesture.right).toEqual(camera.right);
+    expect(duringGesture.up).toEqual(camera.up);
     expect(releaseResult).toEqual(duringGesture);
   });
 
@@ -183,23 +166,47 @@ describe('planetarium spherical camera', () => {
     expect(edgeSize).toBeGreaterThan(centerSize);
   });
 
-  it('uses one fixed pinch anchor even when the reported centroid jitters', () => {
+  it('cannot move the camera centre when a pinch centroid jitters', () => {
     const camera = createPlanetariumCamera({
       centerAltitudeDegrees: 30,
       centerAzimuthDegrees: 80,
       fieldOfViewDegrees: 160,
     });
-    const anchor = { xPixels: 115, yPixels: 315 };
-    const anchoredDirection = unprojectCanvasPoint(anchor, camera, canvas)!;
-    const next = applyPlanetariumAnchoredZoom(camera, canvas, anchor, 2.4);
-    const projected = projectHorizontalDirection(
-      anchoredDirection,
-      next,
-      canvas,
-    );
+    const next = applyPlanetariumZoom(camera, 2.4);
 
-    expect(projected.xPixels).toBeCloseTo(anchor.xPixels, 7);
-    expect(projected.yPixels).toBeCloseTo(anchor.yPixels, 7);
+    expect(getPlanetariumCameraCenter(next)).toEqual(
+      getPlanetariumCameraCenter(camera),
+    );
+  });
+
+  it('rebuilds a level mount basis after a closed incremental drag trace', () => {
+    const initial = createPlanetariumCamera({
+      centerAltitudeDegrees: 45,
+      centerAzimuthDegrees: 180,
+      fieldOfViewDegrees: 100,
+    });
+    const points = [
+      { xPixels: 200, yPixels: 400 },
+      { xPixels: 260, yPixels: 400 },
+      { xPixels: 260, yPixels: 460 },
+      { xPixels: 200, yPixels: 460 },
+      { xPixels: 200, yPixels: 400 },
+    ];
+    const final = points
+      .slice(1)
+      .reduce(
+        (camera, point, index) =>
+          applyPlanetariumPan(camera, canvas, points[index]!, point),
+        initial,
+      );
+
+    expect(Number.isFinite(final.forward.x)).toBe(true);
+    expect(Number.isFinite(final.up.y)).toBe(true);
+    expect(Math.hypot(final.right.x, final.right.y, final.right.z)).toBeCloseTo(
+      1,
+      10,
+    );
+    expect(final.right.y).toBeCloseTo(0, 10);
   });
 
   it('projects a north-wrap and zenith-crossing trajectory without an S fold', () => {

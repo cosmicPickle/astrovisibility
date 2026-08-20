@@ -27,6 +27,10 @@ import { usePlanetariumNavigation } from './usePlanetariumNavigation';
 export const TRAJECTORY_MARKER_HIT_RADIUS_PIXELS = 22;
 
 export interface SkyCanvasProps {
+  celestialEquatorDirections: readonly {
+    altitudeDegrees: number;
+    azimuthDegrees: number;
+  }[];
   fieldOfViewEquipment: EquipmentRecord | null;
   onInspectTrajectoryMarker: (marker: TrajectoryMarker) => void;
   onSelectTarget: (target: HorizontalCatalogueTarget) => void;
@@ -56,6 +60,7 @@ const initialCamera = createPlanetariumCamera({
 });
 
 export const SkyCanvas = ({
+  celestialEquatorDirections,
   fieldOfViewEquipment,
   onInspectTrajectoryMarker,
   onSelectTarget,
@@ -68,8 +73,6 @@ export const SkyCanvas = ({
 }: SkyCanvasProps) => {
   const [canvas, setCanvas] = useState({ widthPixels: 1, heightPixels: 1 });
   const [cameraState, setCameraState] =
-    useState<PlanetariumCamera>(initialCamera);
-  const [catalogueCamera, setCatalogueCamera] =
     useState<PlanetariumCamera>(initialCamera);
   const selectionFitRef = useRef<{
     directionFitted: boolean;
@@ -84,8 +87,8 @@ export const SkyCanvas = ({
   });
 
   const visibleTargets = useMemo(
-    () => queryCataloguePlanetarium(targets, catalogueCamera, canvas),
-    [canvas, catalogueCamera, targets],
+    () => queryCataloguePlanetarium(targets, cameraState, canvas),
+    [canvas, cameraState, targets],
   );
 
   useEffect(() => {
@@ -131,7 +134,6 @@ export const SkyCanvas = ({
     else fit.directionFitted = true;
     const timeoutId = setTimeout(() => {
       setCameraState(nextCamera);
-      setCatalogueCamera(nextCamera);
     }, 0);
     return () => clearTimeout(timeoutId);
   }, [selectedDirection, selectedTargetId, trajectory]);
@@ -203,13 +205,11 @@ export const SkyCanvas = ({
 
   const handleCameraCommit = useCallback((camera: PlanetariumCamera) => {
     setCameraState(camera);
-    setCatalogueCamera(camera);
   }, []);
   const navigation = usePlanetariumNavigation({
     cameraState,
     canvas,
     onCameraCommit: handleCameraCommit,
-    onCameraPreview: setCatalogueCamera,
     onManualNavigation: markManualNavigation,
     onTap: handleTap,
   });
@@ -232,6 +232,7 @@ export const SkyCanvas = ({
           <PlanetariumScene
             camera={navigation.camera}
             canvas={canvas}
+            celestialEquatorDirections={celestialEquatorDirections}
             equipment={fieldOfViewEquipment}
             mask={maskOverlay?.visible ? maskOverlay.mask : null}
             maskOpacity={(maskOverlay?.opacityPercent ?? 0) / 100}

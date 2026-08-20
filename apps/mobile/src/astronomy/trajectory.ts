@@ -63,7 +63,10 @@ export interface SelectedTargetTrajectory {
   totalVisibleMilliseconds: number;
 }
 
-const FIVE_MINUTES_MILLISECONDS = 5 * 60 * 1000;
+// Rendering samples are actual evaluated instants, not great-circle
+// interpolation between the five-minute visibility-classification samples.
+// One minute bounds a sidereal track step to about 0.25 degrees.
+const RENDER_SAMPLE_MILLISECONDS = 60 * 1000;
 const TRANSITION_TOLERANCE_MILLISECONDS = 30 * 1000;
 const MAXIMUM_WINDOW_MILLISECONDS = 24 * 60 * 60 * 1000;
 
@@ -203,7 +206,7 @@ export const createSelectedTargetTrajectory = (input: {
   for (
     let timestampMilliseconds = startMilliseconds;
     timestampMilliseconds < endMilliseconds;
-    timestampMilliseconds += FIVE_MINUTES_MILLISECONDS
+    timestampMilliseconds += RENDER_SAMPLE_MILLISECONDS
   ) {
     sampleMilliseconds.push(timestampMilliseconds);
   }
@@ -292,5 +295,72 @@ export const createSelectedTargetTrajectory = (input: {
       0,
     ),
     totalVisibleMilliseconds: 0,
+  };
+};
+
+const assessmentAtTimestamp = (
+  samples: readonly TrajectorySample[],
+  timestampMilliseconds: number,
+): TrajectoryAssessment => {
+  let lowerIndex = 0;
+  let upperIndex = samples.length - 1;
+  while (lowerIndex < upperIndex) {
+    const middleIndex = Math.ceil((lowerIndex + upperIndex) / 2);
+    if (
+      Date.parse(samples[middleIndex]!.timestampUtc) <= timestampMilliseconds
+    ) {
+      lowerIndex = middleIndex;
+    } else {
+      upperIndex = middleIndex - 1;
+    }
+  }
+  return samples[lowerIndex]?.assessment ?? 'unassessed';
+};
+
+/**
+ * Applies asynchronous obstruction results to stable, exact-time render
+ * geometry. Only true assessment-boundary samples are added, so classification
+ * cannot replace the visible arc with a differently interpolated path.
+ */
+export const mergeTrajectoryAssessment = (
+  base: SelectedTargetTrajectory,
+  classified: SelectedTargetTrajectory,
+): SelectedTargetTrajectory => {
+  if (classified.samples.length === 0) return base;
+  const samplesByTimestamp = new Map(
+    base.samples.map((sample) => [sample.timestampUtc, sample]),
+  );
+  for (let index = 1; index < classified.samples.length; index += 1) {
+    const previous = classified.samples[index - 1]!;
+    const current = classified.samples[index]!;
+    if (previous.assessment !== current.assessment) {
+      samplesByTimestamp.set(previous.timestampUtc, previous);
+      samplesByTimestamp.set(current.timestampUtc, current);
+    }
+  }
+  const ordered = [...samplesByTimestamp.values()].sort(
+    (left, right) =>
+      Date.parse(left.timestampUtc) - Date.parse(right.timestampUtc),
+  );
+  const unwrappedAzimuths = unwrapTrajectoryAzimuths(
+    ordered.map(
+      ({ azimuthDegreesClockwiseFromNorth }) =>
+        azimuthDegreesClockwiseFromNorth,
+    ),
+  );
+  const samples = ordered.map((sample, index) => ({
+    ...sample,
+    assessment:
+      sample.assessment === 'belowHorizon'
+        ? 'belowHorizon'
+        : assessmentAtTimestamp(
+            classified.samples,
+            Date.parse(sample.timestampUtc),
+          ),
+    unwrappedAzimuthDegrees: unwrappedAzimuths[index]!,
+  }));
+  return {
+    ...classified,
+    samples,
   };
 };

@@ -12,7 +12,7 @@ const sofiaObserver = {
 };
 
 describe('selected-target trajectory', () => {
-  it('samples every five minutes, includes the exact end, and never claims visibility without a mask', () => {
+  it('samples exact one-minute render instants, includes the end, and never claims visibility without a mask', () => {
     const result = createSelectedTargetTrajectory({
       target: {
         rightAscensionJ2000Hours: 5.588,
@@ -28,8 +28,17 @@ describe('selected-target trajectory', () => {
 
     expect(result.samples.map((sample) => sample.timestampUtc)).toEqual([
       '2026-01-10T20:02:00.000Z',
+      '2026-01-10T20:03:00.000Z',
+      '2026-01-10T20:04:00.000Z',
+      '2026-01-10T20:05:00.000Z',
+      '2026-01-10T20:06:00.000Z',
       '2026-01-10T20:07:00.000Z',
+      '2026-01-10T20:08:00.000Z',
+      '2026-01-10T20:09:00.000Z',
+      '2026-01-10T20:10:00.000Z',
+      '2026-01-10T20:11:00.000Z',
       '2026-01-10T20:12:00.000Z',
+      '2026-01-10T20:13:00.000Z',
       '2026-01-10T20:14:00.000Z',
     ]);
     expect(

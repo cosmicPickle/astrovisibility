@@ -428,9 +428,9 @@ describe('SkyViewScreen', () => {
 
     await waitFor(() => screen.getByText('M 42 · NGC 1976'));
     await waitFor(() =>
-      expect(screen.getByTestId('trajectory-sample-count').props.children).toBe(
-        2,
-      ),
+      expect(
+        Number(screen.getByTestId('trajectory-sample-count').props.children),
+      ).toBeGreaterThan(2),
     );
     expect(skyController.load).toHaveBeenCalledWith(
       profile.id,
@@ -601,15 +601,44 @@ describe('SkyViewScreen', () => {
       screen.getByText('5m visible through local obstructions'),
     );
     expect(screen.getByText('Visible until 23:05')).toBeTruthy();
-    expect(screen.getByTestId('trajectory-assessments').props.children).toBe(
-      'visible,blocked',
-    );
+    expect(
+      String(screen.getByTestId('trajectory-assessments').props.children),
+    ).toContain('visible');
+    expect(
+      String(screen.getByTestId('trajectory-assessments').props.children),
+    ).toContain('blocked');
     expect(
       screen.getByTestId('trajectory-transition-count').props.children,
     ).toBe(1);
     expect(
       screen.queryByText('Above horizon; obstructions not assessed'),
     ).toBeNull();
+  });
+
+  it('keeps the exact base arc visible while mask classification is pending', async () => {
+    const calculateVisibility = jest.fn(
+      () => new Promise<SelectedTargetTrajectory>(() => undefined),
+    );
+    const screen = await renderWithSafeArea(
+      <SkyViewScreen
+        calculateVisibility={calculateVisibility}
+        controller={controller({ hasMask: true, mask, panorama })}
+        navigation={navigation()}
+        profileId={profile.id}
+        renderSky={rendererWithStageFourOverlays}
+        visibilityCache={new VisibilityCalculationCache()}
+      />,
+    );
+    await waitFor(() => screen.getByText(profile.name));
+    await fireEvent.press(screen.getByText('Orion Nebula'));
+    await waitFor(() => expect(calculateVisibility).toHaveBeenCalledTimes(1));
+
+    expect(
+      Number(screen.getByTestId('trajectory-sample-count').props.children),
+    ).toBeGreaterThan(1);
+    expect(
+      String(screen.getByTestId('trajectory-assessments').props.children),
+    ).toContain('unassessed');
   });
 
   it('does not recalculate when panorama opacity changes', async () => {

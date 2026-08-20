@@ -31,6 +31,7 @@ import {
   projectHorizontalDirection,
   type PlanetariumCamera,
 } from './planetariumProjection';
+import { createPlanetariumPanoramaMesh } from './planetariumPanoramaGeometry';
 import type {
   CanvasSizePixels,
   HorizontalDirectionDegrees,
@@ -280,9 +281,11 @@ const gridLabels = [
 function PlanetariumGrid({
   camera,
   canvas,
+  celestialEquatorDirections,
 }: {
   camera: SharedValue<PlanetariumCamera>;
   canvas: CanvasSizePixels;
+  celestialEquatorDirections: readonly HorizontalDirectionDegrees[];
 }) {
   return (
     <Group opacity={0.72}>
@@ -292,6 +295,14 @@ function PlanetariumGrid({
         color={colors.outline}
         dash={[3, 8]}
         lines={horizontalGrid}
+      />
+      <ProjectedPath
+        camera={camera}
+        canvas={canvas}
+        color={colors.spaceViolet}
+        directions={celestialEquatorDirections}
+        strokeOpacity={0.9}
+        strokeWidth={1.5}
       />
       {gridLabels.map(({ direction, label }, index) => (
         <ProjectedText
@@ -531,60 +542,6 @@ function ProjectedMarker({
   );
 }
 
-const createPanoramaMesh = (tile: ActivePanoramaTile) => {
-  const columns = 9;
-  const rows = 7;
-  const directions: HorizontalDirectionDegrees[] = [];
-  const textures = [];
-  const indices: number[] = [];
-  const rollRadians = (tile.rollDegrees * Math.PI) / 180;
-  const cosine = Math.cos(rollRadians);
-  const sine = Math.sin(rollRadians);
-  for (let row = 0; row < rows; row += 1) {
-    const verticalRatio = row / (rows - 1);
-    for (let column = 0; column < columns; column += 1) {
-      const horizontalRatio = column / (columns - 1);
-      const sourceHorizontal =
-        (horizontalRatio - 0.5) * tile.horizontalFieldOfViewDegrees;
-      const sourceVertical =
-        (0.5 - verticalRatio) * tile.verticalFieldOfViewDegrees;
-      const horizontalOffset =
-        sourceHorizontal * cosine - sourceVertical * sine;
-      const verticalOffset = sourceHorizontal * sine + sourceVertical * cosine;
-      directions.push({
-        altitudeDegrees: Math.max(
-          -90,
-          Math.min(90, tile.centerAltitudeDegrees + verticalOffset),
-        ),
-        azimuthDegrees: tile.centerAzimuthDegrees + horizontalOffset,
-      });
-      textures.push(
-        vec(
-          horizontalRatio * tile.widthPixels,
-          verticalRatio * tile.heightPixels,
-        ),
-      );
-    }
-  }
-  for (let row = 0; row < rows - 1; row += 1) {
-    for (let column = 0; column < columns - 1; column += 1) {
-      const topLeft = row * columns + column;
-      const topRight = topLeft + 1;
-      const bottomLeft = topLeft + columns;
-      const bottomRight = bottomLeft + 1;
-      indices.push(
-        topLeft,
-        topRight,
-        bottomRight,
-        topLeft,
-        bottomRight,
-        bottomLeft,
-      );
-    }
-  }
-  return { directions, indices, textures };
-};
-
 function PanoramaTileLayer({
   camera,
   canvas,
@@ -597,7 +554,11 @@ function PanoramaTileLayer({
   tile: ActivePanoramaTile;
 }) {
   const image = useImage(tile.uri);
-  const mesh = useMemo(() => createPanoramaMesh(tile), [tile]);
+  const mesh = useMemo(() => createPlanetariumPanoramaMesh(tile), [tile]);
+  const textures = useMemo(
+    () => mesh.texturePointsPixels.map((point) => vec(point.x, point.y)),
+    [mesh.texturePointsPixels],
+  );
   const vertices = useDerivedValue(() =>
     mesh.directions.map((direction) => {
       const point = projectHorizontalDirection(direction, camera.value, canvas);
@@ -611,7 +572,7 @@ function PanoramaTileLayer({
       <Vertices
         indices={mesh.indices}
         mode="triangles"
-        textures={mesh.textures}
+        textures={textures}
         vertices={vertices}
       />
     </Group>
@@ -747,6 +708,7 @@ function FieldOfViewLayer({
 export function PlanetariumScene({
   camera,
   canvas,
+  celestialEquatorDirections,
   equipment,
   mask,
   maskOpacity,
@@ -759,6 +721,7 @@ export function PlanetariumScene({
 }: {
   camera: SharedValue<PlanetariumCamera>;
   canvas: CanvasSizePixels;
+  celestialEquatorDirections: readonly HorizontalDirectionDegrees[];
   equipment: EquipmentRecord | null;
   mask: VisibilityMask | null;
   maskOpacity: number;
@@ -772,7 +735,11 @@ export function PlanetariumScene({
   return (
     <Canvas style={{ flex: 1 }}>
       <Fill color={colors.backdrop} />
-      <PlanetariumGrid camera={camera} canvas={canvas} />
+      <PlanetariumGrid
+        camera={camera}
+        canvas={canvas}
+        celestialEquatorDirections={celestialEquatorDirections}
+      />
       {panoramaTiles.map((tile) => (
         <PanoramaTileLayer
           camera={camera}

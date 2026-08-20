@@ -9,7 +9,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { CatalogueTarget } from '../../scripts/catalogue/catalogueImporter';
-import { equatorialJ2000ToHorizontal } from '../astronomy/horizontalCoordinates';
+import {
+  createWindowHorizontalProjector,
+  equatorialJ2000ToHorizontal,
+} from '../astronomy/horizontalCoordinates';
 import {
   calculateObstructionAwareTrajectory,
   createVisibilityCalculationCacheKey,
@@ -31,6 +34,8 @@ import {
 } from '../astronomy/observingWindowPresentation';
 import { createTonightObservingWindow } from '../astronomy/observingWindow';
 import {
+  createSelectedTargetTrajectory,
+  mergeTrajectoryAssessment,
   type SelectedTargetTrajectory,
   type TrajectoryMarker,
 } from '../astronomy/trajectory';
@@ -48,6 +53,7 @@ import { colors, layout } from '../theme/tokens';
 import { projectCatalogueAtInstant } from './catalogueProjection';
 import type { HorizontalCatalogueTarget } from './catalogueViewport';
 import { ObservingWindowSheet } from './ObservingWindowSheet';
+import { createCelestialEquatorGuide } from './planetariumGuides';
 import { SkyCanvas } from './SkyCanvas';
 
 export interface SkyViewData {
@@ -78,6 +84,10 @@ export interface SkyViewNavigation {
 }
 
 export interface SkyRendererProps {
+  celestialEquatorDirections: readonly {
+    altitudeDegrees: number;
+    azimuthDegrees: number;
+  }[];
   fieldOfViewEquipment: EquipmentRecord | null;
   onInspectTrajectoryMarker: (marker: TrajectoryMarker) => void;
   onSelectTarget: (target: HorizontalCatalogueTarget) => void;
@@ -283,6 +293,16 @@ export const SkyViewScreen = ({
       null,
     [data],
   );
+  const celestialEquatorDirections = useMemo(
+    () =>
+      data
+        ? createCelestialEquatorGuide({
+            observer: observerForProfile(data.profile),
+            timestampUtc: data.timestampUtc,
+          })
+        : [],
+    [data],
+  );
   const selectedDirection = useMemo(() => {
     if (!data || !selectedTarget) return null;
     const horizontal = equatorialJ2000ToHorizontal({
@@ -334,26 +354,37 @@ export const SkyViewScreen = ({
         : null,
     };
     const cacheKey = createVisibilityCalculationCacheKey(input);
+    const baseTrajectory = createSelectedTargetTrajectory({
+      target: input.target,
+      observer: input.observer,
+      projectAt: createWindowHorizontalProjector({
+        target: input.target,
+        observer: input.observer,
+        window: input.window,
+      }),
+      timeZoneId: input.timeZoneId,
+      window: input.window,
+    });
     const abortController = new AbortController();
     let active = true;
     const calculate = async () => {
       await Promise.resolve();
       if (!active || abortController.signal.aborted) return;
+      setTrajectory(baseTrajectory);
+      setTrajectoryStatus('calculating');
       const cached = visibilityCache.get(cacheKey);
       if (cached) {
-        setTrajectory(cached);
+        setTrajectory(mergeTrajectoryAssessment(baseTrajectory, cached));
         setTrajectoryStatus('ready');
         return;
       }
-      setTrajectory(null);
-      setTrajectoryStatus('calculating');
       try {
         const result = await calculateVisibility(input, {
           signal: abortController.signal,
         });
         if (!active || abortController.signal.aborted) return;
         visibilityCache.set(cacheKey, result);
-        setTrajectory(result);
+        setTrajectory(mergeTrajectoryAssessment(baseTrajectory, result));
         setTrajectoryStatus('ready');
       } catch (calculationError: unknown) {
         if (
@@ -363,7 +394,6 @@ export const SkyViewScreen = ({
         ) {
           return;
         }
-        setTrajectory(null);
         setTrajectoryStatus('error');
       }
     };
@@ -536,6 +566,7 @@ export const SkyViewScreen = ({
 
       <View style={styles.skyArea}>
         <SkyRenderer
+          celestialEquatorDirections={celestialEquatorDirections}
           fieldOfViewEquipment={selectedEquipment}
           onInspectTrajectoryMarker={setInspectedMarker}
           onSelectTarget={(target) => {

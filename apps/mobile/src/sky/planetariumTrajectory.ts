@@ -2,7 +2,6 @@ import type {
   SelectedTargetTrajectory,
   TrajectoryAssessment,
 } from '../astronomy/trajectory';
-import { densifyHorizontalPath } from './planetariumProjection';
 import type { HorizontalDirectionDegrees } from './projection';
 
 export interface ProjectedTrajectoryGroup {
@@ -20,7 +19,6 @@ const directionForSample = (sample: {
 
 export const createProjectedTrajectoryGroups = (
   trajectory: SelectedTargetTrajectory | null,
-  maximumStepDegrees = 0.25,
 ): ProjectedTrajectoryGroup[] => {
   if (!trajectory) return [];
   const groups: ProjectedTrajectoryGroup[] = [];
@@ -39,8 +37,5 @@ export const createProjectedTrajectoryGroups = (
     }
     current.directions.push(direction);
   }
-  return groups.map((group) => ({
-    ...group,
-    directions: densifyHorizontalPath(group.directions, maximumStepDegrees),
-  }));
+  return groups;
 };

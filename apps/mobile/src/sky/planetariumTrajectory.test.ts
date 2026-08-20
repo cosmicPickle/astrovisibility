@@ -1,6 +1,5 @@
 import type { SelectedTargetTrajectory } from '../astronomy/trajectory';
 import {
-  angularSeparationDegrees,
   createPlanetariumCamera,
   projectHorizontalDirection,
 } from './planetariumProjection';
@@ -47,23 +46,28 @@ const trajectory: SelectedTargetTrajectory = {
 };
 
 describe('planetarium trajectory projection', () => {
-  it('densifies time-ordered spherical segments and shares transition endpoints', () => {
-    const groups = createProjectedTrajectoryGroups(trajectory, 0.5);
+  it('uses only exact time-evaluated directions and shares transition endpoints', () => {
+    const groups = createProjectedTrajectoryGroups(trajectory);
 
     expect(groups).toHaveLength(2);
-    expect(groups[0]!.directions.length).toBeGreaterThan(2);
-    expect(groups[1]!.directions.length).toBeGreaterThan(2);
+    expect(groups[0]!.directions).toHaveLength(3);
+    expect(groups[1]!.directions).toHaveLength(2);
     expect(groups[0]!.directions.at(-1)).toEqual(groups[1]!.directions[0]);
-    for (const group of groups) {
-      for (let index = 1; index < group.directions.length; index += 1) {
-        expect(
-          angularSeparationDegrees(
-            group.directions[index - 1]!,
-            group.directions[index]!,
+    const evaluatedDirections = trajectory.samples.map((sample) => ({
+      altitudeDegrees: sample.refractedAltitudeDegrees,
+      azimuthDegrees: sample.azimuthDegreesClockwiseFromNorth,
+    }));
+    expect(
+      groups
+        .flatMap(({ directions }) => directions)
+        .every((direction) =>
+          evaluatedDirections.some(
+            (evaluated) =>
+              evaluated.altitudeDegrees === direction.altitudeDegrees &&
+              evaluated.azimuthDegrees === direction.azimuthDegrees,
           ),
-        ).toBeLessThanOrEqual(0.501);
-      }
-    }
+        ),
+    ).toBe(true);
   });
 
   it('keeps a north-crossing path locally continuous after projection', () => {
@@ -72,7 +76,7 @@ describe('planetarium trajectory projection', () => {
       centerAzimuthDegrees: 0,
       fieldOfViewDegrees: 120,
     });
-    const points = createProjectedTrajectoryGroups(trajectory, 0.25).flatMap(
+    const points = createProjectedTrajectoryGroups(trajectory).flatMap(
       (group) =>
         group.directions.map((direction) =>
           projectHorizontalDirection(direction, camera, {
@@ -88,7 +92,7 @@ describe('planetarium trajectory projection', () => {
           points[index]!.xPixels - points[index - 1]!.xPixels,
           points[index]!.yPixels - points[index - 1]!.yPixels,
         ),
-      ).toBeLessThan(5);
+      ).toBeLessThan(40);
     }
   });
 });

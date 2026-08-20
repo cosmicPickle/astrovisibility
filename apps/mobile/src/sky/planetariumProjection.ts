@@ -19,14 +19,6 @@ export interface PlanetariumCamera {
   up: Vector3;
 }
 
-export interface PlanetariumGesture {
-  currentFocalXPixels: number;
-  currentFocalYPixels: number;
-  scale: number;
-  startFocalXPixels: number;
-  startFocalYPixels: number;
-}
-
 export interface ProjectedSkyPoint {
   visible: boolean;
   xPixels: number;
@@ -238,18 +230,14 @@ const canvasPointToLocalVector = (
   point: { xPixels: number; yPixels: number },
   camera: PlanetariumCamera,
   canvas: CanvasSizePixels,
-  clampToSphere: boolean,
 ): Vector3 | null => {
   'worklet';
   const deltaX = point.xPixels - canvas.widthPixels / 2;
   const deltaY = canvas.heightPixels / 2 - point.yPixels;
   const radiusPixels = Math.hypot(deltaX, deltaY);
   const projectionScale = getStereographicProjectionScale(camera, canvas);
-  let angularDistanceRadians = 2 * Math.atan(radiusPixels / projectionScale);
-  if (angularDistanceRadians > Math.PI) {
-    if (!clampToSphere) return null;
-    angularDistanceRadians = Math.PI - 1e-7;
-  }
+  const angularDistanceRadians = 2 * Math.atan(radiusPixels / projectionScale);
+  if (angularDistanceRadians > Math.PI) return null;
   if (radiusPixels <= VECTOR_EPSILON) return { x: 0, y: 0, z: 1 };
   const sine = Math.sin(angularDistanceRadians);
   return {
@@ -279,135 +267,77 @@ export const unprojectCanvasPoint = (
   canvas: CanvasSizePixels,
 ): HorizontalDirectionDegrees | null => {
   'worklet';
-  const local = canvasPointToLocalVector(point, camera, canvas, false);
+  const local = canvasPointToLocalVector(point, camera, canvas);
   return local
     ? vectorToHorizontalDirection(localVectorToWorld(local, camera))
     : null;
 };
 
-type Matrix3 = readonly [
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-];
-
-const applyMatrix = (matrix: Matrix3, vector: Vector3): Vector3 => {
+const normalizeSignedDegrees = (degrees: number) => {
   'worklet';
-  return {
-    x: matrix[0] * vector.x + matrix[1] * vector.y + matrix[2] * vector.z,
-    y: matrix[3] * vector.x + matrix[4] * vector.y + matrix[5] * vector.z,
-    z: matrix[6] * vector.x + matrix[7] * vector.y + matrix[8] * vector.z,
-  };
+  return ((degrees + 540) % 360) - 180;
 };
 
-const rotationBetween = (rawFrom: Vector3, rawTo: Vector3): Matrix3 => {
-  'worklet';
-  const from = normalize(rawFrom);
-  const to = normalize(rawTo);
-  const cosine = clamp(dot(from, to), -1, 1);
-  if (cosine > 1 - VECTOR_EPSILON) {
-    return [1, 0, 0, 0, 1, 0, 0, 0, 1];
-  }
-  let axis = cross(from, to);
-  if (cosine < -1 + VECTOR_EPSILON) {
-    axis = normalize(
-      Math.abs(from.x) < 0.8
-        ? cross(from, { x: 1, y: 0, z: 0 })
-        : cross(from, { x: 0, y: 1, z: 0 }),
-    );
-  } else {
-    axis = normalize(axis);
-  }
-  const sine = Math.sqrt(Math.max(0, 1 - cosine * cosine));
-  const oneMinusCosine = 1 - cosine;
-  const { x, y, z } = axis;
-  return [
-    cosine + x * x * oneMinusCosine,
-    x * y * oneMinusCosine - z * sine,
-    x * z * oneMinusCosine + y * sine,
-    y * x * oneMinusCosine + z * sine,
-    cosine + y * y * oneMinusCosine,
-    y * z * oneMinusCosine - x * sine,
-    z * x * oneMinusCosine - y * sine,
-    z * y * oneMinusCosine + x * sine,
-    cosine + z * z * oneMinusCosine,
-  ];
-};
+const STELLARIUM_MANUAL_POLE_MARGIN_DEGREES = 0.000001;
 
-const rotateCameraByLocalMatrix = (
-  camera: PlanetariumCamera,
-  rotation: Matrix3,
-  fieldOfViewDegrees: number,
+/**
+ * Incremental level Alt/Az drag matching Stellarium's dragView/panView model.
+ * Both pointer directions are evaluated in the current mount frame. The next
+ * camera is rebuilt from azimuth/altitude, so a drag cannot accumulate roll.
+ */
+export const applyPlanetariumPan = (
+  currentCamera: PlanetariumCamera,
+  canvas: CanvasSizePixels,
+  previousPoint: { xPixels: number; yPixels: number },
+  currentPoint: { xPixels: number; yPixels: number },
 ): PlanetariumCamera => {
   'worklet';
-  const rotateBasisVector = (localAxis: Vector3) =>
-    normalize(localVectorToWorld(applyMatrix(rotation, localAxis), camera));
-  const right = rotateBasisVector({ x: 1, y: 0, z: 0 });
-  const forward = rotateBasisVector({ x: 0, y: 0, z: 1 });
-  const up = normalize(cross(forward, right));
-  return { fieldOfViewDegrees, forward, right, up };
+  const previousDirection = unprojectCanvasPoint(
+    previousPoint,
+    currentCamera,
+    canvas,
+  );
+  const currentDirection = unprojectCanvasPoint(
+    currentPoint,
+    currentCamera,
+    canvas,
+  );
+  if (!previousDirection || !currentDirection) return currentCamera;
+
+  const center = getPlanetariumCameraCenter(currentCamera);
+  const pointerAzimuthDeltaDegrees = normalizeSignedDegrees(
+    currentDirection.azimuthDegrees - previousDirection.azimuthDegrees,
+  );
+  const altitudeDeltaDegrees =
+    previousDirection.altitudeDegrees - currentDirection.altitudeDegrees;
+  return createPlanetariumCamera({
+    centerAltitudeDegrees: clamp(
+      center.altitudeDegrees + altitudeDeltaDegrees,
+      -90 + STELLARIUM_MANUAL_POLE_MARGIN_DEGREES,
+      90 - STELLARIUM_MANUAL_POLE_MARGIN_DEGREES,
+    ),
+    centerAzimuthDegrees: center.azimuthDegrees - pointerAzimuthDeltaDegrees,
+    fieldOfViewDegrees: currentCamera.fieldOfViewDegrees,
+  });
 };
 
-export const applyPlanetariumGesture = (
+/** Stellarium touch pinch: starting FOV divided by scale, centre unchanged. */
+export const applyPlanetariumZoom = (
   baseline: PlanetariumCamera,
-  canvas: CanvasSizePixels,
-  gesture: PlanetariumGesture,
-): PlanetariumCamera => {
-  'worklet';
-  if (!Number.isFinite(gesture.scale) || gesture.scale <= 0) {
-    throw new RangeError('scale must be positive');
-  }
-  const fieldOfViewDegrees = clamp(
-    baseline.fieldOfViewDegrees / gesture.scale,
-    MINIMUM_PLANETARIUM_FIELD_OF_VIEW_DEGREES,
-    MAXIMUM_PLANETARIUM_FIELD_OF_VIEW_DEGREES,
-  );
-  const nextScaleCamera = { ...baseline, fieldOfViewDegrees };
-  const startLocal = canvasPointToLocalVector(
-    {
-      xPixels: gesture.startFocalXPixels,
-      yPixels: gesture.startFocalYPixels,
-    },
-    baseline,
-    canvas,
-    true,
-  )!;
-  const currentLocal = canvasPointToLocalVector(
-    {
-      xPixels: gesture.currentFocalXPixels,
-      yPixels: gesture.currentFocalYPixels,
-    },
-    nextScaleCamera,
-    canvas,
-    true,
-  )!;
-  return rotateCameraByLocalMatrix(
-    baseline,
-    rotationBetween(currentLocal, startLocal),
-    fieldOfViewDegrees,
-  );
-};
-
-export const applyPlanetariumAnchoredZoom = (
-  baseline: PlanetariumCamera,
-  canvas: CanvasSizePixels,
-  anchor: { xPixels: number; yPixels: number },
   scale: number,
 ): PlanetariumCamera => {
   'worklet';
-  return applyPlanetariumGesture(baseline, canvas, {
-    currentFocalXPixels: anchor.xPixels,
-    currentFocalYPixels: anchor.yPixels,
-    scale,
-    startFocalXPixels: anchor.xPixels,
-    startFocalYPixels: anchor.yPixels,
-  });
+  if (!Number.isFinite(scale) || scale <= 0) {
+    throw new RangeError('scale must be positive');
+  }
+  return {
+    ...baseline,
+    fieldOfViewDegrees: clamp(
+      baseline.fieldOfViewDegrees / scale,
+      MINIMUM_PLANETARIUM_FIELD_OF_VIEW_DEGREES,
+      MAXIMUM_PLANETARIUM_FIELD_OF_VIEW_DEGREES,
+    ),
+  };
 };
 
 export const angularSeparationDegrees = (

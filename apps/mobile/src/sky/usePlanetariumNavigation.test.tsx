@@ -2,8 +2,7 @@ import { act, render } from '@testing-library/react-native';
 
 import {
   createPlanetariumCamera,
-  projectHorizontalDirection,
-  unprojectCanvasPoint,
+  getPlanetariumCameraCenter,
   type PlanetariumCamera,
 } from './planetariumProjection';
 import { usePlanetariumNavigation } from './usePlanetariumNavigation';
@@ -61,14 +60,13 @@ const Harness = ({
 };
 
 describe('usePlanetariumNavigation', () => {
-  it('publishes held-gesture camera previews without following pinch centroid jitter', async () => {
+  it('publishes held-gesture FOV previews without moving the camera centre', async () => {
     const camera = createPlanetariumCamera({
       centerAltitudeDegrees: 30,
       centerAzimuthDegrees: 80,
       fieldOfViewDegrees: 160,
     });
     const anchor = { xPixels: 115, yPixels: 315 };
-    const anchoredDirection = unprojectCanvasPoint(anchor, camera, canvas)!;
     const onCameraCommit = jest.fn();
     const onCameraPreview = jest.fn();
     await render(
@@ -107,14 +105,44 @@ describe('usePlanetariumNavigation', () => {
     });
 
     expect(onCameraPreview).toHaveBeenCalledTimes(2);
-    expect(onCameraCommit).toHaveBeenCalled();
+    expect(onCameraCommit).toHaveBeenCalledTimes(1);
     const committed = onCameraCommit.mock.calls.at(-1)![0] as PlanetariumCamera;
-    const projected = projectHorizontalDirection(
-      anchoredDirection,
-      committed,
-      canvas,
+    expect(getPlanetariumCameraCenter(committed)).toEqual(
+      getPlanetariumCameraCenter(camera),
     );
-    expect(projected.xPixels).toBeCloseTo(anchor.xPixels, 7);
-    expect(projected.yPixels).toBeCloseTo(anchor.yPixels, 7);
+    expect(committed.fieldOfViewDegrees).toBeCloseTo(160 / 2.2, 10);
+  });
+
+  it('uses each pan update as the next incremental baseline', async () => {
+    const camera = createPlanetariumCamera({
+      centerAltitudeDegrees: 35,
+      centerAzimuthDegrees: 180,
+      fieldOfViewDegrees: 100,
+    });
+    const onCameraCommit = jest.fn();
+    const onCameraPreview = jest.fn();
+    await render(
+      <Harness
+        camera={camera}
+        onCameraCommit={onCameraCommit}
+        onCameraPreview={onCameraPreview}
+      />,
+    );
+
+    await act(() => {
+      mockGestureHandlers['pan-onStart']!({ x: 200, y: 400 });
+      mockGestureHandlers['pan-onUpdate']!({ x: 220, y: 400 });
+      mockGestureHandlers['pan-onUpdate']!({ x: 240, y: 400 });
+      mockGestureHandlers['pan-onEnd']!();
+    });
+
+    const previews = onCameraPreview.mock.calls.map(
+      ([preview]) => preview as PlanetariumCamera,
+    );
+    expect(previews).toHaveLength(2);
+    expect(getPlanetariumCameraCenter(previews[1]!)).not.toEqual(
+      getPlanetariumCameraCenter(previews[0]!),
+    );
+    expect(onCameraCommit.mock.calls.at(-1)![0]).toEqual(previews[1]);
   });
 });

@@ -4,8 +4,11 @@
 **Status:** Approved by product owner on 2026-08-19
 
 **Correction:** Revised on 2026-08-20 after release interaction review. The
-equidistant 360-degree decision below was incorrect and is superseded by the
-stereographic 235-degree camera described here.
+equidistant 360-degree decision was incorrect and is superseded by the
+stereographic 235-degree camera described here. The original focal-anchored
+pinch and free-roll camera behavior is also superseded by the level horizontal
+mount and centred FOV-only zoom in
+`docs/superpowers/specs/mobile/2026-08-20-0942-stellarium-sky-engine-rewrite.md`.
 
 ## Problem
 
@@ -60,7 +63,8 @@ model. It is not selected.
 
 - Dragging rotates a celestial sphere continuously; every grid, target, overlay,
   and selected trajectory remains registered to the same sky direction.
-- Pinch is focal-point anchored and continuously changes angular field of view.
+- Pinch continuously changes angular field of view without changing the view
+  centre or introducing camera roll.
 - Gesture release cannot reproject or snap to a different camera.
 - The minimum zoom shows a recognisable wide all-sky dome at Stellarium's
   documented 235-degree stereographic limit.
