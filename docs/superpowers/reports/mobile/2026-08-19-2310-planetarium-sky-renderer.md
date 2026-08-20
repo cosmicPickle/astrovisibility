@@ -6,6 +6,13 @@
 
 **Result:** Complete
 
+> **Correction recorded 2026-08-20:** The projection, maximum-field-of-view,
+> gesture-release, and trajectory-densification claims in this historical
+> report were superseded after exact native interaction exposed remaining
+> defects. See
+> `docs/superpowers/specs/mobile/2026-08-20-0810-sky-camera-and-trajectory-correction.md`
+> and its completion report for the corrected evidence.
+
 ## Outcome
 
 Sky View now uses one spherical camera and an equidistant fisheye projection

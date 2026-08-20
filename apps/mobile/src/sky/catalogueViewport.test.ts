@@ -180,7 +180,7 @@ describe('planetarium catalogue query', () => {
     ).toEqual(['east-of-north', 'west-of-north']);
   });
 
-  it('selects from the whole sphere at the 360-degree fisheye limit', () => {
+  it('selects the full above-horizon hemisphere at the widest stereographic view', () => {
     const targets = [
       target('north', 0, 15, 1),
       target('east', 90, 30, 1),
@@ -190,7 +190,7 @@ describe('planetarium catalogue query', () => {
     const camera = createPlanetariumCamera({
       centerAltitudeDegrees: 90,
       centerAzimuthDegrees: 0,
-      fieldOfViewDegrees: 360,
+      fieldOfViewDegrees: 235,
     });
 
     expect(
@@ -198,5 +198,25 @@ describe('planetarium catalogue query', () => {
         (item) => item.target.id,
       ),
     ).toEqual(['east', 'north', 'south', 'west']);
+  });
+
+  it('does not let prominent offscreen targets displace the live atlas', () => {
+    const targets = [
+      ...Array.from({ length: 120 }, (_, index) =>
+        target(`a-offscreen-${index}`, 120, 45, 1),
+      ),
+      target('z-onscreen', 0, 45, 1),
+    ];
+    const camera = createPlanetariumCamera({
+      centerAltitudeDegrees: 45,
+      centerAzimuthDegrees: 0,
+      fieldOfViewDegrees: 60,
+    });
+
+    expect(
+      queryCataloguePlanetarium(targets, camera, canvas).map(
+        (item) => item.target.id,
+      ),
+    ).toContain('z-onscreen');
   });
 });

@@ -6,8 +6,8 @@ import {
   type SkyViewport,
 } from './skyViewport';
 import {
-  angularSeparationDegrees,
   getPlanetariumCameraCenter,
+  horizontalDirectionToVector,
   projectHorizontalDirection,
   type PlanetariumCamera,
 } from './planetariumProjection';
@@ -16,6 +16,7 @@ const BIN_SIZE_DEGREES = 10;
 const AZIMUTH_BIN_COUNT = 360 / BIN_SIZE_DEGREES;
 const MAXIMUM_RENDERED_TARGETS = 120;
 const MINIMUM_HIT_RADIUS_PIXELS = 22;
+const PLANETARIUM_OVERSCAN_RATIO = 0.25;
 
 export interface HorizontalCatalogueTarget {
   altitudeDegrees: number;
@@ -280,6 +281,10 @@ export const queryCataloguePlanetarium = (
     180,
     camera.fieldOfViewDegrees * 1.5,
   );
+  const centerVector = horizontalDirectionToVector(center);
+  const minimumDirectionCosine = Math.cos(
+    (bufferedAngularRadiusDegrees * Math.PI) / 180,
+  );
   const occupiedLabels: Array<{
     left: number;
     right: number;
@@ -290,11 +295,16 @@ export const queryCataloguePlanetarium = (
     Math.min(canvas.widthPixels, canvas.heightPixels) /
     camera.fieldOfViewDegrees;
   const candidates = targets
-    .filter(
-      (item) =>
-        item.target.prominenceTier <= prominenceTierLimit &&
-        angularSeparationDegrees(center, item) <= bufferedAngularRadiusDegrees,
-    )
+    .filter((item) => {
+      if (item.target.prominenceTier > prominenceTierLimit) return false;
+      const direction = horizontalDirectionToVector(item);
+      return (
+        centerVector.x * direction.x +
+          centerVector.y * direction.y +
+          centerVector.z * direction.z >=
+        minimumDirectionCosine
+      );
+    })
     .sort(
       (left, right) =>
         left.target.prominenceTier - right.target.prominenceTier ||
@@ -308,6 +318,12 @@ export const queryCataloguePlanetarium = (
   const selected: ViewportCatalogueTarget[] = [];
   for (const item of candidates) {
     const point = projectHorizontalDirection(item, camera, canvas);
+    const withinOverscan =
+      point.xPixels >= -canvas.widthPixels * PLANETARIUM_OVERSCAN_RATIO &&
+      point.xPixels <= canvas.widthPixels * (1 + PLANETARIUM_OVERSCAN_RATIO) &&
+      point.yPixels >= -canvas.heightPixels * PLANETARIUM_OVERSCAN_RATIO &&
+      point.yPixels <= canvas.heightPixels * (1 + PLANETARIUM_OVERSCAN_RATIO);
+    if (!withinOverscan) continue;
     const secondaryLabel = getSecondaryCatalogueLabel(item.target);
     const labelWidthPixels = Math.min(
       180,

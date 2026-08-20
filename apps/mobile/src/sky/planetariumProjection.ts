@@ -4,7 +4,7 @@ import type {
 } from './projection';
 
 export const MINIMUM_PLANETARIUM_FIELD_OF_VIEW_DEGREES = 8;
-export const MAXIMUM_PLANETARIUM_FIELD_OF_VIEW_DEGREES = 360;
+export const MAXIMUM_PLANETARIUM_FIELD_OF_VIEW_DEGREES = 235;
 
 export interface Vector3 {
   x: number;
@@ -171,7 +171,7 @@ export const getPlanetariumCameraCenter = (
   return vectorToHorizontalDirection(camera.forward);
 };
 
-const getProjectionScale = (
+const getStereographicProjectionScale = (
   camera: PlanetariumCamera,
   canvas: CanvasSizePixels,
 ) => {
@@ -180,8 +180,9 @@ const getProjectionScale = (
     throw new RangeError('Canvas dimensions must be positive');
   }
   const diameterPixels = Math.min(canvas.widthPixels, canvas.heightPixels);
-  const halfFieldRadians = (camera.fieldOfViewDegrees * DEGREES_TO_RADIANS) / 2;
-  return diameterPixels / 2 / halfFieldRadians;
+  const quarterFieldRadians =
+    (camera.fieldOfViewDegrees * DEGREES_TO_RADIANS) / 4;
+  return diameterPixels / 2 / Math.tan(quarterFieldRadians);
 };
 
 export const projectVectorToCanvas = (
@@ -197,7 +198,8 @@ export const projectVectorToCanvas = (
   const angularDistanceRadians = Math.acos(localZ);
   const tangentLength = Math.hypot(localX, localY);
   const radialPixels =
-    angularDistanceRadians * getProjectionScale(camera, canvas);
+    Math.tan(Math.min(Math.PI - 1e-7, angularDistanceRadians) / 2) *
+    getStereographicProjectionScale(camera, canvas);
   const unitX =
     tangentLength <= VECTOR_EPSILON
       ? localZ < 0
@@ -242,8 +244,8 @@ const canvasPointToLocalVector = (
   const deltaX = point.xPixels - canvas.widthPixels / 2;
   const deltaY = canvas.heightPixels / 2 - point.yPixels;
   const radiusPixels = Math.hypot(deltaX, deltaY);
-  const projectionScale = getProjectionScale(camera, canvas);
-  let angularDistanceRadians = radiusPixels / projectionScale;
+  const projectionScale = getStereographicProjectionScale(camera, canvas);
+  let angularDistanceRadians = 2 * Math.atan(radiusPixels / projectionScale);
   if (angularDistanceRadians > Math.PI) {
     if (!clampToSphere) return null;
     angularDistanceRadians = Math.PI - 1e-7;
@@ -392,22 +394,58 @@ export const applyPlanetariumGesture = (
   );
 };
 
+export const applyPlanetariumAnchoredZoom = (
+  baseline: PlanetariumCamera,
+  canvas: CanvasSizePixels,
+  anchor: { xPixels: number; yPixels: number },
+  scale: number,
+): PlanetariumCamera => {
+  'worklet';
+  return applyPlanetariumGesture(baseline, canvas, {
+    currentFocalXPixels: anchor.xPixels,
+    currentFocalYPixels: anchor.yPixels,
+    scale,
+    startFocalXPixels: anchor.xPixels,
+    startFocalYPixels: anchor.yPixels,
+  });
+};
+
 export const angularSeparationDegrees = (
   left: HorizontalDirectionDegrees,
   right: HorizontalDirectionDegrees,
 ) => {
   'worklet';
+  const leftVector = horizontalDirectionToVector(left);
+  const rightVector = horizontalDirectionToVector(right);
   return (
-    Math.acos(
-      clamp(
-        dot(
-          horizontalDirectionToVector(left),
-          horizontalDirectionToVector(right),
-        ),
-        -1,
-        1,
-      ),
+    Math.atan2(
+      magnitude(cross(leftVector, rightVector)),
+      clamp(dot(leftVector, rightVector), -1, 1),
     ) * RADIANS_TO_DEGREES
+  );
+};
+
+export const angularSizeDegreesToPixelsAtDirection = (
+  angularSizeDegrees: number,
+  direction: HorizontalDirectionDegrees,
+  camera: PlanetariumCamera,
+  canvas: CanvasSizePixels,
+) => {
+  'worklet';
+  if (!Number.isFinite(angularSizeDegrees) || angularSizeDegrees < 0) {
+    throw new RangeError('angularSizeDegrees must be finite and non-negative');
+  }
+  const directionVector = horizontalDirectionToVector(direction);
+  const cosineFromCameraCenter = clamp(
+    dot(directionVector, camera.forward),
+    -1,
+    1,
+  );
+  return (
+    angularSizeDegrees *
+    DEGREES_TO_RADIANS *
+    (getStereographicProjectionScale(camera, canvas) /
+      Math.max(1e-7, 1 + cosineFromCameraCenter))
   );
 };
 

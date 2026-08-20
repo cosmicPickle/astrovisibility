@@ -69,6 +69,8 @@ export const SkyCanvas = ({
   const [canvas, setCanvas] = useState({ widthPixels: 1, heightPixels: 1 });
   const [cameraState, setCameraState] =
     useState<PlanetariumCamera>(initialCamera);
+  const [catalogueCamera, setCatalogueCamera] =
+    useState<PlanetariumCamera>(initialCamera);
   const selectionFitRef = useRef<{
     directionFitted: boolean;
     manuallyNavigated: boolean;
@@ -82,8 +84,8 @@ export const SkyCanvas = ({
   });
 
   const visibleTargets = useMemo(
-    () => queryCataloguePlanetarium(targets, cameraState, canvas),
-    [cameraState, canvas, targets],
+    () => queryCataloguePlanetarium(targets, catalogueCamera, canvas),
+    [canvas, catalogueCamera, targets],
   );
 
   useEffect(() => {
@@ -127,7 +129,10 @@ export const SkyCanvas = ({
     if (!nextCamera) return;
     if (trajectory) fit.trajectoryFitted = true;
     else fit.directionFitted = true;
-    const timeoutId = setTimeout(() => setCameraState(nextCamera), 0);
+    const timeoutId = setTimeout(() => {
+      setCameraState(nextCamera);
+      setCatalogueCamera(nextCamera);
+    }, 0);
     return () => clearTimeout(timeoutId);
   }, [selectedDirection, selectedTargetId, trajectory]);
 
@@ -198,11 +203,13 @@ export const SkyCanvas = ({
 
   const handleCameraCommit = useCallback((camera: PlanetariumCamera) => {
     setCameraState(camera);
+    setCatalogueCamera(camera);
   }, []);
   const navigation = usePlanetariumNavigation({
     cameraState,
     canvas,
     onCameraCommit: handleCameraCommit,
+    onCameraPreview: setCatalogueCamera,
     onManualNavigation: markManualNavigation,
     onTap: handleTap,
   });

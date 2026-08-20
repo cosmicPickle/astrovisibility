@@ -3,6 +3,10 @@
 **Timestamp:** 2026-08-19 22:21 +03:00
 **Status:** Approved by product owner on 2026-08-19
 
+**Correction:** Revised on 2026-08-20 after release interaction review. The
+equidistant 360-degree decision below was incorrect and is superseded by the
+stereographic 235-degree camera described here.
+
 ## Problem
 
 The current Sky View is a cylindrical azimuth/altitude chart. Gesture-time affine
@@ -21,10 +25,11 @@ the cylindrical projection is therefore superseded.
   the GPU canvas for the Sky View.
 - Retain React Native Gesture Handler and Reanimated 4 for UI-thread camera
   input and animation.
-- Replace the cylindrical viewport with a unit-vector spherical camera using an
-  equidistant fisheye projection. The maximum field of view is 360 degrees
-  across the fisheye diameter; narrower fields remain centred on the camera's
-  azimuth/altitude direction.
+- Replace the cylindrical viewport with a unit-vector spherical camera using a
+  stereographic projection, matching Stellarium's default projection. Its
+  maximum field of view is 235 degrees; narrower fields remain centred on the
+  camera's azimuth/altitude direction. A stereographic projection cannot show
+  the camera antipode because it maps to infinity.
 - Reproject the horizontal coordinate grid, cardinal directions, catalogue
   targets, angular outlines, trajectory, transition/time markers, selected
   equipment frame, panorama mesh, and mask geometry through the same camera on
@@ -57,7 +62,8 @@ model. It is not selected.
   and selected trajectory remains registered to the same sky direction.
 - Pinch is focal-point anchored and continuously changes angular field of view.
 - Gesture release cannot reproject or snap to a different camera.
-- The minimum zoom shows a recognisable 360-degree circular fisheye sky.
+- The minimum zoom shows a recognisable wide all-sky dome at Stellarium's
+  documented 235-degree stereographic limit.
 - North wrap and zenith trajectories are time-ordered spherical curves without
   cylindrical S-folds.
 - Panorama and mask alignment remains correct at narrow, seam-crossing, upward,

@@ -18,10 +18,7 @@ import {
 } from '@shopify/react-native-skia';
 import { useDerivedValue, type SharedValue } from 'react-native-reanimated';
 
-import type {
-  SelectedTargetTrajectory,
-  TrajectoryAssessment,
-} from '../astronomy/trajectory';
+import type { SelectedTargetTrajectory } from '../astronomy/trajectory';
 import { createRotatedFieldOfViewRectangle } from '../equipment/fieldOfView';
 import type { VisibilityMask } from '../mask/visibilityMask';
 import type { EquipmentRecord } from '../storage/equipmentRepository';
@@ -29,6 +26,7 @@ import type { ActivePanoramaTile } from '../storage/panoramaDraftRepository';
 import { colors } from '../theme/tokens';
 import type { ViewportCatalogueTarget } from './catalogueViewport';
 import {
+  angularSizeDegreesToPixelsAtDirection,
   densifyHorizontalPath,
   projectHorizontalDirection,
   type PlanetariumCamera,
@@ -37,6 +35,7 @@ import type {
   CanvasSizePixels,
   HorizontalDirectionDegrees,
 } from './projection';
+import { createProjectedTrajectoryGroups } from './planetariumTrajectory';
 
 const targetFont = matchFont({
   fontFamily: 'sans-serif',
@@ -333,22 +332,34 @@ function PlanetariumTarget({
     { translateY: point.value.yPixels },
   ]);
   const outline = useDerivedValue(() => {
+    const maximumOutlinePixels = Math.hypot(
+      canvas.widthPixels,
+      canvas.heightPixels,
+    );
     const width = Math.max(
       2,
-      angularSizeToPixels(
-        (item.target.majorAxisArcminutes ?? 3) / 60,
-        camera.value,
-        canvas,
+      Math.min(
+        maximumOutlinePixels,
+        angularSizeDegreesToPixelsAtDirection(
+          (item.target.majorAxisArcminutes ?? 3) / 60,
+          direction,
+          camera.value,
+          canvas,
+        ),
       ),
     );
     const height = Math.max(
       2,
-      angularSizeToPixels(
-        (item.target.minorAxisArcminutes ??
-          item.target.majorAxisArcminutes ??
-          3) / 60,
-        camera.value,
-        canvas,
+      Math.min(
+        maximumOutlinePixels,
+        angularSizeDegreesToPixelsAtDirection(
+          (item.target.minorAxisArcminutes ??
+            item.target.majorAxisArcminutes ??
+            3) / 60,
+          direction,
+          camera.value,
+          canvas,
+        ),
       ),
     );
     return {
@@ -394,31 +405,6 @@ function PlanetariumTarget({
   );
 }
 
-const groupTrajectory = (trajectory: SelectedTargetTrajectory | null) => {
-  if (!trajectory) return [];
-  const groups: Array<{
-    assessment: Exclude<TrajectoryAssessment, 'belowHorizon'>;
-    directions: HorizontalDirectionDegrees[];
-  }> = [];
-  for (const sample of trajectory.samples) {
-    if (sample.assessment === 'belowHorizon') continue;
-    const direction = {
-      altitudeDegrees: sample.refractedAltitudeDegrees,
-      azimuthDegrees: sample.azimuthDegreesClockwiseFromNorth,
-    };
-    const current = groups.at(-1);
-    if (!current) {
-      groups.push({ assessment: sample.assessment, directions: [direction] });
-    } else if (current.assessment !== sample.assessment) {
-      current.directions.push(direction);
-      groups.push({ assessment: sample.assessment, directions: [direction] });
-    } else {
-      current.directions.push(direction);
-    }
-  }
-  return groups;
-};
-
 function TrajectoryLayer({
   camera,
   canvas,
@@ -428,7 +414,10 @@ function TrajectoryLayer({
   canvas: CanvasSizePixels;
   trajectory: SelectedTargetTrajectory | null;
 }) {
-  const groups = useMemo(() => groupTrajectory(trajectory), [trajectory]);
+  const groups = useMemo(
+    () => createProjectedTrajectoryGroups(trajectory),
+    [trajectory],
+  );
   return (
     <>
       {groups.map((group, index) => (

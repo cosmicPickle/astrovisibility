@@ -4,20 +4,25 @@ import { runOnJS, useSharedValue } from 'react-native-reanimated';
 
 import type { CanvasSizePixels } from './projection';
 import {
+  applyPlanetariumAnchoredZoom,
   applyPlanetariumGesture,
   type PlanetariumCamera,
 } from './planetariumProjection';
+
+const CAMERA_PREVIEW_UPDATE_INTERVAL = 1;
 
 export function usePlanetariumNavigation({
   cameraState,
   canvas,
   onCameraCommit,
+  onCameraPreview,
   onManualNavigation,
   onTap,
 }: {
   cameraState: PlanetariumCamera;
   canvas: CanvasSizePixels;
   onCameraCommit: (camera: PlanetariumCamera) => void;
+  onCameraPreview: (camera: PlanetariumCamera) => void;
   onManualNavigation: () => void;
   onTap: (xPixels: number, yPixels: number, camera: PlanetariumCamera) => void;
 }) {
@@ -25,12 +30,12 @@ export function usePlanetariumNavigation({
   const panBaseline = useSharedValue(cameraState);
   const panStartX = useSharedValue(canvas.widthPixels / 2);
   const panStartY = useSharedValue(canvas.heightPixels / 2);
-  const panCurrentX = useSharedValue(canvas.widthPixels / 2);
-  const panCurrentY = useSharedValue(canvas.heightPixels / 2);
   const pinchActive = useSharedValue(false);
+  const panSuppressedAfterPinch = useSharedValue(false);
   const pinchBaseline = useSharedValue(cameraState);
   const pinchStartX = useSharedValue(canvas.widthPixels / 2);
   const pinchStartY = useSharedValue(canvas.heightPixels / 2);
+  const previewUpdateCount = useSharedValue(0);
 
   useEffect(() => {
     camera.set(cameraState);
@@ -46,62 +51,79 @@ export function usePlanetariumNavigation({
       .withTestId('sky-pan')
       .minDistance(4)
       .onStart((event) => {
+        if (pinchActive.get()) {
+          panSuppressedAfterPinch.set(true);
+          return;
+        }
+        panSuppressedAfterPinch.set(false);
         panBaseline.set(camera.get());
         panStartX.set(event.x);
         panStartY.set(event.y);
-        panCurrentX.set(event.x);
-        panCurrentY.set(event.y);
+        previewUpdateCount.set(CAMERA_PREVIEW_UPDATE_INTERVAL - 1);
         runOnJS(onManualNavigation)();
       })
       .onUpdate((event) => {
-        panCurrentX.set(event.x);
-        panCurrentY.set(event.y);
-        if (pinchActive.get()) return;
-        camera.set(
-          applyPlanetariumGesture(panBaseline.get(), canvas, {
-            currentFocalXPixels: event.x,
-            currentFocalYPixels: event.y,
-            scale: 1,
-            startFocalXPixels: panStartX.get(),
-            startFocalYPixels: panStartY.get(),
-          }),
-        );
+        if (pinchActive.get() || panSuppressedAfterPinch.get()) return;
+        const nextCamera = applyPlanetariumGesture(panBaseline.get(), canvas, {
+          currentFocalXPixels: event.x,
+          currentFocalYPixels: event.y,
+          scale: 1,
+          startFocalXPixels: panStartX.get(),
+          startFocalYPixels: panStartY.get(),
+        });
+        camera.set(nextCamera);
+        const updateCount = previewUpdateCount.get() + 1;
+        previewUpdateCount.set(updateCount);
+        if (updateCount >= CAMERA_PREVIEW_UPDATE_INTERVAL) {
+          previewUpdateCount.set(0);
+          runOnJS(onCameraPreview)(nextCamera);
+        }
       })
       .onEnd(() => {
-        if (!pinchActive.get()) runOnJS(commitCamera)(camera.get());
+        if (!pinchActive.get() && !panSuppressedAfterPinch.get()) {
+          runOnJS(commitCamera)(camera.get());
+        }
       })
       .onFinalize(() => {
-        if (!pinchActive.get()) runOnJS(commitCamera)(camera.get());
+        if (!pinchActive.get() && !panSuppressedAfterPinch.get()) {
+          runOnJS(commitCamera)(camera.get());
+        }
       });
 
     const pinch = Gesture.Pinch()
       .withTestId('sky-pinch')
       .onStart((event) => {
         pinchActive.set(true);
+        panSuppressedAfterPinch.set(true);
         pinchBaseline.set(camera.get());
         pinchStartX.set(event.focalX);
         pinchStartY.set(event.focalY);
+        previewUpdateCount.set(CAMERA_PREVIEW_UPDATE_INTERVAL - 1);
         runOnJS(onManualNavigation)();
       })
       .onUpdate((event) => {
-        camera.set(
-          applyPlanetariumGesture(pinchBaseline.get(), canvas, {
-            currentFocalXPixels: event.focalX,
-            currentFocalYPixels: event.focalY,
-            scale: event.scale,
-            startFocalXPixels: pinchStartX.get(),
-            startFocalYPixels: pinchStartY.get(),
-          }),
+        const nextCamera = applyPlanetariumAnchoredZoom(
+          pinchBaseline.get(),
+          canvas,
+          {
+            xPixels: pinchStartX.get(),
+            yPixels: pinchStartY.get(),
+          },
+          event.scale,
         );
+        camera.set(nextCamera);
+        const updateCount = previewUpdateCount.get() + 1;
+        previewUpdateCount.set(updateCount);
+        if (updateCount >= CAMERA_PREVIEW_UPDATE_INTERVAL) {
+          previewUpdateCount.set(0);
+          runOnJS(onCameraPreview)(nextCamera);
+        }
       })
       .onEnd(() => {
         runOnJS(commitCamera)(camera.get());
       })
       .onFinalize(() => {
         pinchActive.set(false);
-        panBaseline.set(camera.get());
-        panStartX.set(panCurrentX.get());
-        panStartY.set(panCurrentY.get());
         runOnJS(commitCamera)(camera.get());
       });
 
@@ -117,17 +139,18 @@ export function usePlanetariumNavigation({
     camera,
     canvas,
     commitCamera,
+    onCameraPreview,
     onManualNavigation,
     onTap,
     panBaseline,
-    panCurrentX,
-    panCurrentY,
+    panSuppressedAfterPinch,
     panStartX,
     panStartY,
     pinchActive,
     pinchBaseline,
     pinchStartX,
     pinchStartY,
+    previewUpdateCount,
   ]);
 
   return { camera, gesture };
