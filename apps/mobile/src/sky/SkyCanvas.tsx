@@ -17,7 +17,7 @@ import {
   type HorizontalCatalogueTarget,
 } from './catalogueViewport';
 import {
-  createEquatorialOverviewCamera,
+  createLocalHorizonOverviewCamera,
   projectHorizontalDirection,
   type PlanetariumCamera,
 } from './planetariumProjection';
@@ -48,7 +48,6 @@ export interface SkyCanvasProps {
     opacityPercent: number;
     visible: boolean;
   } | null;
-  observerLatitudeDegrees: number;
 }
 
 export const SkyCanvas = ({
@@ -62,11 +61,10 @@ export const SkyCanvas = ({
   trajectory,
   panoramaOverlay,
   maskOverlay,
-  observerLatitudeDegrees,
 }: SkyCanvasProps) => {
   const [canvas, setCanvas] = useState({ widthPixels: 1, heightPixels: 1 });
   const [cameraState, setCameraState] = useState<PlanetariumCamera>(() =>
-    createEquatorialOverviewCamera(observerLatitudeDegrees),
+    createLocalHorizonOverviewCamera(),
   );
 
   const visibleTargets = useMemo(

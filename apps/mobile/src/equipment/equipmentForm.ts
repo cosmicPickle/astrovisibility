@@ -31,6 +31,8 @@ export type EquipmentFormResult =
       message: string;
     };
 
+export const MAXIMUM_SENSOR_DIMENSION_MILLIMETERS = 100;
+
 export function createEquipmentFormDefaults(): EquipmentFormValues {
   return {
     name: '',
@@ -118,6 +120,23 @@ export function parseEquipmentForm(
       };
     }
     parsed[definition.field] = numberValue;
+  }
+
+  if (parsed.sensorWidthMillimeters > MAXIMUM_SENSOR_DIMENSION_MILLIMETERS) {
+    return {
+      success: false,
+      field: 'sensorWidthMillimeters',
+      message:
+        'Sensor width must be a physical dimension in millimetres, not pixel resolution.',
+    };
+  }
+  if (parsed.sensorHeightMillimeters > MAXIMUM_SENSOR_DIMENSION_MILLIMETERS) {
+    return {
+      success: false,
+      field: 'sensorHeightMillimeters',
+      message:
+        'Sensor height must be a physical dimension in millimetres, not pixel resolution.',
+    };
   }
 
   return {

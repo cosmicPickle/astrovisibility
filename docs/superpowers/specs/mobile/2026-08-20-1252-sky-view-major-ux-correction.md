@@ -3,6 +3,33 @@
 **Timestamp:** 2026-08-20 12:52 +03:00
 **Status:** Approved by direct owner instruction on 2026-08-20
 
+## Owner correction — 2026-08-20 15:33 +03:00
+
+This correction supersedes every earlier statement that stabilizes or centres
+the atlas on the celestial equator:
+
+- The navigation mount and initial overview are local-horizontal. The initial
+  view looks at the zenith and presents the complete local horizon as the stable
+  ground boundary, with north at the top, east at the left, south at the bottom,
+  and west at the right. Panning retains the horizontal mount so the horizon
+  does not acquire equatorial roll.
+- The celestial equator remains available as secondary context but uses a much
+  fainter stroke. A user-facing grid/line toggle is deferred.
+- A DWARF 3 telephoto configuration is the numerical FOV regression fixture:
+  150 mm focal length, 3840×2160 pixels at 2 µm, therefore a physical sensor of
+  7.68×4.32 mm and an approximately 2.93°×1.65° frame. At an all-sky overview it
+  must be a small 16:9 reticle, never a near-square covering most of the sky.
+- The configuration form accepts physical sensor width and height only in
+  millimetres and makes that distinction explicit. Dimensions above the bounded
+  100 mm optical-sensor limit are rejected with a message explaining that pixel
+  resolution is not millimetres.
+- Existing configurations whose two sensor dimensions are unmistakably pixel
+  counts (at least 256 in each axis), and whose stored pixel size converts them
+  to physical dimensions no larger than 100 mm, are repaired once by a
+  forward-only migration. For example, 3840×2160 with 2 µm becomes
+  7.68×4.32 mm. Values that do not satisfy every bound are left unchanged rather
+  than guessed.
+
 ## Owner correction — 2026-08-20 13:39 +03:00
 
 The following direct owner feedback supersedes the original implementation

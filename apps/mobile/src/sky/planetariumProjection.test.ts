@@ -3,7 +3,7 @@ import {
   angularSizeDegreesToPixelsAtDirection,
   applyPlanetariumPan,
   applyPlanetariumZoom,
-  createEquatorialOverviewCamera,
+  createLocalHorizonOverviewCamera,
   createPlanetariumCamera,
   createEquatorialMountFrame,
   createEquatorialPlanetariumCamera,
@@ -89,8 +89,8 @@ describe('planetarium spherical camera', () => {
     expect(Math.max(...radii) - Math.min(...radii)).toBeLessThan(1e-7);
   });
 
-  it('centres the celestial equator while keeping the tilted local horizon cardinals visible', () => {
-    const camera = createEquatorialOverviewCamera(42.7);
+  it('centres the wide overview on the zenith with the complete local horizon stable', () => {
+    const camera = createLocalHorizonOverviewCamera();
     const center = getPlanetariumCameraCenter(camera);
     const points = [0, 90, 180, 270].map((azimuthDegrees) =>
       projectHorizontalDirection(
@@ -100,9 +100,10 @@ describe('planetarium spherical camera', () => {
       ),
     );
 
-    expect(center.altitudeDegrees).toBeCloseTo(47.3, 8);
+    expect(center.altitudeDegrees).toBeCloseTo(90, 8);
     expect(center.azimuthDegrees).toBeCloseTo(180, 8);
-    expect(camera.fieldOfViewDegrees).toBe(235);
+    expect(camera.fieldOfViewDegrees).toBe(180);
+    expect(camera.mountFrame.kind).toBe('horizontal');
     expect(points.every(({ visible }) => visible)).toBe(true);
   });
 

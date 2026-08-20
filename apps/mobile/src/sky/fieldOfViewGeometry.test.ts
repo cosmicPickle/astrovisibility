@@ -15,6 +15,28 @@ const equipment: EquipmentRecord = {
 };
 
 describe('screen-centred field of view frame', () => {
+  it('renders the DWARF 3 telephoto field as a small 16:9 all-sky reticle', () => {
+    const frame = createScreenCenteredFieldOfViewFrame({
+      cameraFieldOfViewDegrees: 180,
+      canvas: { widthPixels: 1080, heightPixels: 1600 },
+      equipment: {
+        ...equipment,
+        apertureMillimeters: 35,
+        focalLengthMillimeters: 150,
+        name: 'DWARF 3',
+        pixelSizeMicrometers: 2,
+        sensorHeightMillimeters: 4.32,
+        sensorWidthMillimeters: 7.68,
+      },
+    });
+
+    expect(frame.horizontalFovDegrees).toBeCloseTo(2.933, 3);
+    expect(frame.verticalFovDegrees).toBeCloseTo(1.65, 3);
+    expect(frame.widthPixels / frame.heightPixels).toBeCloseTo(16 / 9, 2);
+    expect(frame.widthPixels).toBeLessThan(20);
+    expect(frame.heightPixels).toBeLessThan(12);
+  });
+
   it('is a literal rectangle centred on the viewport and independent of a sky target', () => {
     const frame = createScreenCenteredFieldOfViewFrame({
       cameraFieldOfViewDegrees: 90,

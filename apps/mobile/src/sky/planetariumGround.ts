@@ -1,4 +1,5 @@
 export const CARDINAL_LABEL_FONT_SIZE_PIXELS = 20;
+export const CELESTIAL_EQUATOR_STROKE_OPACITY = 0.16;
 
 export const CARDINAL_LABELS = [
   { direction: { altitudeDegrees: 2, azimuthDegrees: 0 }, label: 'N' },

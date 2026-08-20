@@ -64,4 +64,34 @@ describe('EquipmentForm', () => {
     );
     expect(onSave).not.toHaveBeenCalled();
   });
+
+  it('explains physical sensor units and blocks a pixel resolution', async () => {
+    const onSave = jest.fn();
+    const screen = await render(
+      <EquipmentForm
+        initialValues={{
+          ...createEquipmentFormDefaults(),
+          name: 'DWARF 3',
+          focalLengthMillimeters: '150',
+          apertureMillimeters: '35',
+          sensorWidthMillimeters: '3840',
+          sensorHeightMillimeters: '2160',
+          pixelSizeMicrometers: '2',
+        }}
+        onSave={onSave}
+        title="New imaging setup"
+      />,
+    );
+
+    expect(
+      screen.getAllByText('Physical millimetres, not pixels'),
+    ).toHaveLength(2);
+    await fireEvent.press(screen.getByText('Save setup'));
+    expect(
+      screen.getByText(
+        'Sensor width must be a physical dimension in millimetres, not pixel resolution.',
+      ),
+    ).toBeTruthy();
+    expect(onSave).not.toHaveBeenCalled();
+  });
 });

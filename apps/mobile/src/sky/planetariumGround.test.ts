@@ -1,6 +1,7 @@
 import {
   CARDINAL_LABELS,
   CARDINAL_LABEL_FONT_SIZE_PIXELS,
+  CELESTIAL_EQUATOR_STROKE_OPACITY,
   createHorizonDirections,
   shouldInvertGroundClip,
 } from './planetariumGround';
@@ -27,5 +28,6 @@ describe('planetarium ground and cardinals', () => {
       { direction: { altitudeDegrees: 2, azimuthDegrees: 270 }, label: 'W' },
     ]);
     expect(CARDINAL_LABEL_FONT_SIZE_PIXELS).toBeGreaterThanOrEqual(18);
+    expect(CELESTIAL_EQUATOR_STROKE_OPACITY).toBeLessThanOrEqual(0.2);
   });
 });

@@ -46,4 +46,20 @@ describe('equipment form validation and preview', () => {
       message,
     });
   });
+
+  it('rejects pixel resolution entered as physical sensor millimetres', () => {
+    expect(
+      parseEquipmentForm({
+        ...validInput,
+        sensorWidthMillimeters: '3840',
+        sensorHeightMillimeters: '2160',
+        pixelSizeMicrometers: '2',
+      }),
+    ).toEqual({
+      success: false,
+      field: 'sensorWidthMillimeters',
+      message:
+        'Sensor width must be a physical dimension in millimetres, not pixel resolution.',
+    });
+  });
 });

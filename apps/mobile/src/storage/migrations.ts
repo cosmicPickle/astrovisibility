@@ -179,6 +179,23 @@ const migrations: Migration[] = [
         ON mask_operations(mask_revision_id);
     `,
   },
+  {
+    version: 4,
+    sql: `
+      UPDATE equipment_configurations
+      SET
+        sensor_width_millimeters =
+          sensor_width_millimeters * pixel_size_micrometers / 1000,
+        sensor_height_millimeters =
+          sensor_height_millimeters * pixel_size_micrometers / 1000
+      WHERE
+        sensor_width_millimeters >= 256
+        AND sensor_height_millimeters >= 256
+        AND pixel_size_micrometers BETWEEN 0.5 AND 20
+        AND sensor_width_millimeters * pixel_size_micrometers / 1000 <= 100
+        AND sensor_height_millimeters * pixel_size_micrometers / 1000 <= 100;
+    `,
+  },
 ];
 
 export async function migrateDatabase(database: SqlDatabase): Promise<void> {

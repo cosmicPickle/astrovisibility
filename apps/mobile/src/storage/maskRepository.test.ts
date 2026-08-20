@@ -146,6 +146,12 @@ describe('MaskRepository', () => {
     const native = new DatabaseSync(':memory:');
     native.exec(`
       PRAGMA foreign_keys = ON;
+      CREATE TABLE equipment_configurations (
+        id TEXT PRIMARY KEY NOT NULL,
+        sensor_width_millimeters REAL NOT NULL,
+        sensor_height_millimeters REAL NOT NULL,
+        pixel_size_micrometers REAL NOT NULL
+      );
       CREATE TABLE mask_revisions (id TEXT PRIMARY KEY NOT NULL);
       CREATE TABLE mask_operations (
         id TEXT PRIMARY KEY NOT NULL,
@@ -175,7 +181,7 @@ describe('MaskRepository', () => {
       await database.getFirstAsync<{ version: number }>(
         'SELECT user_version AS version FROM pragma_user_version',
       ),
-    ).toEqual({ version: 3 });
+    ).toEqual({ version: 4 });
     expect(
       await database.getFirstAsync<{ count: number }>(
         `SELECT COUNT(*) AS count FROM mask_operations

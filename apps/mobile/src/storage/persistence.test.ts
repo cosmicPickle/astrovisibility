@@ -145,7 +145,7 @@ describe('SQLite migrations and repositories', () => {
     const version = await database.getFirstAsync<{ user_version: number }>(
       'PRAGMA user_version',
     );
-    expect(version?.user_version).toBe(3);
+    expect(version?.user_version).toBe(4);
 
     const firstRepository = new ProfileRepository(database);
     await firstRepository.create(profile);
@@ -291,6 +291,41 @@ describe('SQLite migrations and repositories', () => {
     });
     restartedNative.close();
     rmSync(directory, { recursive: true, force: true });
+  });
+
+  it('repairs unmistakable pixel counts stored as sensor millimetres', async () => {
+    const { native, database } = createDatabase();
+    await migrateDatabase(database);
+    await database.runAsync(
+      `INSERT INTO equipment_configurations (
+        id, name, focal_length_millimeters, aperture_millimeters,
+        sensor_width_millimeters, sensor_height_millimeters,
+        pixel_size_micrometers, frame_rotation_degrees, created_at_utc, updated_at_utc
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        'dwarf-3',
+        'DWARF 3',
+        150,
+        35,
+        3840,
+        2160,
+        2,
+        0,
+        '2026-08-20T00:00:00.000Z',
+        '2026-08-20T00:00:00.000Z',
+      ],
+    );
+    await database.execAsync('PRAGMA user_version = 3');
+
+    await migrateDatabase(database);
+
+    const repaired = await new EquipmentRepository(database).getById('dwarf-3');
+    expect(repaired).toMatchObject({
+      sensorWidthMillimeters: 7.68,
+      sensorHeightMillimeters: 4.32,
+      pixelSizeMicrometers: 2,
+    });
+    native.close();
   });
 
   it('seeds catalogue data idempotently by data version and hash', async () => {

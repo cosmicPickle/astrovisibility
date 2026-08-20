@@ -118,7 +118,10 @@ export const EquipmentForm = ({
           <FormField
             containerStyle={styles.fieldColumn}
             error={Boolean(fieldMessage('sensorWidthMillimeters'))}
-            helperText={fieldMessage('sensorWidthMillimeters') ?? 'Millimetres'}
+            helperText={
+              fieldMessage('sensorWidthMillimeters') ??
+              'Physical millimetres, not pixels'
+            }
             inputMode="decimal"
             keyboardType="decimal-pad"
             label="Sensor width"
@@ -131,7 +134,8 @@ export const EquipmentForm = ({
             containerStyle={styles.fieldColumn}
             error={Boolean(fieldMessage('sensorHeightMillimeters'))}
             helperText={
-              fieldMessage('sensorHeightMillimeters') ?? 'Millimetres'
+              fieldMessage('sensorHeightMillimeters') ??
+              'Physical millimetres, not pixels'
             }
             inputMode="decimal"
             keyboardType="decimal-pad"

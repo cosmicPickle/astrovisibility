@@ -37,6 +37,7 @@ import { createScreenCenteredFieldOfViewFrame } from './fieldOfViewGeometry';
 import {
   CARDINAL_LABEL_FONT_SIZE_PIXELS,
   CARDINAL_LABELS,
+  CELESTIAL_EQUATOR_STROKE_OPACITY,
   createHorizonDirections,
   shouldInvertGroundClip,
 } from './planetariumGround';
@@ -305,8 +306,8 @@ function PlanetariumGrid({
         canvas={canvas}
         color={colors.spaceViolet}
         directions={celestialEquatorDirections}
-        strokeOpacity={0.9}
-        strokeWidth={1.5}
+        strokeOpacity={CELESTIAL_EQUATOR_STROKE_OPACITY}
+        strokeWidth={1}
       />
       {gridLabels.map(({ direction, label }, index) => (
         <ProjectedText

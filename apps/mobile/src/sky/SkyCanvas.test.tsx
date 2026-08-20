@@ -72,7 +72,6 @@ const commonProps = {
   diurnalOrbit: null,
   fieldOfViewEquipment: null,
   maskOverlay: null,
-  observerLatitudeDegrees: 42.7,
   onInspectTrajectoryMarker: jest.fn(),
   onSelectTarget: jest.fn(),
   panoramaOverlay: null,
@@ -118,14 +117,15 @@ describe('SkyCanvas selection camera stability', () => {
     }
   });
 
-  it('starts on the upper celestial equator so the local horizon is tilted', async () => {
+  it('starts at the zenith in the local-horizontal frame', async () => {
     await render(
       <SkyCanvas {...commonProps} selectedTargetId={null} trajectory={null} />,
     );
 
     const center = getPlanetariumCameraCenter(mockObservedCameras.at(-1)!);
-    expect(center.altitudeDegrees).toBeCloseTo(47.3, 8);
+    expect(center.altitudeDegrees).toBeCloseTo(90, 8);
     expect(center.azimuthDegrees).toBeCloseTo(180, 8);
-    expect(mockObservedCameras.at(-1)!.fieldOfViewDegrees).toBe(235);
+    expect(mockObservedCameras.at(-1)!.fieldOfViewDegrees).toBe(180);
+    expect(mockObservedCameras.at(-1)!.mountFrame.kind).toBe('horizontal');
   });
 });
