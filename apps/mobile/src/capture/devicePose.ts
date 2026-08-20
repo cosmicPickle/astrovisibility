@@ -264,13 +264,18 @@ export const poseCaptureAltitudeStatus = (
   sample: DevicePoseSample,
   fieldOfView: CaptureCameraFieldOfView,
 ): GuidedCaptureAltitudeStatus => {
+  const camera = createPoseDrivenPlanetariumCamera(sample, 90);
   const altitudes = cameraFrameDirections(sample, fieldOfView).map(
     ({ altitudeDegrees }) => altitudeDegrees,
   );
   const tooLow =
     Math.min(...altitudes) < MINIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES;
+  // A normal portrait phone camera can be taller than the complete 20°–80°
+  // band. Keep the lower image boundary clear of the horizon, while applying
+  // the upper limit to the aiming direction so the frame can include zenith.
   const tooHigh =
-    Math.max(...altitudes) > MAXIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES;
+    getPlanetariumCameraCenter(camera).altitudeDegrees >
+    MAXIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES;
   if (tooLow && tooHigh) return 'too-tall';
   if (tooLow) return 'too-low';
   if (tooHigh) return 'too-high';

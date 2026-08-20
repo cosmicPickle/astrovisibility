@@ -170,4 +170,37 @@ describe('spherical capture footprint', () => {
     };
     expect(poseCaptureAltitudeStatus(low, fieldOfView)).toBe('too-low');
   });
+
+  it('keeps a tall portrait camera reachable while enforcing its lower edge and aim', () => {
+    const poseAtAltitude = (altitudeDegrees: number): DevicePoseSample => {
+      const altitudeRadians = (altitudeDegrees * Math.PI) / 180;
+      return {
+        ...northHorizonPose,
+        forward: {
+          east: 0,
+          north: Math.cos(altitudeRadians),
+          up: Math.sin(altitudeRadians),
+        },
+        up: {
+          east: 0,
+          north: -Math.sin(altitudeRadians),
+          up: Math.cos(altitudeRadians),
+        },
+      };
+    };
+    const portraitPhoneFieldOfView = {
+      horizontalDegrees: 55,
+      verticalDegrees: 69,
+    };
+
+    expect(
+      poseCaptureAltitudeStatus(poseAtAltitude(60), portraitPhoneFieldOfView),
+    ).toBe('allowed');
+    expect(
+      poseCaptureAltitudeStatus(poseAtAltitude(45), portraitPhoneFieldOfView),
+    ).toBe('too-low');
+    expect(
+      poseCaptureAltitudeStatus(poseAtAltitude(85), portraitPhoneFieldOfView),
+    ).toBe('too-high');
+  });
 });

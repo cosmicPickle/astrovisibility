@@ -23,6 +23,21 @@ import {
 
 const CAPTURE_ATLAS_FIELD_OF_VIEW_DEGREES = 100;
 
+const captureAltitudeMessage = (
+  status: Exclude<ReturnType<typeof poseCaptureAltitudeStatus>, 'allowed'>,
+) => {
+  if (status === 'too-low') {
+    return 'Raise the phone until the bottom of the blue frame is at least 20° altitude.';
+  }
+  if (status === 'too-high') {
+    return 'Aim no higher than 80° altitude.';
+  }
+  return 'Raise the bottom of the blue frame above 20° and aim no higher than 80°.';
+};
+
+const fieldOfViewLabel = (fieldOfView: CaptureCameraFieldOfView) =>
+  `${Math.round(fieldOfView.horizontalDegrees)}° × ${Math.round(fieldOfView.verticalDegrees)}° camera FOV · ${fieldOfView.approximate ? 'estimate' : 'device metadata'}`;
+
 const toPanoramaTile = (tile: CapturedProofTile): ActivePanoramaTile => ({
   centerAltitudeDegrees: tile.reviewedPlacement.centerAltitudeDegrees,
   centerAzimuthDegrees: tile.reviewedPlacement.centerAzimuthDegrees,
@@ -123,7 +138,7 @@ export function PoseDrivenCaptureView({
 
   return (
     <View style={styles.screen}>
-      <View style={styles.previewHalf}>
+      <View accessibilityLabel="Live camera preview" style={styles.previewHalf}>
         {cameraGranted ? (
           <CameraView
             facing="back"
@@ -147,7 +162,11 @@ export function PoseDrivenCaptureView({
         <View pointerEvents="none" style={styles.previewReticle} />
       </View>
 
-      <View onLayout={handleAtlasLayout} style={styles.atlasHalf}>
+      <View
+        accessibilityLabel="Phone-directed sky view"
+        onLayout={handleAtlasLayout}
+        style={styles.atlasHalf}
+      >
         <PlanetariumScene
           camera={camera}
           canvas={canvas}
@@ -182,9 +201,12 @@ export function PoseDrivenCaptureView({
           <AppText style={styles.atlasStatusText}>
             {pose ? `${tiles.length} captured` : 'Acquiring phone direction…'}
           </AppText>
+          <AppText style={styles.fieldOfViewText}>
+            {fieldOfViewLabel(fieldOfView)}
+          </AppText>
           {altitudeStatus && altitudeStatus !== 'allowed' ? (
             <AppText accessibilityRole="alert" style={styles.limitText}>
-              Keep the whole blue frame between 20° and 80° altitude.
+              {captureAltitudeMessage(altitudeStatus)}
             </AppText>
           ) : null}
           {pose?.accuracy === 0 ? (
@@ -234,7 +256,7 @@ const styles = StyleSheet.create({
   },
   atlasHalf: {
     backgroundColor: colors.backdrop,
-    flex: 1,
+    flex: 56,
     overflow: 'hidden',
   },
   atlasStatus: {
@@ -269,6 +291,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 24,
   },
+  fieldOfViewText: {
+    color: colors.mutedText,
+    fontSize: 10,
+  },
   limitText: {
     color: colors.danger,
     fontSize: 11,
@@ -278,7 +304,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.backdrop,
     borderBottomColor: colors.primary,
     borderBottomWidth: 1,
-    flex: 1,
+    flex: 44,
     overflow: 'hidden',
   },
   previewReticle: {

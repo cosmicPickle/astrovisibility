@@ -1,4 +1,5 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import type { CapturedProofTile } from './captureSession';
@@ -17,7 +18,7 @@ jest.mock('expo-camera', () => ({
 jest.mock('../sky/PlanetariumScene', () => ({
   PlanetariumScene: 'PlanetariumScene',
 }));
-let mockCaptureAltitudeDegrees = 50;
+let mockCaptureAltitudeDegrees = 60;
 jest.mock('./useDevicePose', () => ({
   useDevicePose: () => {
     const radians = (mockCaptureAltitudeDegrees * Math.PI) / 180;
@@ -136,7 +137,7 @@ const services = (): PanoramaCaptureServices => ({
 
 describe('PanoramaCaptureScreen', () => {
   beforeEach(() => {
-    mockCaptureAltitudeDegrees = 50;
+    mockCaptureAltitudeDegrees = 60;
   });
 
   it('rechecks revocable permissions when capture returns to the foreground', async () => {
@@ -180,7 +181,20 @@ describe('PanoramaCaptureScreen', () => {
     expect(screen.queryByText('Az −5°')).toBeNull();
     expect(screen.queryByText('Az +5°')).toBeNull();
     expect(screen.getByLabelText('Current camera footprint')).toBeTruthy();
+    expect(
+      screen.getByText(/55° × 69° camera FOV · device metadata/i),
+    ).toBeTruthy();
     expect(screen.getByText('0 captured')).toBeTruthy();
+    expect(
+      StyleSheet.flatten(
+        screen.getByLabelText('Live camera preview').props.style,
+      ).flex,
+    ).toBe(44);
+    expect(
+      StyleSheet.flatten(
+        screen.getByLabelText('Phone-directed sky view').props.style,
+      ).flex,
+    ).toBe(56);
 
     await act(async () => fireEvent.press(screen.getByText('Import')));
     await waitFor(() => expect(controller.addTile).toHaveBeenCalledTimes(1));
@@ -270,8 +284,8 @@ describe('PanoramaCaptureScreen', () => {
   });
 
   it.each([
-    [25, /whole blue frame.*20°.*80°/i],
-    [75, /whole blue frame.*20°.*80°/i],
+    [45, /bottom of the blue frame.*20°/i],
+    [85, /aim no higher than 80°/i],
   ])(
     'blocks camera capture at %i degrees and explains the valid altitude range',
     async (altitudeDegrees, expectedMessage) => {
