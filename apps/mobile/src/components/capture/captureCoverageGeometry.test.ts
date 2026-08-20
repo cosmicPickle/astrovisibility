@@ -3,7 +3,7 @@ import {
   getCaptureCardinals,
 } from './captureCoverageGeometry';
 
-const map = { heightPixels: 176, widthPixels: 360 };
+const map = { heightPixels: 90, widthPixels: 360 };
 
 describe('unfolded capture coverage geometry', () => {
   it('maps a camera-sized footprint into the 360 by 90 degree sky guide', () => {
@@ -21,8 +21,8 @@ describe('unfolded capture coverage geometry', () => {
     ).toEqual([
       expect.objectContaining({
         centerX: 180,
-        centerY: 88,
-        height: 90.93333333333334,
+        centerY: 45,
+        height: 46.5,
         rotationDegrees: 0,
         width: 62,
         x: 149,
@@ -45,7 +45,7 @@ describe('unfolded capture coverage geometry', () => {
     expect(footprints).toHaveLength(2);
     expect(footprints.map(({ centerX }) => centerX)).toEqual([358, -2]);
     expect(
-      footprints.every(({ rotationDegrees }) => rotationDegrees === 8),
+      footprints.every(({ rotationDegrees }) => rotationDegrees === -8),
     ).toBe(true);
     expect(footprints.some(({ x, width }) => x < 360 && x + width > 350)).toBe(
       true,
@@ -55,7 +55,7 @@ describe('unfolded capture coverage geometry', () => {
     );
   });
 
-  it('clips footprints at the horizon and zenith without moving their azimuth', () => {
+  it('keeps full footprint dimensions beyond the horizon and zenith', () => {
     const horizon = createCaptureCoverageFootprints(
       {
         centerAltitudeDegrees: 4,
@@ -77,18 +77,22 @@ describe('unfolded capture coverage geometry', () => {
       map,
     )[0];
 
-    expect(horizon?.y + (horizon?.height ?? 0)).toBeCloseTo(176);
-    expect(zenith?.y).toBe(0);
+    expect(horizon).toEqual(
+      expect.objectContaining({ centerY: 86, height: 30, y: 71 }),
+    );
+    expect(zenith).toEqual(
+      expect.objectContaining({ centerY: 4, height: 30, y: -11 }),
+    );
     expect(horizon?.centerX).toBe(90);
     expect(zenith?.centerX).toBe(270);
   });
 
   it('places red-cardinal anchors at the horizon in north-east-south-west order', () => {
     expect(getCaptureCardinals(map)).toEqual([
-      { label: 'N', x: 4, y: 170 },
-      { label: 'E', x: 90, y: 170 },
-      { label: 'S', x: 180, y: 170 },
-      { label: 'W', x: 270, y: 170 },
+      { label: 'N', x: 4, y: 84 },
+      { label: 'E', x: 90, y: 84 },
+      { label: 'S', x: 180, y: 84 },
+      { label: 'W', x: 270, y: 84 },
     ]);
   });
 });

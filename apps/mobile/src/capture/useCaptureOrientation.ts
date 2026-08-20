@@ -7,9 +7,9 @@ import type { OrientationSnapshot } from './captureSession';
 const radiansToDegrees = (radians: number) => (radians * 180) / Math.PI;
 const clamp = (value: number, minimum: number, maximum: number) =>
   Math.max(minimum, Math.min(maximum, value));
-const SENSOR_SMOOTHING_FACTOR = 0.25;
-const HEADING_DEADBAND_DEGREES = 0.75;
-const MOTION_DEADBAND_DEGREES = 0.6;
+const SENSOR_SMOOTHING_FACTOR = 0.12;
+const HEADING_DEADBAND_DEGREES = 1.5;
+const MOTION_DEADBAND_DEGREES = 1;
 const normalizeDegrees = (degrees: number) => ((degrees % 360) + 360) % 360;
 const normalizeAxialDegrees = (degrees: number) =>
   ((((degrees + 90) % 180) + 180) % 180) - 90;
@@ -133,7 +133,7 @@ export const useCaptureOrientation = (
         if (cancelled) return;
         setMotionAvailable(available);
         if (!available) return;
-        DeviceMotion.setUpdateInterval(100);
+        DeviceMotion.setUpdateInterval(50);
         subscription = DeviceMotion.addListener((measurement) => {
           setOrientation((current) =>
             orientationFromDeviceMotion(current, measurement),

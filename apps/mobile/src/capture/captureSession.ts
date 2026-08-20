@@ -57,18 +57,57 @@ const clamp = (value: number, minimum: number, maximum: number) =>
 
 export const MAXIMUM_CAPTURE_EDGE_PIXELS = 12_000;
 export const MAXIMUM_CAPTURE_PIXELS = 40_000_000;
+export const CAPTURE_HORIZONTAL_FIELD_OF_VIEW_DEGREES = 62;
+export const CAPTURE_VERTICAL_FIELD_OF_VIEW_DEGREES = 46.5;
 export const MINIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES = 20;
 export const MAXIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES = 80;
 
-export type GuidedCaptureAltitudeStatus = 'allowed' | 'too-high' | 'too-low';
+export type GuidedCaptureAltitudeStatus =
+  'allowed' | 'too-high' | 'too-low' | 'too-tall';
+
+const normalizeAzimuthDegrees = (value: number) => ((value % 360) + 360) % 360;
+
+export const createGuidedCapturePlacement = (
+  orientation: OrientationSnapshot,
+): ReviewedTilePlacement => ({
+  centerAltitudeDegrees: clamp(orientation.estimatedAltitudeDegrees, 0, 90),
+  centerAzimuthDegrees: normalizeAzimuthDegrees(orientation.trueHeadingDegrees),
+  horizontalFieldOfViewDegrees: CAPTURE_HORIZONTAL_FIELD_OF_VIEW_DEGREES,
+  rollDegrees: orientation.rollDegrees,
+  verticalFieldOfViewDegrees: CAPTURE_VERTICAL_FIELD_OF_VIEW_DEGREES,
+});
+
+export const guidedCaptureAltitudeBounds = (
+  placement: ReviewedTilePlacement,
+) => {
+  const rollRadians = (placement.rollDegrees * Math.PI) / 180;
+  const verticalHalfExtentDegrees =
+    (Math.abs(Math.cos(rollRadians)) * placement.verticalFieldOfViewDegrees) /
+      2 +
+    (Math.abs(Math.sin(rollRadians)) * placement.horizontalFieldOfViewDegrees) /
+      2;
+  return {
+    highestAltitudeDegrees:
+      placement.centerAltitudeDegrees + verticalHalfExtentDegrees,
+    lowestAltitudeDegrees:
+      placement.centerAltitudeDegrees - verticalHalfExtentDegrees,
+  };
+};
 
 export const guidedCaptureAltitudeStatus = (
-  altitudeDegrees: number,
+  placement: ReviewedTilePlacement,
 ): GuidedCaptureAltitudeStatus => {
-  if (altitudeDegrees < MINIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES) {
+  const { highestAltitudeDegrees, lowestAltitudeDegrees } =
+    guidedCaptureAltitudeBounds(placement);
+  const tooLow =
+    lowestAltitudeDegrees < MINIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES;
+  const tooHigh =
+    highestAltitudeDegrees > MAXIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES;
+  if (tooLow && tooHigh) return 'too-tall';
+  if (tooLow) {
     return 'too-low';
   }
-  if (altitudeDegrees > MAXIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES) {
+  if (tooHigh) {
     return 'too-high';
   }
   return 'allowed';
@@ -96,8 +135,6 @@ export function assertCaptureDimensionsWithinLimits(
     throw new RangeError('A capture cannot exceed 40 megapixels.');
   }
 }
-
-const normalizeAzimuthDegrees = (value: number) => ((value % 360) + 360) % 360;
 
 export const captureOrientationConfidence = (
   headingAccuracyDegrees: number | null,

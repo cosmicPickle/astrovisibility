@@ -13,7 +13,7 @@ jest.mock('expo-camera', () => ({
   CameraView: 'CameraView',
   useCameraPermissions: () => [{ granted: false }, jest.fn()],
 }));
-let mockCaptureAltitudeDegrees = 30;
+let mockCaptureAltitudeDegrees = 50;
 jest.mock('./useCaptureOrientation', () => ({
   useCaptureOrientation: () => ({
     motionAvailable: false,
@@ -40,7 +40,7 @@ const importedTile: CapturedProofTile = {
   orientationSnapshot: {
     trueHeadingDegrees: 180,
     headingAccuracyDegrees: null,
-    estimatedAltitudeDegrees: 30,
+    estimatedAltitudeDegrees: 50,
     rollDegrees: 0,
     rawRotation: null,
   },
@@ -95,8 +95,8 @@ const services = (): PanoramaCaptureServices => ({
   openSettings: jest.fn(),
   pickImage: jest.fn().mockResolvedValue({
     uri: 'temp://import.jpg',
-    widthPixels: 1200,
-    heightPixels: 900,
+    widthPixels: 900,
+    heightPixels: 1600,
     fileExtension: 'jpg',
   }),
   requestCameraPermission: jest.fn().mockResolvedValue(false),
@@ -106,7 +106,7 @@ const services = (): PanoramaCaptureServices => ({
 
 describe('PanoramaCaptureScreen', () => {
   beforeEach(() => {
-    mockCaptureAltitudeDegrees = 30;
+    mockCaptureAltitudeDegrees = 50;
   });
 
   it('rechecks revocable permissions when capture returns to the foreground', async () => {
@@ -159,6 +159,15 @@ describe('PanoramaCaptureScreen', () => {
 
     await act(async () => fireEvent.press(screen.getByText('Import image')));
     await waitFor(() => expect(controller.addTile).toHaveBeenCalledTimes(1));
+    expect(controller.addTile).toHaveBeenCalledWith(
+      'draft-1',
+      expect.objectContaining({
+        reviewedPlacement: expect.objectContaining({
+          horizontalFieldOfViewDegrees: 62,
+          verticalFieldOfViewDegrees: 46.5,
+        }),
+      }),
+    );
     expect(screen.getByText('1 tile · 360° not required')).toBeTruthy();
     await act(async () => fireEvent.press(screen.getByText('Review')));
     await waitFor(() => screen.getByText(/Manual placement/i));
@@ -234,8 +243,8 @@ describe('PanoramaCaptureScreen', () => {
   });
 
   it.each([
-    [19, /Aim higher.*20°.*80°/i],
-    [81, /Aim lower.*20°.*80°/i],
+    [42, /Aim higher.*whole camera frame.*20°.*80°/i],
+    [58, /Aim lower.*whole camera frame.*20°.*80°/i],
   ])(
     'blocks camera capture at %i degrees and explains the valid altitude range',
     async (altitudeDegrees, expectedMessage) => {

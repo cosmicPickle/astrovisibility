@@ -69,12 +69,13 @@ describe('capture orientation samples', () => {
     expect(
       cameraRollDegreesFromGammaRadians((-179 * Math.PI) / 180),
     ).toBeCloseTo(1);
-    expect(smoothCameraRollDegrees(-1, 1)).toBeCloseTo(-0.5);
-    expect(smoothCameraRollDegrees(89, -89)).toBeCloseTo(89.5);
+    expect(smoothCameraRollDegrees(-1, 1)).toBeCloseTo(-0.76);
+    expect(smoothCameraRollDegrees(89, -89)).toBeCloseTo(89.24);
   });
 
   it('ignores small stationary-pose noise before smoothing larger motion', () => {
-    expect(smoothHeadingDegrees(120, 120.4)).toBe(120);
+    expect(smoothHeadingDegrees(120, 120.9)).toBe(120);
+    expect(smoothHeadingDegrees(120, 122)).toBeCloseTo(120.24);
 
     const steady = orientationFromDeviceMotion(
       {
@@ -101,8 +102,8 @@ describe('capture orientation samples', () => {
   });
 
   it('smooths headings across north using the short circular path', () => {
-    expect(smoothHeadingDegrees(358, 2)).toBeCloseTo(359);
-    expect(smoothHeadingDegrees(2, 358)).toBeCloseTo(1);
+    expect(smoothHeadingDegrees(358, 2)).toBeCloseTo(358.48);
+    expect(smoothHeadingDegrees(2, 358)).toBeCloseTo(1.52);
   });
 
   it('turns Expo heading grades into conservative degree warnings', () => {

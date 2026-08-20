@@ -28,7 +28,10 @@ import { createLocalRecordId } from '../storage/recordIdentity';
 import { colors, layout } from '../theme/tokens';
 import {
   applyTileCorrection,
+  CAPTURE_HORIZONTAL_FIELD_OF_VIEW_DEGREES,
+  CAPTURE_VERTICAL_FIELD_OF_VIEW_DEGREES,
   createCapturedTile,
+  createGuidedCapturePlacement,
   guidedCaptureAltitudeStatus,
   MAXIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES,
   MINIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES,
@@ -166,8 +169,17 @@ const defaultPickImage = async (): Promise<PickedPanoramaImage | null> => {
 const countLabel = (count: number) =>
   `${count} tile${count === 1 ? '' : 's'} · 360° not required`;
 const degrees = (value: number) => `${Math.round(value)}°`;
-const captureAltitudeMessage = (status: 'too-high' | 'too-low') =>
-  `${status === 'too-low' ? 'Aim higher' : 'Aim lower'}. Keep the camera between ${MINIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES}° and ${MAXIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES}° altitude.`;
+const captureAltitudeMessage = (
+  status: 'too-high' | 'too-low' | 'too-tall',
+) => {
+  const action =
+    status === 'too-low'
+      ? 'Aim higher'
+      : status === 'too-high'
+        ? 'Aim lower'
+        : 'Straighten the phone';
+  return `${action}. Keep the whole camera frame between ${MINIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES}° and ${MAXIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES}° altitude.`;
+};
 
 export const PanoramaCaptureScreen = ({
   controller = panoramaCaptureController,
@@ -196,8 +208,9 @@ export const PanoramaCaptureScreen = ({
     mode === 'capture',
     locationGranted,
   );
+  const guidedCapturePlacement = createGuidedCapturePlacement(orientation);
   const captureAltitudeStatus = guidedCaptureAltitudeStatus(
-    orientation.estimatedAltitudeDegrees,
+    guidedCapturePlacement,
   );
   const captureAltitudeAllowed = captureAltitudeStatus === 'allowed';
 
@@ -331,8 +344,8 @@ export const PanoramaCaptureScreen = ({
       heightPixels: asset.heightPixels,
       capturedAtUtc: new Date().toISOString(),
       orientation,
-      horizontalFieldOfViewDegrees: 62,
-      verticalFieldOfViewDegrees: 62 * (asset.heightPixels / asset.widthPixels),
+      horizontalFieldOfViewDegrees: CAPTURE_HORIZONTAL_FIELD_OF_VIEW_DEGREES,
+      verticalFieldOfViewDegrees: CAPTURE_VERTICAL_FIELD_OF_VIEW_DEGREES,
       sourceKind,
       motionAvailable: motionAvailable === true,
     });

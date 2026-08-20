@@ -26,20 +26,11 @@ export function createCaptureCoverageFootprints(
   placement: ReviewedTilePlacement,
   map: CaptureCoverageMapSize,
 ): CaptureCoverageFootprint[] {
-  const halfVerticalDegrees = placement.verticalFieldOfViewDegrees / 2;
-  const minimumAltitudeDegrees = Math.max(
-    0,
-    placement.centerAltitudeDegrees - halfVerticalDegrees,
-  );
-  const maximumAltitudeDegrees = Math.min(
-    90,
-    placement.centerAltitudeDegrees + halfVerticalDegrees,
-  );
   const width =
-    (placement.horizontalFieldOfViewDegrees / 360) * map.widthPixels;
-  const y = yForAltitude(maximumAltitudeDegrees, map);
-  const height =
-    ((maximumAltitudeDegrees - minimumAltitudeDegrees) / 90) * map.heightPixels;
+    (placement.horizontalFieldOfViewDegrees * map.widthPixels) / 360;
+  const height = (placement.verticalFieldOfViewDegrees * map.heightPixels) / 90;
+  const centerY = yForAltitude(placement.centerAltitudeDegrees, map);
+  const y = centerY - height / 2;
   const baseCenterX = xForAzimuth(placement.centerAzimuthDegrees, map);
   const centerXs = [baseCenterX];
 
@@ -51,9 +42,10 @@ export function createCaptureCoverageFootprints(
 
   return centerXs.map((centerX) => ({
     centerX,
-    centerY: y + height / 2,
+    centerY,
     height,
-    rotationDegrees: placement.rollDegrees,
+    // Android/Expo roll uses a Y-up convention; SVG's Y axis points down.
+    rotationDegrees: placement.rollDegrees === 0 ? 0 : -placement.rollDegrees,
     width,
     x: centerX - width / 2,
     y,
