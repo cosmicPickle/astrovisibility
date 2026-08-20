@@ -13,10 +13,12 @@ import type { EquipmentRecord } from '../storage/equipmentRepository';
 import type { ActivePanorama } from '../storage/panoramaDraftRepository';
 import { colors } from '../theme/tokens';
 import {
-  queryCataloguePlanetarium,
-  shouldRefreshPlanetariumCatalogue,
+  buildPlanetariumCatalogueIndex,
+  layoutPlanetariumTargetLabels,
+  selectPlanetariumResidentTargets,
+  shouldRefreshPlanetariumResidentCatalogue,
   type HorizontalCatalogueTarget,
-} from './catalogueViewport';
+} from './planetariumCatalogue';
 import {
   createInitialPlanetariumCamera,
   projectHorizontalDirection,
@@ -68,12 +70,30 @@ export const SkyCanvas = ({
   const [initialCameraState] = useState<PlanetariumCamera>(() =>
     createInitialPlanetariumCamera(),
   );
-  const [catalogueCameraState, setCatalogueCameraState] =
+  const [residentCameraState, setResidentCameraState] =
     useState(initialCameraState);
+  const [labelCameraState, setLabelCameraState] = useState(initialCameraState);
+  const catalogueIndex = useMemo(
+    () => buildPlanetariumCatalogueIndex(targets),
+    [targets],
+  );
+  const residentTargets = useMemo(
+    () =>
+      selectPlanetariumResidentTargets(
+        catalogueIndex,
+        residentCameraState,
+        canvas,
+        { selectedTargetId },
+      ),
+    [canvas, catalogueIndex, residentCameraState, selectedTargetId],
+  );
 
   const visibleTargets = useMemo(
-    () => queryCataloguePlanetarium(targets, catalogueCameraState, canvas),
-    [canvas, catalogueCameraState, targets],
+    () =>
+      layoutPlanetariumTargetLabels(residentTargets, labelCameraState, canvas, {
+        selectedTargetId,
+      }),
+    [canvas, labelCameraState, residentTargets, selectedTargetId],
   );
 
   const getTapContext = useLatestValue(
@@ -163,15 +183,16 @@ export const SkyCanvas = ({
   );
 
   const handleCameraCommit = useCallback((camera: PlanetariumCamera) => {
-    setCatalogueCameraState((anchorCamera) =>
-      shouldRefreshPlanetariumCatalogue(anchorCamera, camera)
+    setResidentCameraState((anchorCamera) =>
+      shouldRefreshPlanetariumResidentCatalogue(anchorCamera, camera)
         ? camera
         : anchorCamera,
     );
+    setLabelCameraState(camera);
   }, []);
   const handleCameraPreview = useCallback((camera: PlanetariumCamera) => {
-    setCatalogueCameraState((anchorCamera) =>
-      shouldRefreshPlanetariumCatalogue(anchorCamera, camera)
+    setResidentCameraState((anchorCamera) =>
+      shouldRefreshPlanetariumResidentCatalogue(anchorCamera, camera)
         ? camera
         : anchorCamera,
     );

@@ -24,7 +24,10 @@ import type { VisibilityMask } from '../mask/visibilityMask';
 import type { EquipmentRecord } from '../storage/equipmentRepository';
 import type { ActivePanoramaTile } from '../storage/panoramaDraftRepository';
 import { colors } from '../theme/tokens';
-import type { ViewportCatalogueTarget } from './catalogueViewport';
+import {
+  isPlanetariumLabelFullyInsideCanvas,
+  type RenderedPlanetariumTarget,
+} from './planetariumCatalogue';
 import {
   angularSizeDegreesToPixelsAtDirection,
   densifyHorizontalPath,
@@ -399,7 +402,7 @@ function PlanetariumTarget({
 }: {
   camera: SharedValue<PlanetariumCamera>;
   canvas: CanvasSizePixels;
-  item: ViewportCatalogueTarget;
+  item: RenderedPlanetariumTarget;
   selected: boolean;
 }) {
   const direction = {
@@ -452,6 +455,18 @@ function PlanetariumTarget({
       height,
     };
   });
+  const labelWidthPixels = Math.max(
+    targetFont.measureText(item.label).width,
+    item.secondaryLabel
+      ? secondaryFont.measureText(item.secondaryLabel).width
+      : 0,
+  );
+  const labelOpacity = useDerivedValue(() =>
+    item.labelVisible &&
+    isPlanetariumLabelFullyInsideCanvas(point.value, labelWidthPixels, canvas)
+      ? 1
+      : 0,
+  );
   return (
     <Group opacity={opacity} transform={transform}>
       <Oval
@@ -467,22 +482,24 @@ function PlanetariumTarget({
         style="stroke"
       />
       {item.labelVisible ? (
-        <Text
-          color={selected ? colors.spaceViolet : colors.text}
-          font={targetFont}
-          text={item.label}
-          x={-targetFont.measureText(item.label).width / 2}
-          y={32}
-        />
-      ) : null}
-      {item.labelVisible && item.secondaryLabel ? (
-        <Text
-          color={colors.mutedText}
-          font={secondaryFont}
-          text={item.secondaryLabel}
-          x={-secondaryFont.measureText(item.secondaryLabel).width / 2}
-          y={43}
-        />
+        <Group opacity={labelOpacity}>
+          <Text
+            color={selected ? colors.spaceViolet : colors.text}
+            font={targetFont}
+            text={item.label}
+            x={-targetFont.measureText(item.label).width / 2}
+            y={32}
+          />
+          {item.secondaryLabel ? (
+            <Text
+              color={colors.mutedText}
+              font={secondaryFont}
+              text={item.secondaryLabel}
+              x={-secondaryFont.measureText(item.secondaryLabel).width / 2}
+              y={43}
+            />
+          ) : null}
+        </Group>
       ) : null}
     </Group>
   );
@@ -818,7 +835,7 @@ export function PlanetariumScene({
   panoramaOpacity: number;
   panoramaTiles: readonly ActivePanoramaTile[];
   selectedTargetId: string | null;
-  targets: readonly ViewportCatalogueTarget[];
+  targets: readonly RenderedPlanetariumTarget[];
   trajectory: SelectedTargetTrajectory | null;
 }) {
   return (

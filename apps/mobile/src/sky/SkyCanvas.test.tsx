@@ -3,7 +3,10 @@ import type { PropsWithChildren } from 'react';
 
 import type { SelectedTargetTrajectory } from '../astronomy/trajectory';
 import type { CatalogueTarget } from '../../scripts/catalogue/catalogueImporter';
-import type { ViewportCatalogueTarget } from './catalogueViewport';
+import type {
+  HorizontalCatalogueTarget,
+  RenderedPlanetariumTarget,
+} from './planetariumCatalogue';
 import {
   createPlanetariumCamera,
   getPlanetariumCameraCenter,
@@ -34,7 +37,11 @@ jest.mock('./PlanetariumScene', () => {
   const react = jest.requireActual('react') as typeof import('react');
   const reactNative = jest.requireActual('react-native');
   return {
-    PlanetariumScene: ({ targets }: { targets: ViewportCatalogueTarget[] }) => {
+    PlanetariumScene: ({
+      targets,
+    }: {
+      targets: RenderedPlanetariumTarget[];
+    }) => {
       mockObservedSceneTargetIds.push(targets.map(({ target }) => target.id));
       return react.createElement(reactNative.View, {
         testID: 'planetarium-scene',
@@ -107,16 +114,14 @@ const commonProps = {
 const createCatalogueTarget = (
   id: string,
   azimuthDegrees: number,
-): ViewportCatalogueTarget => {
+): HorizontalCatalogueTarget => {
   const target: CatalogueTarget = {
     aliases: [id],
     constellation: 'Ori',
     declinationJ2000Degrees: 0,
     id,
     magnitude: 5,
-    majorAxisArcminutes: 30,
     memberships: { ic: [], messier: [], ngc: [] },
-    minorAxisArcminutes: 20,
     objectType: 'G',
     positionAngleDegrees: 0,
     preferredName: id,
@@ -126,15 +131,7 @@ const createCatalogueTarget = (
   return {
     altitudeDegrees: 35,
     azimuthDegrees,
-    hitRadiusPixels: 22,
-    label: id,
-    labelVisible: true,
-    outlineHeightPixels: 2,
-    outlineRotationDegrees: 0,
-    outlineWidthPixels: 2,
     target,
-    xPixels: 0,
-    yPixels: 0,
   };
 };
 
@@ -226,8 +223,6 @@ describe('SkyCanvas selection camera stability', () => {
         target: expect.objectContaining({ id: 'south-target' }),
       }),
     );
-    const sceneRenderCountBeforeCommit = mockObservedSceneTargetIds.length;
-
     await act(() => {
       mockNavigationOptions!.onCameraCommit(southCamera);
     });
@@ -235,8 +230,8 @@ describe('SkyCanvas selection camera stability', () => {
     expect(mockNavigationOptions!.cameraState).toBe(initialCommittedCamera);
     expect(mockNavigationOptions!.onTap).toBe(initialTapHandler);
     expect(mockObservedSceneTargetIds.at(-1)).toContain('south-target');
-    expect(mockObservedSceneTargetIds).toHaveLength(
-      sceneRenderCountBeforeCommit,
+    expect(mockObservedSceneTargetIds.at(-1)).toEqual(
+      mockObservedSceneTargetIds.at(-2),
     );
   });
 });

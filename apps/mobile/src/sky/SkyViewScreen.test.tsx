@@ -9,7 +9,7 @@ import type { SelectedTargetTrajectory } from '../astronomy/trajectory';
 import type { EquipmentRecord } from '../storage/equipmentRepository';
 import type { ActiveMaskRevision } from '../storage/maskRepository';
 import type { ProfileRecord } from '../storage/profileRepository';
-import type { HorizontalCatalogueTarget } from './catalogueViewport';
+import type { HorizontalCatalogueTarget } from './planetariumCatalogue';
 import {
   SkyViewScreen,
   type SkyRendererProps,

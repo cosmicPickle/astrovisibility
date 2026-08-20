@@ -55,7 +55,7 @@ import type { ActivePanorama } from '../storage/panoramaDraftRepository';
 import type { ProfileRecord } from '../storage/profileRepository';
 import { colors, layout } from '../theme/tokens';
 import { projectCatalogueAtInstant } from './catalogueProjection';
-import type { HorizontalCatalogueTarget } from './catalogueViewport';
+import type { HorizontalCatalogueTarget } from './planetariumCatalogue';
 import {
   ObservingWindowSheet,
   type ObservingWindowChange,

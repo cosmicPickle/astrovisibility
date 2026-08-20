@@ -16,7 +16,7 @@ export type EquipmentSuitability = Readonly<{
 }>;
 
 const FRAME_FILL_FRACTION = 0.9;
-const MINIMUM_MINOR_AXIS_PIXELS = 8;
+const MINIMUM_MINOR_AXIS_PIXELS = 60;
 const ARCSECONDS_PER_RADIAN = 206_264.806;
 
 /**
@@ -73,8 +73,7 @@ export function evaluateEquipmentSuitability(
   if (minorAxisPixels < MINIMUM_MINOR_AXIS_PIXELS) {
     return {
       eligible: false,
-      explanation:
-        'Too small to span the required 8 pixels across its minor axis.',
+      explanation: `Too small: about ${Math.round(minorAxisPixels)} pixels across the minor axis; at least 60 pixels are required.`,
       frameFillLimitPercent: 90,
       ...fieldOfView,
       minorAxisPixels,

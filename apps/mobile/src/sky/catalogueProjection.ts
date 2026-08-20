@@ -3,7 +3,7 @@ import {
   equatorialJ2000ToHorizontal,
   type ObserverLocation,
 } from '../astronomy/horizontalCoordinates';
-import type { HorizontalCatalogueTarget } from './catalogueViewport';
+import type { HorizontalCatalogueTarget } from './planetariumCatalogue';
 
 export interface CatalogueProjectionContext {
   observer: ObserverLocation;

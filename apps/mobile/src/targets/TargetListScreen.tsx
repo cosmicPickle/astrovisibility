@@ -382,7 +382,7 @@ function TargetListHeader({
         </AppText>
         <AppText tone="muted">
           {data.equipment
-            ? 'Known-size targets must fit within 90% of the frame and span at least 8 sensor pixels. Unknown sizes stay included and are labelled.'
+            ? 'Known-size targets must fit within 90% of the frame and span at least 60 sensor pixels across their minor axis. Unknown sizes stay included and are labelled.'
             : 'All targets that rise in this observing window remain eligible.'}
         </AppText>
         {progress.rejectedByEquipmentCount > 0 ? (
