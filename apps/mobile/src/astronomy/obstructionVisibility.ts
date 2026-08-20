@@ -1,7 +1,7 @@
 import type { VisibilityMask } from '../mask/visibilityMask';
 import {
-  classifyMaskDirection,
-  maskSegmentMayCrossBoundary,
+  createVisibilityMaskEvaluator,
+  type VisibilityMaskEvaluator,
 } from '../mask/visibilityMask';
 import {
   equatorialJ2000ToHorizontal,
@@ -122,11 +122,11 @@ function parseWindow(window: ObstructionVisibilityInput['window']) {
 
 function classifyCoordinates(
   horizontal: HorizontalCoordinates,
-  mask: VisibilityMask | null,
+  maskEvaluator: VisibilityMaskEvaluator | null,
 ): TrajectoryAssessment {
   if (horizontal.refractedAltitudeDegrees < 0) return 'belowHorizon';
-  if (!mask) return 'unassessed';
-  return classifyMaskDirection(mask, {
+  if (!maskEvaluator) return 'unassessed';
+  return maskEvaluator.classify({
     altitudeDegrees: horizontal.refractedAltitudeDegrees,
     azimuthDegrees: horizontal.azimuthDegreesClockwiseFromNorth,
   });
@@ -149,11 +149,12 @@ function sphericalSeparationDegrees(
   return (Math.acos(Math.max(-1, Math.min(1, cosine))) / Math.PI) * 180;
 }
 
-const createSpatialRefinementPredicate = (mask: VisibilityMask | null) =>
-  mask
+const createSpatialRefinementPredicate = (
+  maskEvaluator: VisibilityMaskEvaluator | null,
+) =>
+  maskEvaluator
     ? (left: EvaluatedSample, right: EvaluatedSample) =>
-        maskSegmentMayCrossBoundary(
-          mask,
+        maskEvaluator.segmentMayCrossBoundary(
           {
             azimuthDegrees: left.azimuthDegreesClockwiseFromNorth,
             altitudeDegrees: left.refractedAltitudeDegrees,
@@ -181,6 +182,7 @@ function createEvaluator(
         timestampUtc,
       }));
   const mask = input.maskRevision?.mask ?? null;
+  const maskEvaluator = mask ? createVisibilityMaskEvaluator(mask) : null;
   const yieldEverySamples =
     options.yieldEverySamples ?? DEFAULT_YIELD_EVERY_SAMPLES;
   if (!Number.isInteger(yieldEverySamples) || yieldEverySamples < 1) {
@@ -212,7 +214,7 @@ function createEvaluator(
     return {
       ...horizontal,
       timestampMilliseconds,
-      assessment: classifyCoordinates(horizontal, mask),
+      assessment: classifyCoordinates(horizontal, maskEvaluator),
     };
   };
   return { evaluate, throwIfCancelled };
@@ -233,10 +235,11 @@ async function refineSegment(
   const needsTemporalRefinement =
     classificationChanged &&
     durationMilliseconds > TRANSITION_TOLERANCE_MILLISECONDS;
+  const exceedsSpatialResolution =
+    durationMilliseconds > TRANSITION_TOLERANCE_MILLISECONDS ||
+    sphericalSeparationDegrees(left, right) > SPATIAL_TOLERANCE_DEGREES;
   const needsMaskRefinement =
-    shouldRefineSpatially(left, right) &&
-    (durationMilliseconds > TRANSITION_TOLERANCE_MILLISECONDS ||
-      sphericalSeparationDegrees(left, right) > SPATIAL_TOLERANCE_DEGREES);
+    exceedsSpatialResolution && shouldRefineSpatially(left, right);
   if (!needsTemporalRefinement && !needsMaskRefinement) return [right];
   const middleMilliseconds = Math.floor(
     (left.timestampMilliseconds + right.timestampMilliseconds) / 2,
@@ -254,7 +257,8 @@ async function refineSegment(
   ];
 }
 
-function refineSegmentSynchronously(
+function appendRefinedSegmentSynchronously(
+  output: EvaluatedSample[],
   left: EvaluatedSample,
   right: EvaluatedSample,
   evaluate: (timestampMilliseconds: number) => EvaluatedSample,
@@ -262,18 +266,22 @@ function refineSegmentSynchronously(
     left: EvaluatedSample,
     right: EvaluatedSample,
   ) => boolean,
-): EvaluatedSample[] {
+): void {
   const durationMilliseconds =
     right.timestampMilliseconds - left.timestampMilliseconds;
   const classificationChanged = left.assessment !== right.assessment;
   const needsTemporalRefinement =
     classificationChanged &&
     durationMilliseconds > TRANSITION_TOLERANCE_MILLISECONDS;
+  const exceedsSpatialResolution =
+    durationMilliseconds > TRANSITION_TOLERANCE_MILLISECONDS ||
+    sphericalSeparationDegrees(left, right) > SPATIAL_TOLERANCE_DEGREES;
   const needsMaskRefinement =
-    shouldRefineSpatially(left, right) &&
-    (durationMilliseconds > TRANSITION_TOLERANCE_MILLISECONDS ||
-      sphericalSeparationDegrees(left, right) > SPATIAL_TOLERANCE_DEGREES);
-  if (!needsTemporalRefinement && !needsMaskRefinement) return [right];
+    exceedsSpatialResolution && shouldRefineSpatially(left, right);
+  if (!needsTemporalRefinement && !needsMaskRefinement) {
+    output.push(right);
+    return;
+  }
   const middleMilliseconds = Math.floor(
     (left.timestampMilliseconds + right.timestampMilliseconds) / 2,
   );
@@ -281,23 +289,24 @@ function refineSegmentSynchronously(
     middleMilliseconds <= left.timestampMilliseconds ||
     middleMilliseconds >= right.timestampMilliseconds
   ) {
-    return [right];
+    output.push(right);
+    return;
   }
   const middle = evaluate(middleMilliseconds);
-  return [
-    ...refineSegmentSynchronously(
-      left,
-      middle,
-      evaluate,
-      shouldRefineSpatially,
-    ),
-    ...refineSegmentSynchronously(
-      middle,
-      right,
-      evaluate,
-      shouldRefineSpatially,
-    ),
-  ];
+  appendRefinedSegmentSynchronously(
+    output,
+    left,
+    middle,
+    evaluate,
+    shouldRefineSpatially,
+  );
+  appendRefinedSegmentSynchronously(
+    output,
+    middle,
+    right,
+    evaluate,
+    shouldRefineSpatially,
+  );
 }
 
 function createRuns(
@@ -597,7 +606,8 @@ export function calculateObstructionVisibilitySummary(
         timestampUtc,
       }));
   const mask = input.maskRevision?.mask ?? null;
-  const shouldRefineSpatially = createSpatialRefinementPredicate(mask);
+  const maskEvaluator = mask ? createVisibilityMaskEvaluator(mask) : null;
+  const shouldRefineSpatially = createSpatialRefinementPredicate(maskEvaluator);
   let evaluationCount = 0;
   const evaluate = (timestampMilliseconds: number): EvaluatedSample => {
     if (options.signal?.aborted) {
@@ -615,7 +625,7 @@ export function calculateObstructionVisibilitySummary(
     return {
       ...horizontal,
       timestampMilliseconds,
-      assessment: classifyCoordinates(horizontal, mask),
+      assessment: classifyCoordinates(horizontal, maskEvaluator),
     };
   };
   const coarseSamples: EvaluatedSample[] = [];
@@ -629,13 +639,12 @@ export function calculateObstructionVisibilitySummary(
   coarseSamples.push(evaluate(endMilliseconds));
   const refinedSamples: EvaluatedSample[] = [coarseSamples[0]!];
   for (let index = 1; index < coarseSamples.length; index += 1) {
-    refinedSamples.push(
-      ...refineSegmentSynchronously(
-        coarseSamples[index - 1]!,
-        coarseSamples[index]!,
-        evaluate,
-        shouldRefineSpatially,
-      ),
+    appendRefinedSegmentSynchronously(
+      refinedSamples,
+      coarseSamples[index - 1]!,
+      coarseSamples[index]!,
+      evaluate,
+      shouldRefineSpatially,
     );
   }
   const runs = mergeNumericalFlicker(

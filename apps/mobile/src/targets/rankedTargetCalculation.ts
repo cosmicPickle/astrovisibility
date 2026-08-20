@@ -57,7 +57,8 @@ type CalculateVisibility = (
 
 export type RankedTargetCalculationOptions = Readonly<{
   batchSize?: number;
-  cache?: Pick<VisibilityCalculationCache, 'get' | 'set'>;
+  cache?: Pick<VisibilityCalculationCache, 'get' | 'set'> &
+    Readonly<{ size?: number }>;
   calculateVisibility?: CalculateVisibility;
   onProgress?: (progress: RankedTargetProgress) => void;
   signal?: AbortSignal;
@@ -180,14 +181,21 @@ export async function calculateRankedTargetsProgressively(
           }
         : null,
     };
-    const cacheKey = createVisibilityCalculationCacheKey(visibilityInput);
+    // Building a complete cache key for every catalogue row is measurable work.
+    // An empty cache cannot contain the selected-target trajectory we reuse, so
+    // defer key construction until either a lookup is possible or a calculated
+    // full trajectory must be stored.
+    let cacheKey =
+      cache.size === undefined || cache.size > 0
+        ? createVisibilityCalculationCacheKey(visibilityInput)
+        : null;
     let trajectory: Pick<
       SelectedTargetTrajectory,
       | 'aboveHorizonIntervals'
       | 'visibilityIntervals'
       | 'totalAboveHorizonMilliseconds'
       | 'totalVisibleMilliseconds'
-    > | null = cache.get(cacheKey);
+    > | null = cacheKey ? cache.get(cacheKey) : null;
     if (!trajectory) {
       try {
         const projectAtMilliseconds =
@@ -208,6 +216,7 @@ export async function calculateRankedTargetsProgressively(
             signal: options.signal,
           });
           trajectory = fullTrajectory;
+          cacheKey ??= createVisibilityCalculationCacheKey(visibilityInput);
           cache.set(cacheKey, fullTrajectory);
         }
       } catch (error) {

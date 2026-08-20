@@ -239,13 +239,17 @@ function pointOnPolygonBoundary(
   point: AngularPointDegrees,
   polygon: readonly AngularPointDegrees[],
 ) {
-  return polygon.some((start, index) => {
+  for (let index = 0; index < polygon.length; index += 1) {
+    const start = polygon[index]!;
     const end = polygon[(index + 1) % polygon.length];
-    return (
+    if (
       squaredDistanceToSegment(point, start, end) <=
       GEOMETRY_EPSILON_DEGREES ** 2
-    );
-  });
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function pointInUnwrappedPolygon(
@@ -341,13 +345,18 @@ function pointInStroke(
       ) <= squaredRadius
     );
   }
-  return stroke.points
-    .slice(1)
-    .some(
-      (end, index) =>
-        squaredDistanceToSegment(unwrappedPoint, stroke.points[index], end) <=
-        squaredRadius,
-    );
+  for (let index = 1; index < stroke.points.length; index += 1) {
+    if (
+      squaredDistanceToSegment(
+        unwrappedPoint,
+        stroke.points[index - 1]!,
+        stroke.points[index]!,
+      ) <= squaredRadius
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 const MASK_BOUNDARY_SCAN_MARGIN_DEGREES = 0.25;
@@ -385,6 +394,56 @@ export type VisibilityMaskEvaluator = Readonly<{
 }>;
 
 const evaluatorCache = new WeakMap<object, VisibilityMaskEvaluator>();
+
+function canonicalizeEvaluationPoint(
+  point: AngularPointDegrees,
+): AngularPointDegrees {
+  if (
+    !Number.isFinite(point.azimuthDegrees) ||
+    !Number.isFinite(point.altitudeDegrees)
+  ) {
+    throw new RangeError('Mask coordinates must be finite.');
+  }
+  if (point.altitudeDegrees < 0 || point.altitudeDegrees > 90) {
+    throw new RangeError('Mask altitudeDegrees must be within 0..90.');
+  }
+  return {
+    azimuthDegrees: normalizeAzimuthDegrees(point.azimuthDegrees),
+    altitudeDegrees: point.altitudeDegrees,
+  };
+}
+
+function pointWithinCompiledBounds(
+  point: AngularPointDegrees,
+  compiled: Pick<
+    CompiledPolygon,
+    | 'maximumAltitude'
+    | 'maximumAzimuth'
+    | 'minimumAltitude'
+    | 'minimumAzimuth'
+    | 'referenceAzimuth'
+  >,
+): boolean {
+  if (
+    Math.abs(point.altitudeDegrees - 90) <= GEOMETRY_EPSILON_DEGREES &&
+    compiled.maximumAltitude >= 90
+  ) {
+    return true;
+  }
+  if (
+    point.altitudeDegrees < compiled.minimumAltitude ||
+    point.altitudeDegrees > compiled.maximumAltitude
+  ) {
+    return false;
+  }
+  const azimuth = unwrapAzimuthDegreesNear(
+    point.azimuthDegrees,
+    compiled.referenceAzimuth,
+  );
+  return (
+    azimuth >= compiled.minimumAzimuth && azimuth <= compiled.maximumAzimuth
+  );
+}
 
 function boundsOverlap(
   left: Readonly<{
@@ -536,66 +595,41 @@ export function createVisibilityMaskEvaluator(
   }
   const evaluator: VisibilityMaskEvaluator = {
     classify(point) {
-      const canonicalPoint = canonicalizePoint(point);
-      const pointWithinBounds = (
-        compiled: Pick<
-          CompiledPolygon,
-          | 'maximumAltitude'
-          | 'maximumAzimuth'
-          | 'minimumAltitude'
-          | 'minimumAzimuth'
-          | 'referenceAzimuth'
-        >,
-      ) => {
+      const canonicalPoint = canonicalizeEvaluationPoint(point);
+      let withinCoverage = false;
+      for (const polygon of coverage) {
         if (
-          Math.abs(canonicalPoint.altitudeDegrees - 90) <=
-            GEOMETRY_EPSILON_DEGREES &&
-          compiled.maximumAltitude >= 90
-        ) {
-          return true;
-        }
-        if (
-          canonicalPoint.altitudeDegrees < compiled.minimumAltitude ||
-          canonicalPoint.altitudeDegrees > compiled.maximumAltitude
-        ) {
-          return false;
-        }
-        const azimuth = unwrapAzimuthDegreesNear(
-          canonicalPoint.azimuthDegrees,
-          compiled.referenceAzimuth,
-        );
-        return (
-          azimuth >= compiled.minimumAzimuth &&
-          azimuth <= compiled.maximumAzimuth
-        );
-      };
-      if (
-        !coverage.some(
-          (polygon) =>
-            pointWithinBounds(polygon) &&
-            pointInWrappedPolygon(
-              canonicalPoint,
-              polygon.points,
-              polygon.referenceAzimuth,
-            ),
-        )
-      ) {
-        return 'blocked';
-      }
-      let classification: MaskClassification = visiblePolygons.some(
-        (polygon) =>
-          pointWithinBounds(polygon) &&
+          pointWithinCompiledBounds(canonicalPoint, polygon) &&
           pointInWrappedPolygon(
             canonicalPoint,
             polygon.points,
             polygon.referenceAzimuth,
-          ),
-      )
-        ? 'visible'
-        : 'blocked';
+          )
+        ) {
+          withinCoverage = true;
+          break;
+        }
+      }
+      if (!withinCoverage) {
+        return 'blocked';
+      }
+      let classification: MaskClassification = 'blocked';
+      for (const polygon of visiblePolygons) {
+        if (
+          pointWithinCompiledBounds(canonicalPoint, polygon) &&
+          pointInWrappedPolygon(
+            canonicalPoint,
+            polygon.points,
+            polygon.referenceAzimuth,
+          )
+        ) {
+          classification = 'visible';
+          break;
+        }
+      }
       for (const stroke of strokes) {
         if (
-          pointWithinBounds(stroke) &&
+          pointWithinCompiledBounds(canonicalPoint, stroke) &&
           pointInStroke(
             canonicalPoint,
             stroke.operation,

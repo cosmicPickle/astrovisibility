@@ -193,6 +193,26 @@ describe('progressive all-target calculation', () => {
     expect(results[0]!.intervals).toEqual([interval(0, 20), interval(30, 60)]);
   });
 
+  it('does not construct or probe cache entries when the trajectory cache is empty', async () => {
+    const emptyCache = {
+      size: 0,
+      get: jest.fn(() => null),
+      set: jest.fn(),
+    };
+
+    await calculateRankedTargetsProgressively(
+      { ...baseInput, targets: [catalogueTarget('target-a', 'A')] },
+      {
+        cache: emptyCache,
+        calculateVisibility: async () => trajectory([interval(0, 20)], []),
+        yieldToEventLoop: async () => undefined,
+      },
+    );
+
+    expect(emptyCache.get).not.toHaveBeenCalled();
+    expect(emptyCache.set).toHaveBeenCalledTimes(1);
+  });
+
   it('applies equipment suitability before expensive visibility work while retaining unknown sizes', async () => {
     const visibilityCalls: string[] = [];
     const targets = [
