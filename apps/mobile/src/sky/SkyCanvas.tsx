@@ -17,7 +17,7 @@ import {
   type HorizontalCatalogueTarget,
 } from './catalogueViewport';
 import {
-  createLocalHorizonOverviewCamera,
+  createInitialPlanetariumCamera,
   projectHorizontalDirection,
   type PlanetariumCamera,
 } from './planetariumProjection';
@@ -64,7 +64,7 @@ export const SkyCanvas = ({
 }: SkyCanvasProps) => {
   const [canvas, setCanvas] = useState({ widthPixels: 1, heightPixels: 1 });
   const [cameraState, setCameraState] = useState<PlanetariumCamera>(() =>
-    createLocalHorizonOverviewCamera(),
+    createInitialPlanetariumCamera(),
   );
 
   const visibleTargets = useMemo(

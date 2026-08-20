@@ -3,7 +3,7 @@ import {
   angularSizeDegreesToPixelsAtDirection,
   applyPlanetariumPan,
   applyPlanetariumZoom,
-  createLocalHorizonOverviewCamera,
+  createInitialPlanetariumCamera,
   createPlanetariumCamera,
   createEquatorialMountFrame,
   createEquatorialPlanetariumCamera,
@@ -89,22 +89,21 @@ describe('planetarium spherical camera', () => {
     expect(Math.max(...radii) - Math.min(...radii)).toBeLessThan(1e-7);
   });
 
-  it('centres the wide overview on the zenith with the complete local horizon stable', () => {
-    const camera = createLocalHorizonOverviewCamera();
+  it('opens in a useful north-facing local-horizontal view', () => {
+    const camera = createInitialPlanetariumCamera();
     const center = getPlanetariumCameraCenter(camera);
-    const points = [0, 90, 180, 270].map((azimuthDegrees) =>
+
+    expect(center.altitudeDegrees).toBeCloseTo(35, 8);
+    expect(center.azimuthDegrees).toBeCloseTo(0, 8);
+    expect(camera.fieldOfViewDegrees).toBe(100);
+    expect(camera.mountFrame.kind).toBe('horizontal');
+    expect(
       projectHorizontalDirection(
-        { altitudeDegrees: 0, azimuthDegrees },
+        { altitudeDegrees: 90, azimuthDegrees: 0 },
         camera,
         canvas,
-      ),
-    );
-
-    expect(center.altitudeDegrees).toBeCloseTo(90, 8);
-    expect(center.azimuthDegrees).toBeCloseTo(180, 8);
-    expect(camera.fieldOfViewDegrees).toBe(180);
-    expect(camera.mountFrame.kind).toBe('horizontal');
-    expect(points.every(({ visible }) => visible)).toBe(true);
+      ).visible,
+    ).toBe(true);
   });
 
   it('keeps the equator locally horizontal in the equatorial mount', () => {
@@ -231,7 +230,7 @@ describe('planetarium spherical camera', () => {
     expect(angularSeparationDegrees(direction, roundTrip!)).toBeLessThan(1e-7);
   });
 
-  it('applies Stellarium-style incremental Alt/Az drag without camera roll', () => {
+  it('applies a Stellarium-style spherical drag without camera roll', () => {
     const camera = createPlanetariumCamera({
       centerAltitudeDegrees: 45,
       centerAzimuthDegrees: 180,
@@ -255,6 +254,24 @@ describe('planetarium spherical camera', () => {
         getPlanetariumCameraCenter(next),
       ),
     ).toBeGreaterThan(1);
+  });
+
+  it('can pan away from the zenith without a coordinate-pole lock', () => {
+    const camera = createPlanetariumCamera({
+      centerAltitudeDegrees: 90,
+      centerAzimuthDegrees: 0,
+      fieldOfViewDegrees: 100,
+    });
+    const next = applyPlanetariumPan(
+      camera,
+      canvas,
+      { xPixels: 200, yPixels: 400 },
+      { xPixels: 200, yPixels: 520 },
+    );
+
+    expect(getPlanetariumCameraCenter(next).altitudeDegrees).toBeLessThan(85);
+    expect(next.fieldOfViewDegrees).toBe(100);
+    expect(next.right.y).toBeCloseTo(0, 10);
   });
 
   it('matches Stellarium pinch by changing only field of view', () => {

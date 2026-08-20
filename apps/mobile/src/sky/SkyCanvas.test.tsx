@@ -117,15 +117,15 @@ describe('SkyCanvas selection camera stability', () => {
     }
   });
 
-  it('starts at the zenith in the local-horizontal frame', async () => {
+  it('starts zoomed in toward north in the local-horizontal frame', async () => {
     await render(
       <SkyCanvas {...commonProps} selectedTargetId={null} trajectory={null} />,
     );
 
     const center = getPlanetariumCameraCenter(mockObservedCameras.at(-1)!);
-    expect(center.altitudeDegrees).toBeCloseTo(90, 8);
-    expect(center.azimuthDegrees).toBeCloseTo(180, 8);
-    expect(mockObservedCameras.at(-1)!.fieldOfViewDegrees).toBe(180);
+    expect(center.altitudeDegrees).toBeCloseTo(35, 8);
+    expect(center.azimuthDegrees).toBeCloseTo(0, 8);
+    expect(mockObservedCameras.at(-1)!.fieldOfViewDegrees).toBe(100);
     expect(mockObservedCameras.at(-1)!.mountFrame.kind).toBe('horizontal');
   });
 });

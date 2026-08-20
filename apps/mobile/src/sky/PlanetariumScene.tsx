@@ -28,7 +28,6 @@ import type { ViewportCatalogueTarget } from './catalogueViewport';
 import {
   angularSizeDegreesToPixelsAtDirection,
   densifyHorizontalPath,
-  getPlanetariumCameraCenter,
   projectHorizontalDirection,
   type PlanetariumCamera,
 } from './planetariumProjection';
@@ -38,8 +37,8 @@ import {
   CARDINAL_LABEL_FONT_SIZE_PIXELS,
   CARDINAL_LABELS,
   CELESTIAL_EQUATOR_STROKE_OPACITY,
+  createProjectedGroundClip,
   createHorizonDirections,
-  shouldInvertGroundClip,
 } from './planetariumGround';
 import type {
   CanvasSizePixels,
@@ -332,12 +331,25 @@ function GroundLayer({
   canvas: CanvasSizePixels;
 }) {
   const path = useDerivedValue(() => {
-    return createPath(horizonDirections, camera.value, canvas, true);
+    const clip = createProjectedGroundClip(camera.value, canvas);
+    const builder = Skia.PathBuilder.Make();
+    if (clip.kind === 'circle') {
+      builder.addCircle(
+        clip.centerXPixels,
+        clip.centerYPixels,
+        clip.radiusPixels,
+      );
+    } else if (clip.points.length > 0) {
+      builder.moveTo(clip.points[0]!.xPixels, clip.points[0]!.yPixels);
+      for (const point of clip.points.slice(1)) {
+        builder.lineTo(point.xPixels, point.yPixels);
+      }
+      builder.close();
+    }
+    return builder.build();
   });
-  const invertClip = useDerivedValue(() =>
-    shouldInvertGroundClip(
-      getPlanetariumCameraCenter(camera.value).altitudeDegrees,
-    ),
+  const invertClip = useDerivedValue(
+    () => createProjectedGroundClip(camera.value, canvas).groundOutside,
   );
   return (
     <Group clip={path} invertClip={invertClip}>

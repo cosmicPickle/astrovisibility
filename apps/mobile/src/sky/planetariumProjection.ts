@@ -301,13 +301,13 @@ export const createEquatorialPlanetariumCamera = ({
   });
 };
 
-/** Local-horizontal all-sky overview with north at the top of the sky disk. */
-export const createLocalHorizonOverviewCamera = (): PlanetariumCamera => {
+/** Conventional north-facing start with the horizon low and zenith in view. */
+export const createInitialPlanetariumCamera = (): PlanetariumCamera => {
   'worklet';
   return createPlanetariumCamera({
-    centerAltitudeDegrees: 90,
-    centerAzimuthDegrees: 180,
-    fieldOfViewDegrees: 180,
+    centerAltitudeDegrees: 35,
+    centerAzimuthDegrees: 0,
+    fieldOfViewDegrees: 100,
   });
 };
 
@@ -428,17 +428,62 @@ export const unprojectCanvasPoint = (
     : null;
 };
 
-const normalizeSignedDegrees = (degrees: number) => {
+const rotateVectorFromTo = (
+  vector: Vector3,
+  fromDirection: Vector3,
+  toDirection: Vector3,
+) => {
   'worklet';
-  return ((degrees + 540) % 360) - 180;
+  const rotationAxis = cross(fromDirection, toDirection);
+  const sine = magnitude(rotationAxis);
+  const cosine = clamp(dot(fromDirection, toDirection), -1, 1);
+  if (sine <= VECTOR_EPSILON) return vector;
+  const unitAxis = scaleVector(rotationAxis, 1 / sine);
+  return addVectors(
+    addVectors(
+      scaleVector(vector, cosine),
+      scaleVector(cross(unitAxis, vector), sine),
+    ),
+    scaleVector(unitAxis, dot(unitAxis, vector) * (1 - cosine)),
+  );
 };
 
-const STELLARIUM_MANUAL_POLE_MARGIN_DEGREES = 0.000001;
+const createLevelPannedCamera = (
+  camera: PlanetariumCamera,
+  canvas: CanvasSizePixels,
+  grabbedWorldDirection: Vector3,
+  currentPoint: { xPixels: number; yPixels: number },
+) => {
+  'worklet';
+  const currentLocalDirection = canvasPointToLocalVector(
+    currentPoint,
+    camera,
+    canvas,
+  );
+  if (!currentLocalDirection) return camera;
+  const currentWorldDirection = localVectorToWorld(
+    currentLocalDirection,
+    camera,
+  );
+  const nextForward = rotateVectorFromTo(
+    camera.forward,
+    currentWorldDirection,
+    grabbedWorldDirection,
+  );
+  const nextCenter = vectorToMountDirection(camera.mountFrame, nextForward);
+  return createCameraInMountFrame({
+    centerLatitudeDegrees: nextCenter.latitudeDegrees,
+    centerLongitudeDegrees: nextCenter.longitudeDegrees,
+    fieldOfViewDegrees: camera.fieldOfViewDegrees,
+    mountFrame: camera.mountFrame,
+  });
+};
 
 /**
- * Incremental mount-frame drag matching Stellarium's dragView/panView model.
- * Both pointer directions are evaluated in the current mount frame. The next
- * camera is rebuilt from azimuth/altitude, so a drag cannot accumulate roll.
+ * Stable spherical drag matching Stellarium's grab-and-move behavior. One 3D
+ * rotation maps the current pointer ray to the gesture-start ray. Rebuilding in
+ * the retained mount frame removes roll and avoids longitude singularities at
+ * the zenith and nadir.
  */
 export const applyPlanetariumPan = (
   currentCamera: PlanetariumCamera,
@@ -447,48 +492,42 @@ export const applyPlanetariumPan = (
   currentPoint: { xPixels: number; yPixels: number },
 ): PlanetariumCamera => {
   'worklet';
-  const previousDirection = unprojectCanvasPoint(
+  const previousLocalDirection = canvasPointToLocalVector(
     previousPoint,
     currentCamera,
     canvas,
   );
-  const currentDirection = unprojectCanvasPoint(
-    currentPoint,
+  if (!previousLocalDirection) return currentCamera;
+  const grabbedWorldDirection = localVectorToWorld(
+    previousLocalDirection,
     currentCamera,
-    canvas,
   );
-  if (!previousDirection || !currentDirection) return currentCamera;
-
-  const previousMountDirection = vectorToMountDirection(
-    currentCamera.mountFrame,
-    horizontalDirectionToVector(previousDirection),
-  );
-  const currentMountDirection = vectorToMountDirection(
-    currentCamera.mountFrame,
-    horizontalDirectionToVector(currentDirection),
-  );
-  const center = vectorToMountDirection(
-    currentCamera.mountFrame,
-    currentCamera.forward,
-  );
-  const pointerLongitudeDeltaDegrees = normalizeSignedDegrees(
-    currentMountDirection.longitudeDegrees -
-      previousMountDirection.longitudeDegrees,
-  );
-  const latitudeDeltaDegrees =
-    previousMountDirection.latitudeDegrees -
-    currentMountDirection.latitudeDegrees;
-  return createCameraInMountFrame({
-    centerLatitudeDegrees: clamp(
-      center.latitudeDegrees + latitudeDeltaDegrees,
-      -90 + STELLARIUM_MANUAL_POLE_MARGIN_DEGREES,
-      90 - STELLARIUM_MANUAL_POLE_MARGIN_DEGREES,
-    ),
-    centerLongitudeDegrees:
-      center.longitudeDegrees - pointerLongitudeDeltaDegrees,
-    fieldOfViewDegrees: currentCamera.fieldOfViewDegrees,
-    mountFrame: currentCamera.mountFrame,
-  });
+  let nextCamera = currentCamera;
+  // Re-leveling removes roll and moves the grabbed ray slightly for diagonal
+  // drags. A few bounded corrections solve the two-dimensional camera centre
+  // while keeping the horizontal/equatorial mount level.
+  for (let iteration = 0; iteration < 4; iteration += 1) {
+    nextCamera = createLevelPannedCamera(
+      nextCamera,
+      canvas,
+      grabbedWorldDirection,
+      currentPoint,
+    );
+    const grabbedPoint = projectVectorToCanvas(
+      grabbedWorldDirection,
+      nextCamera,
+      canvas,
+    );
+    if (
+      Math.hypot(
+        grabbedPoint.xPixels - currentPoint.xPixels,
+        grabbedPoint.yPixels - currentPoint.yPixels,
+      ) < 0.01
+    ) {
+      break;
+    }
+  }
+  return nextCamera;
 };
 
 /** Stellarium touch pinch: starting FOV divided by scale, centre unchanged. */

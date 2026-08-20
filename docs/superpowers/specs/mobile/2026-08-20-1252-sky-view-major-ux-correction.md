@@ -3,6 +3,31 @@
 **Timestamp:** 2026-08-20 12:52 +03:00
 **Status:** Approved by direct owner instruction on 2026-08-20
 
+## Owner correction — 2026-08-20 16:19 +03:00
+
+This correction supersedes the prior all-sky initial camera and sampled ground
+clip implementation:
+
+- Sky View opens in a useful north-facing planetarium view instead of the
+  maximum all-sky overview. North is centred, the north-to-zenith meridian reads
+  as a straight vertical guide, the zenith remains visible, and the local
+  horizon sits below the viewport centre. The full sphere remains reachable by
+  pan and pinch.
+- Ground occlusion is derived analytically from the stereographic projection of
+  the local horizon. It must remain stable when the horizon is a line, a circle,
+  surrounds the viewport, crosses the viewport edge, or the camera looks below
+  the horizon. A sampled closed curve must not choose the wrong half-plane or
+  create a screen-spanning closure chord.
+- A one-finger pan is a deterministic transformation from the gesture-start
+  camera and gesture-start point to the current point. It must not accumulate
+  touch-sampling errors between events. Pan never changes field of view, and the
+  camera committed at release must exactly equal the last held preview.
+- The pan recognizer accepts one pointer only. A two-pointer pinch owns zoom and
+  cannot leak a scale or residual pan into the subsequent release.
+- Regression tests cover the initial camera, event-rate-independent pan,
+  unchanged FOV, single commit, and analytic ground classification above, on,
+  and below the horizon.
+
 ## Owner correction — 2026-08-20 15:33 +03:00
 
 This correction supersedes every earlier statement that stabilizes or centres

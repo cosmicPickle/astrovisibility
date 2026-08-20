@@ -1,6 +1,7 @@
 import { act, render } from '@testing-library/react-native';
 
 import {
+  applyPlanetariumPan,
   createPlanetariumCamera,
   getPlanetariumCameraCenter,
   type PlanetariumCamera,
@@ -10,6 +11,7 @@ import { usePlanetariumNavigation } from './usePlanetariumNavigation';
 type GestureHandler = (...parameters: unknown[]) => void;
 
 const mockGestureHandlers: Record<string, GestureHandler> = {};
+const mockGestureOptions: Record<string, number> = {};
 
 jest.mock('react-native-gesture-handler', () => {
   const builder = (kind: string) => {
@@ -17,6 +19,10 @@ jest.mock('react-native-gesture-handler', () => {
     for (const method of ['maxDistance', 'minDistance', 'withTestId']) {
       chain[method] = () => chain;
     }
+    chain.maxPointers = (value: unknown) => {
+      mockGestureOptions[`${kind}-maxPointers`] = value as number;
+      return chain;
+    };
     for (const method of ['onStart', 'onUpdate', 'onEnd', 'onFinalize']) {
       chain[method] = (handler: unknown) => {
         const gestureHandler = handler as GestureHandler;
@@ -59,6 +65,15 @@ const Harness = ({
 };
 
 describe('usePlanetariumNavigation', () => {
+  beforeEach(() => {
+    for (const key of Object.keys(mockGestureHandlers)) {
+      delete mockGestureHandlers[key];
+    }
+    for (const key of Object.keys(mockGestureOptions)) {
+      delete mockGestureOptions[key];
+    }
+  });
+
   it('publishes held-gesture FOV previews without moving the camera centre', async () => {
     const camera = createPlanetariumCamera({
       centerAltitudeDegrees: 30,
@@ -112,7 +127,7 @@ describe('usePlanetariumNavigation', () => {
     expect(committed.fieldOfViewDegrees).toBeCloseTo(160 / 2.2, 10);
   });
 
-  it('uses each pan update as the next incremental baseline', async () => {
+  it('derives pan from one gesture baseline regardless of event frequency', async () => {
     const camera = createPlanetariumCamera({
       centerAltitudeDegrees: 35,
       centerAzimuthDegrees: 180,
@@ -133,6 +148,7 @@ describe('usePlanetariumNavigation', () => {
       mockGestureHandlers['pan-onUpdate']!({ x: 220, y: 400 });
       mockGestureHandlers['pan-onUpdate']!({ x: 240, y: 400 });
       mockGestureHandlers['pan-onEnd']!();
+      mockGestureHandlers['pan-onFinalize']!();
     });
 
     const previews = onCameraPreview.mock.calls.map(
@@ -142,6 +158,17 @@ describe('usePlanetariumNavigation', () => {
     expect(getPlanetariumCameraCenter(previews[1]!)).not.toEqual(
       getPlanetariumCameraCenter(previews[0]!),
     );
+    expect(previews[1]).toEqual(
+      applyPlanetariumPan(
+        camera,
+        canvas,
+        { xPixels: 200, yPixels: 400 },
+        { xPixels: 240, yPixels: 400 },
+      ),
+    );
+    expect(previews[1]!.fieldOfViewDegrees).toBe(100);
+    expect(mockGestureOptions['pan-maxPointers']).toBe(1);
+    expect(onCameraCommit).toHaveBeenCalledTimes(1);
     expect(onCameraCommit.mock.calls.at(-1)![0]).toEqual(previews[1]);
   });
 });

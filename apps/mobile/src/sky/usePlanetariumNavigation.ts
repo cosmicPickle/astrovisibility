@@ -25,8 +25,9 @@ export function usePlanetariumNavigation({
   onTap: (xPixels: number, yPixels: number, camera: PlanetariumCamera) => void;
 }) {
   const camera = useSharedValue(cameraState);
-  const panPreviousX = useSharedValue(canvas.widthPixels / 2);
-  const panPreviousY = useSharedValue(canvas.heightPixels / 2);
+  const panBaseline = useSharedValue(cameraState);
+  const panStartX = useSharedValue(canvas.widthPixels / 2);
+  const panStartY = useSharedValue(canvas.heightPixels / 2);
   const pinchActive = useSharedValue(false);
   const panSuppressedAfterPinch = useSharedValue(false);
   const panCommitted = useSharedValue(false);
@@ -46,6 +47,7 @@ export function usePlanetariumNavigation({
   const gesture = useMemo(() => {
     const pan = Gesture.Pan()
       .withTestId('sky-pan')
+      .maxPointers(1)
       .minDistance(4)
       .onStart((event) => {
         if (pinchActive.get()) {
@@ -54,24 +56,23 @@ export function usePlanetariumNavigation({
         }
         panSuppressedAfterPinch.set(false);
         panCommitted.set(false);
-        panPreviousX.set(event.x);
-        panPreviousY.set(event.y);
+        panBaseline.set(camera.get());
+        panStartX.set(event.x);
+        panStartY.set(event.y);
         previewUpdateCount.set(CAMERA_PREVIEW_UPDATE_INTERVAL - 1);
       })
       .onUpdate((event) => {
         if (pinchActive.get() || panSuppressedAfterPinch.get()) return;
         const nextCamera = applyPlanetariumPan(
-          camera.get(),
+          panBaseline.get(),
           canvas,
           {
-            xPixels: panPreviousX.get(),
-            yPixels: panPreviousY.get(),
+            xPixels: panStartX.get(),
+            yPixels: panStartY.get(),
           },
           { xPixels: event.x, yPixels: event.y },
         );
         camera.set(nextCamera);
-        panPreviousX.set(event.x);
-        panPreviousY.set(event.y);
         const updateCount = previewUpdateCount.get() + 1;
         previewUpdateCount.set(updateCount);
         if (updateCount >= CAMERA_PREVIEW_UPDATE_INTERVAL) {
@@ -144,9 +145,10 @@ export function usePlanetariumNavigation({
     commitCamera,
     onCameraPreview,
     onTap,
+    panBaseline,
     panSuppressedAfterPinch,
-    panPreviousX,
-    panPreviousY,
+    panStartX,
+    panStartY,
     panCommitted,
     pinchActive,
     pinchBaseline,
