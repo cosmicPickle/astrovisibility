@@ -17,7 +17,7 @@ import {
   type HorizontalCatalogueTarget,
 } from './catalogueViewport';
 import {
-  createEquatorialPlanetariumCamera,
+  createEquatorialOverviewCamera,
   projectHorizontalDirection,
   type PlanetariumCamera,
 } from './planetariumProjection';
@@ -35,10 +35,6 @@ export interface SkyCanvasProps {
   fieldOfViewEquipment: EquipmentRecord | null;
   onInspectTrajectoryMarker: (marker: TrajectoryMarker) => void;
   onSelectTarget: (target: HorizontalCatalogueTarget) => void;
-  selectedDirection: {
-    altitudeDegrees: number;
-    azimuthDegrees: number;
-  } | null;
   selectedTargetId: string | null;
   targets: readonly HorizontalCatalogueTarget[];
   trajectory: SelectedTargetTrajectory | null;
@@ -61,7 +57,6 @@ export const SkyCanvas = ({
   fieldOfViewEquipment,
   onInspectTrajectoryMarker,
   onSelectTarget,
-  selectedDirection,
   selectedTargetId,
   targets,
   trajectory,
@@ -71,12 +66,7 @@ export const SkyCanvas = ({
 }: SkyCanvasProps) => {
   const [canvas, setCanvas] = useState({ widthPixels: 1, heightPixels: 1 });
   const [cameraState, setCameraState] = useState<PlanetariumCamera>(() =>
-    createEquatorialPlanetariumCamera({
-      centerAltitudeDegrees: 90,
-      centerAzimuthDegrees: 0,
-      fieldOfViewDegrees: 180,
-      observerLatitudeDegrees,
-    }),
+    createEquatorialOverviewCamera(observerLatitudeDegrees),
   );
 
   const visibleTargets = useMemo(
@@ -183,7 +173,6 @@ export const SkyCanvas = ({
             panoramaTiles={
               panoramaOverlay?.visible ? panoramaOverlay.tiles : []
             }
-            selectedDirection={selectedDirection}
             selectedTargetId={selectedTargetId}
             targets={visibleTargets}
             trajectory={trajectory}

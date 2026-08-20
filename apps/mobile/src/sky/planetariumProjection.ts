@@ -301,6 +301,24 @@ export const createEquatorialPlanetariumCamera = ({
   });
 };
 
+/**
+ * Wide initial planetarium view with the celestial equator through the screen
+ * centre. The upper meridian is selected so the local horizon and ground retain
+ * their physical tilt instead of becoming the apparent waist of the globe.
+ */
+export const createEquatorialOverviewCamera = (
+  observerLatitudeDegrees: number,
+): PlanetariumCamera => {
+  'worklet';
+  const mountFrame = createEquatorialMountFrame(observerLatitudeDegrees);
+  return createCameraInMountFrame({
+    centerLatitudeDegrees: 0,
+    centerLongitudeDegrees: observerLatitudeDegrees >= 0 ? 180 : 0,
+    fieldOfViewDegrees: MAXIMUM_PLANETARIUM_FIELD_OF_VIEW_DEGREES,
+    mountFrame,
+  });
+};
+
 export const getPlanetariumCameraCenter = (
   camera: PlanetariumCamera,
 ): HorizontalDirectionDegrees => {

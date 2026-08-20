@@ -33,7 +33,7 @@ import {
   type PlanetariumCamera,
 } from './planetariumProjection';
 import { createPlanetariumPanoramaMesh } from './planetariumPanoramaGeometry';
-import { createRectilinearFieldOfViewFootprint } from './fieldOfViewGeometry';
+import { createScreenCenteredFieldOfViewFrame } from './fieldOfViewGeometry';
 import {
   CARDINAL_LABEL_FONT_SIZE_PIXELS,
   CARDINAL_LABELS,
@@ -753,21 +753,25 @@ function MaskStroke({
 function FieldOfViewLayer({
   camera,
   canvas,
-  direction,
   equipment,
 }: {
   camera: SharedValue<PlanetariumCamera>;
   canvas: CanvasSizePixels;
-  direction: HorizontalDirectionDegrees | null;
   equipment: EquipmentRecord;
 }) {
   const path = useDerivedValue(() => {
-    const footprint = createRectilinearFieldOfViewFootprint({
-      center: direction ?? getPlanetariumCameraCenter(camera.value),
+    const frame = createScreenCenteredFieldOfViewFrame({
+      cameraFieldOfViewDegrees: camera.value.fieldOfViewDegrees,
+      canvas,
       equipment,
-      maximumStepDegrees: 0.25,
     });
-    return createPath(footprint.boundary, camera.value, canvas, true);
+    const builder = Skia.PathBuilder.Make();
+    frame.corners.forEach((corner, index) => {
+      if (index === 0) builder.moveTo(corner.xPixels, corner.yPixels);
+      else builder.lineTo(corner.xPixels, corner.yPixels);
+    });
+    builder.close();
+    return builder.build();
   });
   return (
     <>
@@ -787,7 +791,6 @@ export function PlanetariumScene({
   maskOpacity,
   panoramaOpacity,
   panoramaTiles,
-  selectedDirection,
   selectedTargetId,
   targets,
   trajectory,
@@ -801,7 +804,6 @@ export function PlanetariumScene({
   maskOpacity: number;
   panoramaOpacity: number;
   panoramaTiles: readonly ActivePanoramaTile[];
-  selectedDirection: HorizontalDirectionDegrees | null;
   selectedTargetId: string | null;
   targets: readonly ViewportCatalogueTarget[];
   trajectory: SelectedTargetTrajectory | null;
@@ -837,14 +839,6 @@ export function PlanetariumScene({
         diurnalOrbit={diurnalOrbit}
         trajectory={trajectory}
       />
-      {equipment ? (
-        <FieldOfViewLayer
-          camera={camera}
-          canvas={canvas}
-          direction={selectedDirection}
-          equipment={equipment}
-        />
-      ) : null}
       {targets.map((item) => (
         <PlanetariumTarget
           camera={camera}
@@ -856,6 +850,13 @@ export function PlanetariumScene({
       ))}
       <GroundLayer camera={camera} canvas={canvas} />
       <HorizonAndCardinals camera={camera} canvas={canvas} />
+      {equipment ? (
+        <FieldOfViewLayer
+          camera={camera}
+          canvas={canvas}
+          equipment={equipment}
+        />
+      ) : null}
     </Canvas>
   );
 }

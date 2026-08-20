@@ -99,10 +99,6 @@ export interface SkyRendererProps {
   diurnalOrbit: TargetDiurnalOrbit | null;
   onInspectTrajectoryMarker: (marker: TrajectoryMarker) => void;
   onSelectTarget: (target: HorizontalCatalogueTarget) => void;
-  selectedDirection: {
-    altitudeDegrees: number;
-    azimuthDegrees: number;
-  } | null;
   selectedTargetId: string | null;
   targets: readonly HorizontalCatalogueTarget[];
   trajectory: SelectedTargetTrajectory | null;
@@ -595,7 +591,6 @@ export const SkyViewScreen = ({
             setTrajectory(null);
             setTrajectoryStatus('calculating');
           }}
-          selectedDirection={selectedDirection}
           selectedTargetId={selectedTarget?.id ?? null}
           targets={projectedTargets}
           trajectory={trajectory}

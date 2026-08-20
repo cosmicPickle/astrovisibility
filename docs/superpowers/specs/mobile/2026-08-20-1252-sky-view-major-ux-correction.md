@@ -3,6 +3,31 @@
 **Timestamp:** 2026-08-20 12:52 +03:00
 **Status:** Approved by direct owner instruction on 2026-08-20
 
+## Owner correction — 2026-08-20 13:39 +03:00
+
+The following direct owner feedback supersedes the original implementation
+details where they differ:
+
+- The imaging frame is a screen-space planning reticle. It is always a literal
+  rectangle centred on the viewport, regardless of target selection. Its pixel
+  width and height represent the setup's angular field against the current
+  stereographic zoom; zooming in enlarges it and zooming out shrinks it.
+- The frame is a persistent UI overlay and is not occluded by the ground plane.
+- The time slider moves its thumb and displayed time locally and continuously
+  during a drag. The atlas receives one exact update only when the gesture ends,
+  avoiding projection work in the touch loop. Gesture position is derived from
+  the drag baseline and displacement so reverse drags cannot transiently reset
+  to midnight.
+- The slider thumb is vertically centred on its track.
+- The explanatory introductory copy and fixed trajectory-period panel are
+  removed. Date, slider, Now, and Tonight remain.
+- The wide overview is centred on the upper celestial equator, which keeps that
+  equator horizontal through the viewport and makes the local ground/horizon
+  visibly tilted. Ground and N/E/S/W remain attached to the physical local
+  horizon; they are not incorrectly redefined as declination zero. The maximum
+  approved 235-degree overview keeps all four horizon cardinals visible on a
+  portrait phone.
+
 ## Purpose
 
 Correct the remaining major Sky View failures without destabilizing the accepted

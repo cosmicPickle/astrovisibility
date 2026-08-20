@@ -86,19 +86,13 @@ describe('SkyCanvas selection camera stability', () => {
 
   it('never moves or zooms the camera when selection and trajectory state change', async () => {
     const view = await render(
-      <SkyCanvas
-        {...commonProps}
-        selectedDirection={null}
-        selectedTargetId={null}
-        trajectory={null}
-      />,
+      <SkyCanvas {...commonProps} selectedTargetId={null} trajectory={null} />,
     );
     const initialCamera = mockObservedCameras.at(-1)!;
 
     await view.rerender(
       <SkyCanvas
         {...commonProps}
-        selectedDirection={{ altitudeDegrees: 55, azimuthDegrees: 330 }}
         selectedTargetId="IC1396"
         trajectory={null}
       />,
@@ -106,18 +100,12 @@ describe('SkyCanvas selection camera stability', () => {
     await view.rerender(
       <SkyCanvas
         {...commonProps}
-        selectedDirection={{ altitudeDegrees: 55, azimuthDegrees: 330 }}
         selectedTargetId="IC1396"
         trajectory={trajectory}
       />,
     );
     await view.rerender(
-      <SkyCanvas
-        {...commonProps}
-        selectedDirection={null}
-        selectedTargetId={null}
-        trajectory={null}
-      />,
+      <SkyCanvas {...commonProps} selectedTargetId={null} trajectory={null} />,
     );
 
     const expectedCenter = getPlanetariumCameraCenter(initialCamera);
@@ -130,20 +118,14 @@ describe('SkyCanvas selection camera stability', () => {
     }
   });
 
-  it('starts with the complete horizon dome centred on the zenith', async () => {
+  it('starts on the upper celestial equator so the local horizon is tilted', async () => {
     await render(
-      <SkyCanvas
-        {...commonProps}
-        selectedDirection={null}
-        selectedTargetId={null}
-        trajectory={null}
-      />,
+      <SkyCanvas {...commonProps} selectedTargetId={null} trajectory={null} />,
     );
 
-    expect(getPlanetariumCameraCenter(mockObservedCameras.at(-1)!)).toEqual({
-      altitudeDegrees: 90,
-      azimuthDegrees: expect.any(Number),
-    });
-    expect(mockObservedCameras.at(-1)!.fieldOfViewDegrees).toBe(180);
+    const center = getPlanetariumCameraCenter(mockObservedCameras.at(-1)!);
+    expect(center.altitudeDegrees).toBeCloseTo(47.3, 8);
+    expect(center.azimuthDegrees).toBeCloseTo(180, 8);
+    expect(mockObservedCameras.at(-1)!.fieldOfViewDegrees).toBe(235);
   });
 });

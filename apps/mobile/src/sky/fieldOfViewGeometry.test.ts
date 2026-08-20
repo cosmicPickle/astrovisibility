@@ -1,6 +1,5 @@
 import type { EquipmentRecord } from '../storage/equipmentRepository';
-import { angularSeparationDegrees } from './planetariumProjection';
-import { createRectilinearFieldOfViewFootprint } from './fieldOfViewGeometry';
+import { createScreenCenteredFieldOfViewFrame } from './fieldOfViewGeometry';
 
 const equipment: EquipmentRecord = {
   apertureMillimeters: 80,
@@ -15,60 +14,71 @@ const equipment: EquipmentRecord = {
   updatedAtUtc: '2026-08-20T00:00:00.000Z',
 };
 
-describe('rectilinear spherical field of view', () => {
-  it('creates four ordered sensor corners with the requested centre spans', () => {
-    const footprint = createRectilinearFieldOfViewFootprint({
-      center: { altitudeDegrees: 48, azimuthDegrees: 359 },
+describe('screen-centred field of view frame', () => {
+  it('is a literal rectangle centred on the viewport and independent of a sky target', () => {
+    const frame = createScreenCenteredFieldOfViewFrame({
+      cameraFieldOfViewDegrees: 90,
+      canvas: { widthPixels: 1080, heightPixels: 1600 },
       equipment,
-      maximumStepDegrees: 0.25,
     });
 
-    expect(footprint.corners).toHaveLength(4);
-    expect(footprint.boundary.length).toBeGreaterThan(footprint.corners.length);
-    expect(
-      angularSeparationDegrees(
-        footprint.edgeMidpoints.left,
-        footprint.edgeMidpoints.right,
-      ),
-    ).toBeCloseTo(footprint.horizontalFovDegrees, 5);
-    expect(
-      angularSeparationDegrees(
-        footprint.edgeMidpoints.top,
-        footprint.edgeMidpoints.bottom,
-      ),
-    ).toBeCloseTo(footprint.verticalFovDegrees, 5);
+    expect(frame.center).toEqual({ xPixels: 540, yPixels: 800 });
+    expect(frame.corners).toEqual([
+      {
+        xPixels: 540 - frame.widthPixels / 2,
+        yPixels: 800 - frame.heightPixels / 2,
+      },
+      {
+        xPixels: 540 + frame.widthPixels / 2,
+        yPixels: 800 - frame.heightPixels / 2,
+      },
+      {
+        xPixels: 540 + frame.widthPixels / 2,
+        yPixels: 800 + frame.heightPixels / 2,
+      },
+      {
+        xPixels: 540 - frame.widthPixels / 2,
+        yPixels: 800 + frame.heightPixels / 2,
+      },
+    ]);
   });
 
-  it('stays finite and rectangular at the zenith instead of adding invalid altitude offsets', () => {
-    const footprint = createRectilinearFieldOfViewFootprint({
-      center: { altitudeDegrees: 90, azimuthDegrees: 0 },
-      equipment: { ...equipment, frameRotationDegrees: 27 },
-      maximumStepDegrees: 0.25,
+  it('grows by the stereographic angular scale when the atlas zooms in', () => {
+    const wide = createScreenCenteredFieldOfViewFrame({
+      cameraFieldOfViewDegrees: 180,
+      canvas: { widthPixels: 1080, heightPixels: 1600 },
+      equipment,
+    });
+    const zoomed = createScreenCenteredFieldOfViewFrame({
+      cameraFieldOfViewDegrees: 45,
+      canvas: { widthPixels: 1080, heightPixels: 1600 },
+      equipment,
     });
 
-    expect(footprint.boundary.length).toBeGreaterThan(20);
+    expect(zoomed.widthPixels).toBeGreaterThan(wide.widthPixels * 4);
+    expect(zoomed.heightPixels).toBeGreaterThan(wide.heightPixels * 4);
+    expect(zoomed.horizontalFovDegrees).toBe(wide.horizontalFovDegrees);
+    expect(zoomed.verticalFovDegrees).toBe(wide.verticalFovDegrees);
+  });
+
+  it('rotates the same rectangular screen reticle around the viewport centre', () => {
+    const frame = createScreenCenteredFieldOfViewFrame({
+      cameraFieldOfViewDegrees: 60,
+      canvas: { widthPixels: 390, heightPixels: 700 },
+      equipment: { ...equipment, frameRotationDegrees: 90 },
+    });
+
+    const [topLeft, topRight] = frame.corners;
+    expect(topLeft.xPixels).toBeCloseTo(topRight.xPixels, 8);
+    expect(Math.abs(topLeft.yPixels - topRight.yPixels)).toBeCloseTo(
+      frame.widthPixels,
+      8,
+    );
     expect(
-      footprint.boundary.every(
-        ({ altitudeDegrees, azimuthDegrees }) =>
-          Number.isFinite(altitudeDegrees) &&
-          Number.isFinite(azimuthDegrees) &&
-          altitudeDegrees <= 90 &&
-          altitudeDegrees >= -90 &&
-          azimuthDegrees >= 0 &&
-          azimuthDegrees < 360,
+      frame.corners.every(
+        ({ xPixels, yPixels }) =>
+          Number.isFinite(xPixels) && Number.isFinite(yPixels),
       ),
     ).toBe(true);
-    expect(
-      Math.max(
-        ...footprint.boundary.map(({ altitudeDegrees }) => altitudeDegrees),
-      ),
-    ).toBeLessThan(90);
-    expect(
-      new Set(
-        footprint.corners.map(({ azimuthDegrees }) =>
-          azimuthDegrees.toFixed(2),
-        ),
-      ).size,
-    ).toBe(4);
   });
 });

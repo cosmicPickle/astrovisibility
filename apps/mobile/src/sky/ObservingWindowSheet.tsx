@@ -17,10 +17,7 @@ import {
   createDateObservingWindow,
   createDefaultObservingContext,
 } from '../astronomy/observingWindow';
-import {
-  formatLocalTimeInput,
-  formatObservingWindowRange,
-} from '../astronomy/observingWindowPresentation';
+import { formatLocalTimeInput } from '../astronomy/observingWindowPresentation';
 import { ActionButton } from '../components/ui/ActionButton';
 import { AppText } from '../components/ui/AppText';
 import { ModalSheet } from '../components/ui/ModalSheet';
@@ -86,50 +83,62 @@ const calendarDates = (month: LocalCivilDate) => {
 };
 
 const TimeOfDaySlider = ({
-  onChange,
+  onCommit,
   timeZoneId,
   valueMilliseconds,
   windowStartTimestampUtc,
 }: {
-  onChange: (timestampUtc: string) => void;
+  onCommit: (timestampUtc: string) => void;
   timeZoneId: string;
   valueMilliseconds: number;
   windowStartTimestampUtc: string;
 }) => {
   const [widthPixels, setWidthPixels] = useState(1);
   const boundedValue = clampDayOffset(valueMilliseconds);
+  const [dragValueMilliseconds, setDragValueMilliseconds] = useState<
+    number | null
+  >(null);
+  const draftValueMilliseconds = dragValueMilliseconds ?? boundedValue;
   const timestampAt = (offsetMilliseconds: number) =>
     new Date(
       Date.parse(windowStartTimestampUtc) + clampDayOffset(offsetMilliseconds),
     ).toISOString();
-  const updateFromLocation = (locationXPixels: number) => {
-    const rawOffset =
-      (Math.max(0, Math.min(widthPixels, locationXPixels)) / widthPixels) *
-      MILLISECONDS_PER_DAY;
-    const roundedOffset =
-      Math.round(rawOffset / SLIDER_STEP_MILLISECONDS) *
-      SLIDER_STEP_MILLISECONDS;
-    onChange(timestampAt(roundedOffset));
+  const updateDraftFromDrag = (dragDeltaXPixels: number) => {
+    const nextValue = clampDayOffset(
+      boundedValue + (dragDeltaXPixels / widthPixels) * MILLISECONDS_PER_DAY,
+    );
+    setDragValueMilliseconds(nextValue);
+    return nextValue;
+  };
+  const finishDrag = (dragDeltaXPixels: number) => {
+    const finalDraftValue = updateDraftFromDrag(dragDeltaXPixels);
+    const roundedValue = clampDayOffset(
+      Math.round(finalDraftValue / 60_000) * 60_000,
+    );
+    setDragValueMilliseconds(null);
+    onCommit(timestampAt(roundedValue));
   };
   const responder = useMemo(
     () =>
       PanResponder.create({
         onStartShouldSetPanResponder: () => true,
         onMoveShouldSetPanResponder: () => true,
-        onPanResponderGrant: (event) =>
-          updateFromLocation(event.nativeEvent.locationX),
-        onPanResponderMove: (event) =>
-          updateFromLocation(event.nativeEvent.locationX),
+        onPanResponderGrant: () => setDragValueMilliseconds(boundedValue),
+        onPanResponderMove: (_, gestureState) =>
+          updateDraftFromDrag(gestureState.dx),
+        onPanResponderRelease: (_, gestureState) => finishDrag(gestureState.dx),
+        onPanResponderTerminate: (_, gestureState) =>
+          finishDrag(gestureState.dx),
       }),
     // Gesture mapping must track both the measured width and active day.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [onChange, widthPixels, windowStartTimestampUtc],
+    [boundedValue, onCommit, widthPixels, windowStartTimestampUtc],
   );
   const localTime = localCivilDateTimeAtInstant(
-    timestampAt(boundedValue),
+    timestampAt(draftValueMilliseconds),
     timeZoneId,
   );
-  const percent = (boundedValue / MILLISECONDS_PER_DAY) * 100;
+  const percent = (draftValueMilliseconds / MILLISECONDS_PER_DAY) * 100;
   return (
     <View style={styles.sliderField}>
       <View style={styles.labelRow}>
@@ -148,7 +157,7 @@ const TimeOfDaySlider = ({
         accessibilityValue={{
           min: 0,
           max: 24 * 60,
-          now: Math.round(boundedValue / 60_000),
+          now: Math.round(draftValueMilliseconds / 60_000),
           text: formatLocalTimeInput(localTime),
         }}
         onAccessibilityAction={(event) => {
@@ -158,7 +167,7 @@ const TimeOfDaySlider = ({
               : event.nativeEvent.actionName === 'decrement'
                 ? -SLIDER_STEP_MILLISECONDS
                 : 0;
-          onChange(timestampAt(boundedValue + delta));
+          onCommit(timestampAt(draftValueMilliseconds + delta));
         }}
         onLayout={(event: LayoutChangeEvent) =>
           setWidthPixels(Math.max(1, event.nativeEvent.layout.width))
@@ -168,7 +177,10 @@ const TimeOfDaySlider = ({
       >
         <View style={styles.sliderTrack}>
           <View style={[styles.sliderFill, { width: `${percent}%` }]} />
-          <View style={[styles.sliderThumb, { left: `${percent}%` }]} />
+          <View
+            style={[styles.sliderThumb, { left: `${percent}%` }]}
+            testID="time-slider-thumb"
+          />
         </View>
       </View>
       <View style={styles.sliderEnds}>
@@ -253,10 +265,6 @@ const VisibleObservingWindowSheet = ({
       title="Observing window"
       visible
     >
-      <AppText tone="muted">
-        Browse one 24-hour sky day in {timeZoneId}. The atlas updates as the
-        time changes.
-      </AppText>
       <Pressable
         accessibilityLabel="Choose observing date"
         accessibilityRole="button"
@@ -339,7 +347,7 @@ const VisibleObservingWindowSheet = ({
         </View>
       ) : null}
       <TimeOfDaySlider
-        onChange={(nextTimestampUtc) =>
+        onCommit={(nextTimestampUtc) =>
           emitChange({
             sceneTimestampUtc: nextTimestampUtc,
             window: localWindow,
@@ -366,11 +374,6 @@ const VisibleObservingWindowSheet = ({
           variant="secondary"
         />
       </View>
-      <View style={styles.currentWindow}>
-        <AppText tone="label">Trajectory period</AppText>
-        <AppText>{formatObservingWindowRange(localWindow, timeZoneId)}</AppText>
-        <AppText tone="muted">Fixed at 24 elapsed hours.</AppText>
-      </View>
     </ModalSheet>
   );
 };
@@ -396,12 +399,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   calendarTitle: { fontWeight: '800' },
-  currentWindow: {
-    backgroundColor: colors.surfaceRaised,
-    borderRadius: layout.controlRadius,
-    gap: 4,
-    padding: 12,
-  },
   dateButton: {
     backgroundColor: colors.surfaceRaised,
     borderColor: colors.outline,
@@ -430,8 +427,9 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     height: 22,
     marginLeft: -11,
-    marginTop: -14,
     position: 'absolute',
+    top: '50%',
+    transform: [{ translateY: -11 }],
     width: 22,
   },
   sliderTouchTrack: {
