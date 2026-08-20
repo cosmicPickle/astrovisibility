@@ -3,7 +3,6 @@ import {
   assertCaptureDimensionsWithinLimits,
   captureOrientationConfidence,
   createCapturedTile,
-  suggestNextTileCenters,
   type OrientationSnapshot,
 } from './captureSession';
 
@@ -103,28 +102,5 @@ describe('capture proof tile representation', () => {
     expect(captureOrientationConfidence(35, true, 'camera')).toBe('low');
     expect(captureOrientationConfidence(null, false, 'camera')).toBe('manual');
     expect(captureOrientationConfidence(5, true, 'import')).toBe('manual');
-  });
-
-  it('suggests 25-percent-overlap neighbours and an upward row without requiring 360 degrees', () => {
-    const tile = createCapturedTile({
-      id: 'tile-suggestions',
-      uri: 'file:///temporary/tile-suggestions.jpg',
-      widthPixels: 1600,
-      heightPixels: 1200,
-      capturedAtUtc: '2026-08-19T10:03:00.000Z',
-      orientation: {
-        ...orientation,
-        trueHeadingDegrees: 10,
-        estimatedAltitudeDegrees: 30,
-      },
-      horizontalFieldOfViewDegrees: 60,
-      verticalFieldOfViewDegrees: 40,
-    });
-
-    expect(suggestNextTileCenters([tile])).toEqual([
-      { altitudeDegrees: 30, azimuthDegrees: 325, kind: 'left' },
-      { altitudeDegrees: 30, azimuthDegrees: 55, kind: 'right' },
-      { altitudeDegrees: 60, azimuthDegrees: 10, kind: 'up' },
-    ]);
   });
 });

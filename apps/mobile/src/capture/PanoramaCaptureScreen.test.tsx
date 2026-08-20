@@ -143,6 +143,14 @@ describe('PanoramaCaptureScreen', () => {
     expect(
       screen.getByText(/import images and place them manually/i),
     ).toBeTruthy();
+    expect(screen.queryByText(/Suggested 25% overlap/i)).toBeNull();
+    expect(screen.queryByText('Az −5°')).toBeNull();
+    expect(screen.queryByText('Az +5°')).toBeNull();
+    expect(
+      screen.getByLabelText(
+        /red cardinal directions, 0 green captured footprints, and a blue live capture footprint/i,
+      ),
+    ).toBeTruthy();
 
     await act(async () => fireEvent.press(screen.getByText('Import image')));
     await waitFor(() => expect(controller.addTile).toHaveBeenCalledTimes(1));
@@ -180,12 +188,14 @@ describe('PanoramaCaptureScreen', () => {
     await waitFor(() => screen.getByText('Resume 1-tile draft'));
     fireEvent.press(screen.getByText('Review draft'));
     await waitFor(() => screen.getByText('Review tile alignment'));
-    await act(async () => fireEvent.press(screen.getByText('Az +5°')));
+    expect(screen.queryByText('Az −5°')).toBeNull();
+    expect(screen.queryByText('Az +5°')).toBeNull();
+    await act(async () => fireEvent.press(screen.getByText('Alt +5°')));
     await waitFor(() =>
       expect(controller.updateTilePlacement).toHaveBeenCalledWith(
         'draft-1',
         'tile-1',
-        expect.objectContaining({ centerAzimuthDegrees: 185 }),
+        expect.objectContaining({ centerAltitudeDegrees: 35 }),
       ),
     );
     await act(async () => fireEvent.press(screen.getByText('Save panorama')));

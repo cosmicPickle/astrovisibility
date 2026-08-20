@@ -29,7 +29,6 @@ import { colors, layout } from '../theme/tokens';
 import {
   applyTileCorrection,
   createCapturedTile,
-  suggestNextTileCenters,
   type CapturedProofTile,
 } from './captureSession';
 import { useCaptureOrientation } from './useCaptureOrientation';
@@ -184,13 +183,14 @@ export const PanoramaCaptureScreen = ({
   const [cameraGranted, setCameraGranted] = useState(false);
   const [locationGranted, setLocationGranted] = useState(false);
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
-  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
-  const { motionAvailable, orientation, sensorError, setOrientation } =
-    useCaptureOrientation(mode === 'capture', locationGranted);
+  const { motionAvailable, orientation, sensorError } = useCaptureOrientation(
+    mode === 'capture',
+    locationGranted,
+  );
 
   const native = useMemo<PanoramaCaptureServices>(
     () =>
@@ -376,11 +376,6 @@ export const PanoramaCaptureScreen = ({
 
   const selectedTile =
     draft?.tiles.find((tile) => tile.id === selectedTileId) ?? null;
-  const suggestions = suggestNextTileCenters(draft?.tiles ?? []);
-  const selectedSuggestion =
-    suggestions[selectedSuggestionIndex % Math.max(suggestions.length, 1)] ??
-    null;
-
   const correctSelectedTile = async (
     correction: Parameters<typeof applyTileCorrection>[1],
   ) => {
@@ -608,7 +603,6 @@ export const PanoramaCaptureScreen = ({
             </View>
             <CaptureCoverageMap
               orientation={orientation}
-              suggestion={selectedSuggestion}
               tiles={draft?.tiles ?? []}
             />
             {orientation.headingAccuracyDegrees === null ||
@@ -621,64 +615,12 @@ export const PanoramaCaptureScreen = ({
             {sensorError ? (
               <AppText style={styles.warning}>{sensorError}</AppText>
             ) : null}
-            {selectedSuggestion ? (
-              <SectionCard>
-                <AppText tone="label">Suggested 25% overlap</AppText>
-                <AppText>
-                  Aim {selectedSuggestion.kind} ·{' '}
-                  {degrees(selectedSuggestion.azimuthDegrees)} az ·{' '}
-                  {degrees(selectedSuggestion.altitudeDegrees)} alt
-                </AppText>
-                <ActionButton
-                  label="Next suggestion"
-                  onPress={() =>
-                    setSelectedSuggestionIndex((current) => current + 1)
-                  }
-                  variant="secondary"
-                />
-              </SectionCard>
-            ) : (
+            {(draft?.tiles.length ?? 0) === 0 ? (
               <AppText tone="muted">
                 Capture the first tile anywhere. One tile is a complete partial
                 panorama.
               </AppText>
-            )}
-            <View style={styles.buttonRow}>
-              <ActionButton
-                label="Az −5°"
-                onPress={() =>
-                  setOrientation((current) => ({
-                    ...current,
-                    trueHeadingDegrees:
-                      (current.trueHeadingDegrees + 355) % 360,
-                  }))
-                }
-                variant="secondary"
-              />
-              <ActionButton
-                label="Az +5°"
-                onPress={() =>
-                  setOrientation((current) => ({
-                    ...current,
-                    trueHeadingDegrees: (current.trueHeadingDegrees + 5) % 360,
-                  }))
-                }
-                variant="secondary"
-              />
-              <ActionButton
-                label="Alt +5°"
-                onPress={() =>
-                  setOrientation((current) => ({
-                    ...current,
-                    estimatedAltitudeDegrees: Math.min(
-                      90,
-                      current.estimatedAltitudeDegrees + 5,
-                    ),
-                  }))
-                }
-                variant="secondary"
-              />
-            </View>
+            ) : null}
             <ActionButton
               disabled={!cameraGranted}
               label="Capture tile"
@@ -736,8 +678,6 @@ export const PanoramaCaptureScreen = ({
                 </AppText>
                 <View style={styles.buttonRow}>
                   {[
-                    ['Az −5°', -5, 0, 0],
-                    ['Az +5°', 5, 0, 0],
                     ['Alt −5°', 0, -5, 0],
                     ['Alt +5°', 0, 5, 0],
                     ['Roll −1°', 0, 0, -1],

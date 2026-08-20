@@ -7,6 +7,22 @@ import type { OrientationSnapshot } from './captureSession';
 const radiansToDegrees = (radians: number) => (radians * 180) / Math.PI;
 const clamp = (value: number, minimum: number, maximum: number) =>
   Math.max(minimum, Math.min(maximum, value));
+const SENSOR_SMOOTHING_FACTOR = 0.25;
+const normalizeDegrees = (degrees: number) => ((degrees % 360) + 360) % 360;
+
+export const smoothHeadingDegrees = (
+  currentDegrees: number,
+  nextDegrees: number,
+) => {
+  const shortestDeltaDegrees =
+    ((nextDegrees - currentDegrees + 540) % 360) - 180;
+  return normalizeDegrees(
+    currentDegrees + shortestDeltaDegrees * SENSOR_SMOOTHING_FACTOR,
+  );
+};
+
+const smoothLinear = (current: number, next: number) =>
+  current + (next - current) * SENSOR_SMOOTHING_FACTOR;
 
 export const headingUncertaintyDegrees = (accuracyGrade: number) => {
   if (accuracyGrade >= 3) return 20;
@@ -22,17 +38,25 @@ export const orientationFromDeviceMotion = (
   const { rotation } = measurement;
   if (!rotation) return current;
 
+  const measuredAltitudeDegrees = clamp(
+    Math.abs(radiansToDegrees(rotation.beta)) - 90,
+    0,
+    90,
+  );
+  const measuredRollDegrees = radiansToDegrees(rotation.gamma);
+  const hasPreviousMotionSample = current.rawRotation !== null;
+
   return {
     ...current,
     // DeviceOrientation beta is about 90° while the phone is upright and the
     // back camera points at the horizon. Values beyond that represent an upward
     // pitch. This remains an estimate until a physical-device calibration pass.
-    estimatedAltitudeDegrees: clamp(
-      Math.abs(radiansToDegrees(rotation.beta)) - 90,
-      0,
-      90,
-    ),
-    rollDegrees: radiansToDegrees(rotation.gamma),
+    estimatedAltitudeDegrees: hasPreviousMotionSample
+      ? smoothLinear(current.estimatedAltitudeDegrees, measuredAltitudeDegrees)
+      : measuredAltitudeDegrees,
+    rollDegrees: hasPreviousMotionSample
+      ? smoothLinear(current.rollDegrees, measuredRollDegrees)
+      : measuredRollDegrees,
     rawRotation: {
       alphaRadians: rotation.alpha,
       betaRadians: rotation.beta,
@@ -98,7 +122,13 @@ export const useCaptureOrientation = (
         heading.trueHeading >= 0 ? heading.trueHeading : heading.magHeading;
       setOrientation((current) => ({
         ...current,
-        trueHeadingDegrees,
+        trueHeadingDegrees:
+          current.headingAccuracyDegrees === null
+            ? trueHeadingDegrees
+            : smoothHeadingDegrees(
+                current.trueHeadingDegrees,
+                trueHeadingDegrees,
+              ),
         headingAccuracyDegrees: headingUncertaintyDegrees(heading.accuracy),
       }));
     })
