@@ -540,10 +540,10 @@ they credibly risk layout or interaction regressions.
 ## Git and Commit Discipline
 
 - Preserve unrelated user changes and inspect the worktree before editing.
-- Keep implementation on a non-default branch unless a human explicitly directs
-  otherwise. Use the `codex/` prefix for agent-created branches by default.
-- Commit and push completed work by default unless a human explicitly instructs
-  otherwise.
+- Work directly on `main`. Do not create or use a feature branch unless a human
+  explicitly instructs otherwise.
+- Commit completed work and push it directly to `main` by default unless a human
+  explicitly instructs otherwise.
 - Create clear, concise, focused commits when the task includes committing or
   publishing work. Do not mix unrelated cleanup into a feature commit.
 - Never commit code that failed a required gate, contains secrets, or knowingly
