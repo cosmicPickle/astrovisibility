@@ -45,7 +45,7 @@ export function TileNudgeControl({
           pressed && styles.pressed,
         ]}
       >
-        <AppText style={styles.arrow}>→</AppText>
+        <AppText style={[styles.arrow, styles.arrowRight]}>↑</AppText>
       </Pressable>
       <Pressable
         accessibilityLabel="Move selected tile down"
@@ -58,7 +58,7 @@ export function TileNudgeControl({
           pressed && styles.pressed,
         ]}
       >
-        <AppText style={styles.arrow}>↓</AppText>
+        <AppText style={[styles.arrow, styles.arrowDown]}>↑</AppText>
       </Pressable>
       <Pressable
         accessibilityLabel="Move selected tile left"
@@ -71,7 +71,7 @@ export function TileNudgeControl({
           pressed && styles.pressed,
         ]}
       >
-        <AppText style={styles.arrow}>←</AppText>
+        <AppText style={[styles.arrow, styles.arrowLeft]}>↑</AppText>
       </Pressable>
     </View>
   );
@@ -79,6 +79,9 @@ export function TileNudgeControl({
 
 const styles = StyleSheet.create({
   arrow: { color: colors.text, fontSize: 32, lineHeight: 36 },
+  arrowDown: { transform: [{ rotate: '180deg' }] },
+  arrowLeft: { transform: [{ rotate: '-90deg' }] },
+  arrowRight: { transform: [{ rotate: '90deg' }] },
   button: {
     alignItems: 'center',
     backgroundColor: colors.surface,

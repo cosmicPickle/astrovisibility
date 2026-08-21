@@ -18,7 +18,7 @@ import { createPlanetariumPanoramaMesh } from '../sky/planetariumPanoramaGeometr
 import {
   DIRECTIONAL_ATLAS_PROJECTION,
   DIRECTIONAL_ATLAS_SIZE_PIXELS,
-  directionToAtlasPixel,
+  projectPanoramaMeshToDirectionalAtlas,
 } from './directionalAtlas';
 
 export interface DirectionalAtlasImageResult {
@@ -93,6 +93,8 @@ export async function createDirectionalPanoramaImage(
       (tileImage, draftTile) => {
         const tile = asPanoramaTile(draftTile);
         const mesh = createPlanetariumPanoramaMesh(tile);
+        const projectedMesh = projectPanoramaMeshToDirectionalAtlas(mesh, size);
+        if (projectedMesh.indices.length === 0) return;
         const shader = tileImage.makeShaderOptions(
           TileMode.Decal,
           TileMode.Decal,
@@ -104,13 +106,12 @@ export async function createDirectionalPanoramaImage(
         paint.setShader(shader);
         const vertices = Skia.MakeVertices(
           VertexMode.Triangles,
-          mesh.directions.map((direction) => {
-            const point = directionToAtlasPixel(direction, size);
-            return Skia.Point(point.xPixels, point.yPixels);
-          }),
-          mesh.texturePointsPixels.map(({ x, y }) => Skia.Point(x, y)),
+          projectedMesh.positions.map((point) =>
+            Skia.Point(point.xPixels, point.yPixels),
+          ),
+          projectedMesh.texturePointsPixels.map(({ x, y }) => Skia.Point(x, y)),
           undefined,
-          mesh.indices,
+          projectedMesh.indices,
         );
         try {
           canvas.drawVertices(vertices, BlendMode.SrcOver, paint);

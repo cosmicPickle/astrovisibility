@@ -195,8 +195,10 @@ describe('PanoramaCaptureScreen', () => {
     );
 
     await waitFor(() => screen.getByText('Point and capture'));
+    await waitFor(() => expect(native.getCameraPermission).toHaveBeenCalled());
     expect(screen.queryByText('Capture surroundings')).toBeNull();
     expect(screen.getByText('1 tile · 360° not required')).toBeTruthy();
+    expect(screen.getByLabelText('Rear camera preview at 1x')).toBeTruthy();
   });
 
   it('rechecks revocable permissions when capture returns to the foreground', async () => {

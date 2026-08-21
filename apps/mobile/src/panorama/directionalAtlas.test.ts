@@ -2,6 +2,7 @@ import {
   atlasPixelToDirection,
   directionToAtlasPixel,
   isAtlasPixelInsideHemisphere,
+  projectPanoramaMeshToDirectionalAtlas,
 } from './directionalAtlas';
 
 describe('upper-hemisphere directional atlas', () => {
@@ -44,5 +45,66 @@ describe('upper-hemisphere directional atlas', () => {
       false,
     );
     expect(atlasPixelToDirection({ xPixels: 0, yPixels: 0 }, size)).toBeNull();
+  });
+
+  it('clips panorama triangles at the horizon instead of rejecting horizon-level captures', () => {
+    const projected = projectPanoramaMeshToDirectionalAtlas(
+      {
+        angularRadiusDegrees: 10,
+        centerDirection: { altitudeDegrees: 0, azimuthDegrees: 5 },
+        columnCount: 3,
+        directions: [
+          { altitudeDegrees: 5, azimuthDegrees: 0 },
+          { altitudeDegrees: -5, azimuthDegrees: 5 },
+          { altitudeDegrees: 5, azimuthDegrees: 10 },
+        ],
+        indices: [0, 1, 2],
+        rowCount: 1,
+        texturePointsPixels: [
+          { x: 0, y: 0 },
+          { x: 50, y: 100 },
+          { x: 100, y: 0 },
+        ],
+      },
+      size,
+    );
+
+    expect(projected.indices).toHaveLength(6);
+    expect(projected.positions).toHaveLength(4);
+    expect(projected.texturePointsPixels).toHaveLength(4);
+    expect(
+      projected.positions.every((point) =>
+        isAtlasPixelInsideHemisphere(point, size),
+      ),
+    ).toBe(true);
+  });
+
+  it('omits panorama triangles that are entirely below the horizon', () => {
+    const projected = projectPanoramaMeshToDirectionalAtlas(
+      {
+        angularRadiusDegrees: 10,
+        centerDirection: { altitudeDegrees: -10, azimuthDegrees: 5 },
+        columnCount: 3,
+        directions: [
+          { altitudeDegrees: -5, azimuthDegrees: 0 },
+          { altitudeDegrees: -10, azimuthDegrees: 5 },
+          { altitudeDegrees: -5, azimuthDegrees: 10 },
+        ],
+        indices: [0, 1, 2],
+        rowCount: 1,
+        texturePointsPixels: [
+          { x: 0, y: 0 },
+          { x: 50, y: 100 },
+          { x: 100, y: 0 },
+        ],
+      },
+      size,
+    );
+
+    expect(projected).toEqual({
+      indices: [],
+      positions: [],
+      texturePointsPixels: [],
+    });
   });
 });

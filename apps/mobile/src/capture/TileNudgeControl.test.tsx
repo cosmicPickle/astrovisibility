@@ -36,4 +36,20 @@ describe('TileNudgeControl', () => {
     expect(left.right).toBeUndefined();
     expect(right.left).toBeUndefined();
   });
+
+  it('uses one rotated arrow glyph for every direction', async () => {
+    const view = await render(
+      <TileNudgeControl
+        onDown={jest.fn()}
+        onLeft={jest.fn()}
+        onRight={jest.fn()}
+        onUp={jest.fn()}
+      />,
+    );
+
+    expect(view.getAllByText('↑')).toHaveLength(4);
+    expect(view.queryByText('→')).toBeNull();
+    expect(view.queryByText('↓')).toBeNull();
+    expect(view.queryByText('←')).toBeNull();
+  });
 });

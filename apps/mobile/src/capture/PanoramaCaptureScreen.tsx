@@ -263,6 +263,7 @@ export const PanoramaCaptureScreen = ({
         },
       );
     };
+    if (native.getCameraPermission) refresh();
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') refresh();
     });
