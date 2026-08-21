@@ -1,7 +1,8 @@
 # Single Panorama Alignment and Raster Mask
 
 **Timestamp:** 2026-08-21 16:13 +03:00
-**Status:** Approved by direct human instruction
+**Amended:** 2026-08-21 17:05 +03:00
+**Status:** Approved and amended by direct human instruction
 
 ## Purpose
 
@@ -18,11 +19,14 @@ tile overlap seams, tile selection decoration, or raw brush-operation layers.
    not move this view; drag and pinch gestures use the same planetarium navigation
    model as Sky View.
 4. All draft tiles are overlaid on the atlas and can be selected by tapping.
-5. A selected tile is adjusted with a four-quadrant donut control containing only
-   up, down, left, and right arrows. Each press changes altitude or azimuth by one
-   degree and persists immediately. Roll remains sensor-derived and is not exposed
-   in this simplified control.
-6. `Back to camera` returns to the existing draft and permits more captures.
+5. A selected tile is adjusted with a non-overlapping orthogonal D-pad containing
+   only up, down, left, and right arrows. The up/down button width equals the
+   left/right button height, and the up/down button height equals the left/right
+   button width. Each press changes altitude or azimuth by one degree and persists
+   immediately. Roll remains sensor-derived and is not exposed in this simplified
+   control.
+6. `Back to camera` returns directly to the live capture surface with the existing
+   draft and permits more captures; it does not return to the capture introduction.
 7. `Use panorama` rasterizes the current tile placements into one immutable image,
    activates it, removes the draft tile files, and opens masking. Captures cannot
    be added afterward; recreation deletes the panorama/mask pair and starts over.
@@ -58,6 +62,9 @@ tile overlap seams, tile selection decoration, or raw brush-operation layers.
 ## Persistence and migration
 
 - Draft tiles remain local files only while capture/alignment is unfinished.
+- Panorama composition uses a CPU-backed atlas and decodes/draws one tile at a time
+  so multi-photo captures do not retain every full-resolution source simultaneously
+  or depend on a large GPU offscreen texture.
 - A completed panorama revision references exactly one PNG file plus its fixed
   projection metadata.
 - A completed mask revision references exactly one PNG file plus its fixed
@@ -73,7 +80,7 @@ tile overlap seams, tile selection decoration, or raw brush-operation layers.
 - Capture has an `Align Tiles` action and never completes directly from the shutter
   screen.
 - Alignment is a separate gesture-controlled spherical screen with clickable tiles,
-  the four-arrow donut, `Back to camera`, and `Use panorama`.
+  the four-arrow orthogonal D-pad, `Back to camera`, and `Use panorama`.
 - Reopening capture after accepting is rejected until the panorama/mask pair is
   deleted.
 - The mask editor stays spatially stable through pan/zoom and displays one composite

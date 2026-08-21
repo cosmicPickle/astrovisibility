@@ -11,7 +11,7 @@ export default function PanoramaAlignmentRoute() {
       navigation={{
         backToCapture: () =>
           router.replace(
-            `/profiles/${encodeURIComponent(profileId)}/capture-panorama` as Href,
+            `/profiles/${encodeURIComponent(profileId)}/capture-panorama?resume=1` as Href,
           ),
         onAccepted: () =>
           router.replace(

@@ -158,17 +158,21 @@ export const PanoramaCaptureScreen = ({
   navigation,
   profileId,
   services,
+  startInCaptureMode = false,
 }: {
   controller?: PanoramaCaptureController;
   navigation: { goBack(): void; onAlign?(): void; onSaved(): void };
   profileId: string;
   services?: PanoramaCaptureServices;
+  startInCaptureMode?: boolean;
 }) => {
   const camera = useRef<CameraView>(null);
   const [, requestCameraPermission] = useCameraPermissions();
   const [loadResult, setLoadResult] = useState<CaptureLoadResult | null>(null);
   const [draft, setDraft] = useState<PanoramaCaptureDraft | null>(null);
-  const [mode, setMode] = useState<'intro' | 'capture' | 'review'>('intro');
+  const [mode, setMode] = useState<'intro' | 'capture' | 'review'>(
+    startInCaptureMode ? 'capture' : 'intro',
+  );
   const [cameraGranted, setCameraGranted] = useState(false);
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);

@@ -4,7 +4,10 @@ import { PanoramaCaptureScreen } from '../../../src/capture/PanoramaCaptureScree
 
 export default function PanoramaCaptureRoute() {
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, resume } = useLocalSearchParams<{
+    id: string;
+    resume?: string;
+  }>();
   const profileId = typeof id === 'string' ? id : '';
   return (
     <PanoramaCaptureScreen
@@ -20,6 +23,7 @@ export default function PanoramaCaptureRoute() {
           ),
       }}
       profileId={profileId}
+      startInCaptureMode={resume === '1'}
     />
   );
 }

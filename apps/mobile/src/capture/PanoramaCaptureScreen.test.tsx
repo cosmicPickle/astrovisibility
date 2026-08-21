@@ -128,6 +128,7 @@ const renderScreen = (
   services: PanoramaCaptureServices,
   onSaved = jest.fn(),
   onAlign = jest.fn(),
+  startInCaptureMode = false,
 ) =>
   render(
     <SafeAreaProvider
@@ -141,6 +142,7 @@ const renderScreen = (
         navigation={{ goBack: jest.fn(), onAlign, onSaved }}
         profileId="profile-1"
         services={services}
+        startInCaptureMode={startInCaptureMode}
       />
     </SafeAreaProvider>,
   );
@@ -163,6 +165,38 @@ describe('PanoramaCaptureScreen', () => {
       quality: 0.55,
       shutterSound: false,
     });
+  });
+
+  it('resumes the live camera surface when returning from tile alignment', async () => {
+    const native: PanoramaCaptureServices = {
+      ...services(),
+      getCameraPermission: jest.fn().mockResolvedValue(true),
+    };
+    const controller: PanoramaCaptureController = {
+      load: jest.fn().mockResolvedValue({
+        profile,
+        profileName: 'Bedroom window',
+        activePanorama: null,
+        draft: withTile,
+      }),
+      createDraft: jest.fn(),
+      addTile: jest.fn(),
+      updateTilePlacement: jest.fn(),
+      discardDraft: jest.fn(),
+      completeDraft: jest.fn(),
+    };
+
+    const screen = await renderScreen(
+      controller,
+      native,
+      jest.fn(),
+      jest.fn(),
+      true,
+    );
+
+    await waitFor(() => screen.getByText('Point and capture'));
+    expect(screen.queryByText('Capture surroundings')).toBeNull();
+    expect(screen.getByText('1 tile · 360° not required')).toBeTruthy();
   });
 
   it('rechecks revocable permissions when capture returns to the foreground', async () => {

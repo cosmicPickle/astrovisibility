@@ -19,7 +19,7 @@ export function TileNudgeControl({
   return (
     <View
       accessibilityLabel="Tile alignment directional control"
-      style={styles.donut}
+      style={styles.control}
     >
       <Pressable
         accessibilityLabel="Move selected tile up"
@@ -27,7 +27,7 @@ export function TileNudgeControl({
         disabled={disabled}
         onPress={onUp}
         style={({ pressed }) => [
-          styles.quadrant,
+          styles.button,
           styles.up,
           pressed && styles.pressed,
         ]}
@@ -40,7 +40,7 @@ export function TileNudgeControl({
         disabled={disabled}
         onPress={onRight}
         style={({ pressed }) => [
-          styles.quadrant,
+          styles.button,
           styles.right,
           pressed && styles.pressed,
         ]}
@@ -53,7 +53,7 @@ export function TileNudgeControl({
         disabled={disabled}
         onPress={onDown}
         style={({ pressed }) => [
-          styles.quadrant,
+          styles.button,
           styles.down,
           pressed && styles.pressed,
         ]}
@@ -66,56 +66,37 @@ export function TileNudgeControl({
         disabled={disabled}
         onPress={onLeft}
         style={({ pressed }) => [
-          styles.quadrant,
+          styles.button,
           styles.left,
           pressed && styles.pressed,
         ]}
       >
         <AppText style={styles.arrow}>←</AppText>
       </Pressable>
-      <View pointerEvents="none" style={styles.hub} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  arrow: { fontSize: 28, lineHeight: 32 },
-  donut: {
-    alignSelf: 'center',
+  arrow: { color: colors.text, fontSize: 32, lineHeight: 36 },
+  button: {
+    alignItems: 'center',
     backgroundColor: colors.surface,
     borderColor: colors.primary,
-    borderRadius: 84,
+    borderRadius: 12,
     borderWidth: 2,
+    justifyContent: 'center',
+    position: 'absolute',
+  },
+  control: {
+    alignSelf: 'center',
     height: 168,
-    overflow: 'hidden',
     position: 'relative',
     width: 168,
   },
-  down: { bottom: 0, left: 42 },
-  hub: {
-    backgroundColor: colors.background,
-    borderColor: colors.primary,
-    borderRadius: 30,
-    borderWidth: 2,
-    height: 60,
-    left: 52,
-    position: 'absolute',
-    top: 52,
-    width: 60,
-  },
-  left: { left: 0, top: 42 },
+  down: { bottom: 0, height: 48, left: 48, width: 72 },
+  left: { height: 72, left: 0, top: 48, width: 48 },
   pressed: { backgroundColor: colors.primaryPressed },
-  quadrant: {
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderColor: colors.outline,
-    borderWidth: 0.5,
-    height: 84,
-    justifyContent: 'center',
-    opacity: 1,
-    position: 'absolute',
-    width: 84,
-  },
-  right: { right: 0, top: 42 },
-  up: { left: 42, top: 0 },
+  right: { height: 72, right: 0, top: 48, width: 48 },
+  up: { height: 48, left: 48, top: 0, width: 72 },
 });

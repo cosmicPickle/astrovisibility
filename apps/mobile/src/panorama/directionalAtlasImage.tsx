@@ -1,13 +1,13 @@
 import {
   AlphaType,
+  BlendMode,
   ColorType,
-  drawAsImage,
-  Group,
+  FilterMode,
   ImageFormat,
-  ImageShader,
+  MipmapMode,
   Skia,
-  Vertices,
-  vec,
+  TileMode,
+  VertexMode,
   type SkImage,
 } from '@shopify/react-native-skia';
 import { File, Paths } from 'expo-file-system';
@@ -36,6 +36,28 @@ const loadImage = async (uri: string): Promise<SkImage> => {
   return image;
 };
 
+interface DisposableResource {
+  dispose(): void;
+}
+
+export async function processResourcesSequentially<
+  Input,
+  Resource extends DisposableResource,
+>(
+  inputs: readonly Input[],
+  load: (input: Input) => Promise<Resource>,
+  process: (resource: Resource, input: Input) => Promise<void> | void,
+): Promise<void> {
+  for (const input of inputs) {
+    const resource = await load(input);
+    try {
+      await process(resource, input);
+    } finally {
+      resource.dispose();
+    }
+  }
+}
+
 const asPanoramaTile = (tile: PanoramaCaptureDraft['tiles'][number]) => ({
   id: tile.id,
   uri: tile.uri,
@@ -55,67 +77,84 @@ export async function createDirectionalPanoramaImage(
 ): Promise<DirectionalAtlasImageResult> {
   if (draft.tiles.length === 0)
     throw new Error('Capture at least one tile before creating a panorama.');
-  const loadedTiles = await Promise.all(
-    draft.tiles.map(async (draftTile) => {
-      const tile = asPanoramaTile(draftTile);
-      return {
-        image: await loadImage(tile.uri),
-        mesh: createPlanetariumPanoramaMesh(tile),
-        tile,
-      };
-    }),
-  );
   const size = {
     heightPixels: DIRECTIONAL_ATLAS_SIZE_PIXELS,
     widthPixels: DIRECTIONAL_ATLAS_SIZE_PIXELS,
   };
-  const image = await drawAsImage(
-    <Group>
-      {loadedTiles.map(({ image: tileImage, mesh, tile }) => (
-        <Group key={tile.id}>
-          <ImageShader image={tileImage} tx="decal" ty="decal" />
-          <Vertices
-            indices={mesh.indices}
-            mode="triangles"
-            textures={mesh.texturePointsPixels.map(({ x, y }) => vec(x, y))}
-            vertices={mesh.directions.map((direction) => {
-              const point = directionToAtlasPixel(direction, size);
-              return vec(point.xPixels, point.yPixels);
-            })}
-          />
-        </Group>
-      ))}
-    </Group>,
-    { height: size.heightPixels, width: size.widthPixels },
-  );
-  if (!image)
-    throw new Error('The directional panorama could not be rasterized.');
-  const rgba = image.readPixels(0, 0, {
-    alphaType: AlphaType.Unpremul,
-    colorType: ColorType.RGBA_8888,
-    height: size.heightPixels,
-    width: size.widthPixels,
-  });
-  if (!(rgba instanceof Uint8Array))
-    throw new Error('The panorama coverage could not be read.');
-  const temporary = new File(
-    Paths.cache,
-    `astrovisibility-panorama-${Date.now()}-${Math.random().toString(36).slice(2)}.png`,
-  );
-  temporary.write(image.encodeToBytes(ImageFormat.PNG, 100));
-  loadedTiles.forEach(({ image: tileImage }) => tileImage.dispose());
-  image.dispose();
-  return {
-    coverageBitset: createCoverageBitsetFromRgba(
-      rgba,
-      size.widthPixels,
-      size.heightPixels,
-    ),
-    heightPixels: size.heightPixels,
-    projection: DIRECTIONAL_ATLAS_PROJECTION,
-    temporaryUri: temporary.uri,
-    widthPixels: size.widthPixels,
-  };
+  const surface = Skia.Surface.Make(size.widthPixels, size.heightPixels);
+  if (!surface)
+    throw new Error('The directional panorama surface could not be created.');
+  try {
+    const canvas = surface.getCanvas();
+    canvas.clear(Skia.Color('transparent'));
+    await processResourcesSequentially(
+      draft.tiles,
+      (tile) => loadImage(tile.uri),
+      (tileImage, draftTile) => {
+        const tile = asPanoramaTile(draftTile);
+        const mesh = createPlanetariumPanoramaMesh(tile);
+        const shader = tileImage.makeShaderOptions(
+          TileMode.Decal,
+          TileMode.Decal,
+          FilterMode.Linear,
+          MipmapMode.None,
+        );
+        const paint = Skia.Paint();
+        paint.setAntiAlias(true);
+        paint.setShader(shader);
+        const vertices = Skia.MakeVertices(
+          VertexMode.Triangles,
+          mesh.directions.map((direction) => {
+            const point = directionToAtlasPixel(direction, size);
+            return Skia.Point(point.xPixels, point.yPixels);
+          }),
+          mesh.texturePointsPixels.map(({ x, y }) => Skia.Point(x, y)),
+          undefined,
+          mesh.indices,
+        );
+        try {
+          canvas.drawVertices(vertices, BlendMode.SrcOver, paint);
+          surface.flush();
+        } finally {
+          vertices.dispose();
+          paint.dispose();
+          shader.dispose();
+        }
+      },
+    );
+    surface.flush();
+    const rgba = canvas.readPixels(0, 0, {
+      alphaType: AlphaType.Unpremul,
+      colorType: ColorType.RGBA_8888,
+      height: size.heightPixels,
+      width: size.widthPixels,
+    });
+    if (!(rgba instanceof Uint8Array))
+      throw new Error('The panorama coverage could not be read.');
+    const image = surface.makeImageSnapshot();
+    const temporary = new File(
+      Paths.cache,
+      `astrovisibility-panorama-${Date.now()}-${Math.random().toString(36).slice(2)}.png`,
+    );
+    try {
+      temporary.write(image.encodeToBytes(ImageFormat.PNG, 100));
+    } finally {
+      image.dispose();
+    }
+    return {
+      coverageBitset: createCoverageBitsetFromRgba(
+        rgba,
+        size.widthPixels,
+        size.heightPixels,
+      ),
+      heightPixels: size.heightPixels,
+      projection: DIRECTIONAL_ATLAS_PROJECTION,
+      temporaryUri: temporary.uri,
+      widthPixels: size.widthPixels,
+    };
+  } finally {
+    surface.dispose();
+  }
 }
 
 export function createMaskImageFile(
