@@ -2,6 +2,12 @@ import type { VisibilityMask } from '../mask/visibilityMask';
 import type { CanvasSizePixels } from './projection';
 import { unwrapAzimuthDegreesNear } from './projection';
 import {
+  directionToPanoramaEditorPoint,
+  panoramaEditorAngularRadiusToPixels,
+  projectPanoramaEditorPoint,
+  type PanoramaEditorViewport,
+} from './panoramaOverlayGeometry';
+import {
   constrainSkyViewport,
   getVerticalSpanDegrees,
   type SkyViewport,
@@ -21,6 +27,53 @@ export interface ProjectedMaskOperation {
 
 export interface ProjectedVisibilityMask {
   operations: ProjectedMaskOperation[];
+}
+
+export function projectMaskToPanoramaEditorViewport(
+  mask: VisibilityMask,
+  viewport: PanoramaEditorViewport,
+  canvas: CanvasSizePixels,
+): ProjectedVisibilityMask {
+  return {
+    operations: mask.operations.flatMap((operation) => {
+      const points = operation.points.map((point) => {
+        const projected = projectPanoramaEditorPoint(
+          directionToPanoramaEditorPoint(point),
+          viewport,
+          canvas,
+        );
+        return { xPixels: projected.xPixels, yPixels: projected.yPixels };
+      });
+      const radiusPixels =
+        operation.kind === 'visiblePolygon'
+          ? 0
+          : panoramaEditorAngularRadiusToPixels(
+              operation.angularRadiusDegrees,
+              viewport,
+              canvas,
+            );
+      const entirelyOutsideViewport =
+        points.every(({ xPixels }) => xPixels < -radiusPixels) ||
+        points.every(
+          ({ xPixels }) => xPixels > canvas.widthPixels + radiusPixels,
+        ) ||
+        points.every(({ yPixels }) => yPixels < -radiusPixels) ||
+        points.every(
+          ({ yPixels }) => yPixels > canvas.heightPixels + radiusPixels,
+        );
+      if (entirelyOutsideViewport) return [];
+      return [
+        {
+          id: operation.id,
+          kind: operation.kind,
+          points,
+          ...(operation.kind === 'visiblePolygon'
+            ? {}
+            : { angularRadiusPixels: radiusPixels }),
+        },
+      ];
+    }),
+  };
 }
 
 export function projectMaskToViewport(

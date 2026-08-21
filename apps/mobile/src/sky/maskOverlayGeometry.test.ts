@@ -1,5 +1,8 @@
 import type { VisibilityMask } from '../mask/visibilityMask';
-import { projectMaskToViewport } from './maskOverlayGeometry';
+import {
+  projectMaskToPanoramaEditorViewport,
+  projectMaskToViewport,
+} from './maskOverlayGeometry';
 import { createSkyViewport } from './skyViewport';
 
 const mask: VisibilityMask = {
@@ -34,6 +37,23 @@ const mask: VisibilityMask = {
 };
 
 describe('mask overlay projection', () => {
+  it('projects north-seam and zenith strokes continuously in the hemisphere editor', () => {
+    const projected = projectMaskToPanoramaEditorViewport(
+      mask,
+      { centerX: 0, centerY: 0, horizontalSpan: 2 },
+      { widthPixels: 400, heightPixels: 400 },
+    );
+
+    const region = projected.operations[0];
+    const branch = projected.operations[1];
+    expect(region.points[2]).toEqual({ xPixels: 200, yPixels: 200 });
+    expect(
+      Math.abs(branch.points[0].xPixels - branch.points[1].xPixels),
+    ).toBeLessThan(2);
+    expect(branch.kind).toBe('blockedStroke');
+    expect(branch.angularRadiusPixels).toBeCloseTo(1 / 9);
+  });
+
   it('keeps seam and zenith geometry aligned with the sky viewport', () => {
     const projected = projectMaskToViewport(
       mask,

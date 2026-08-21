@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionButton } from '../components/ui/ActionButton';
@@ -14,13 +14,10 @@ import type { ActivePanorama } from '../storage/panoramaDraftRepository';
 import { createLocalRecordId } from '../storage/recordIdentity';
 import { colors, layout } from '../theme/tokens';
 import { MaskEditorCanvas } from './MaskEditorCanvas';
+import { BrushSizeControl } from './BrushSizeControl';
 import {
   addMaskOperation,
   createMaskEditorHistory,
-  redoMaskEdit,
-  removeMaskOperation,
-  resetMaskOperations,
-  undoMaskEdit,
   type MaskEditorHistory,
 } from './maskEditorHistory';
 import {
@@ -30,8 +27,7 @@ import {
   type VisibilityMaskOperation,
 } from './visibilityMask';
 
-export type MaskEditorTool =
-  'blockedStroke' | 'pan' | 'visiblePolygon' | 'visibleStroke';
+export type MaskEditorTool = 'blockedStroke' | 'visibleStroke';
 
 export interface MaskEditorData {
   activeMask: ActiveMaskRevision | null;
@@ -46,13 +42,13 @@ export interface MaskEditorController {
 
 export interface MaskEditorCanvasProps {
   activeTool: MaskEditorTool;
-  brushRadiusDegrees: number;
+  brushDiameterPixels: number;
   mask: VisibilityMask;
-  onCommitPolygon(points: readonly AngularPointDegrees[]): void;
-  onCommitStroke(points: readonly AngularPointDegrees[]): void;
-  operations: readonly VisibilityMaskOperation[];
+  onCommitStroke(
+    points: readonly AngularPointDegrees[],
+    angularRadiusDegrees: number,
+  ): void;
   panorama: ActivePanorama;
-  showMaskPreview: boolean;
 }
 
 export const maskEditorController: MaskEditorController = {
@@ -72,10 +68,16 @@ export const maskEditorController: MaskEditorController = {
   },
 };
 
-const operationLabel = (operation: VisibilityMaskOperation, index: number) => {
-  if (operation.kind === 'visiblePolygon') return `Visible region ${index + 1}`;
-  return `${operation.kind === 'blockedStroke' ? 'Blocked' : 'Visible'} correction ${index + 1}`;
-};
+const createInitialOperations = (
+  data: MaskEditorData,
+): readonly VisibilityMaskOperation[] =>
+  data.activeMask?.operations ??
+  data.panorama?.tiles.map((tile, index) => ({
+    id: `coverage-${index + 1}`,
+    kind: 'visiblePolygon' as const,
+    points: tile.coveragePolygon,
+  })) ??
+  [];
 
 export function MaskEditorScreen({
   controller = maskEditorController,
@@ -92,9 +94,8 @@ export function MaskEditorScreen({
   const [history, setHistory] = useState<MaskEditorHistory>(() =>
     createMaskEditorHistory(),
   );
-  const [activeTool, setActiveTool] = useState<MaskEditorTool>('pan');
-  const [brushRadiusDegrees, setBrushRadiusDegrees] = useState(0.25);
-  const [showMaskPreview, setShowMaskPreview] = useState(true);
+  const [activeTool, setActiveTool] = useState<MaskEditorTool>('blockedStroke');
+  const [brushDiameterPixels, setBrushDiameterPixels] = useState(32);
   const [confirmationVisible, setConfirmationVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -106,7 +107,7 @@ export function MaskEditorScreen({
     try {
       const loaded = await controller.load(profileId);
       setData(loaded);
-      setHistory(createMaskEditorHistory(loaded.activeMask?.operations ?? []));
+      setHistory(createMaskEditorHistory(createInitialOperations(loaded)));
     } catch {
       setError('The panorama and mask could not be read from this device.');
     } finally {
@@ -120,9 +121,7 @@ export function MaskEditorScreen({
       (loaded) => {
         if (!active) return;
         setData(loaded);
-        setHistory(
-          createMaskEditorHistory(loaded.activeMask?.operations ?? []),
-        );
+        setHistory(createMaskEditorHistory(createInitialOperations(loaded)));
         setError(null);
         setLoading(false);
       },
@@ -148,20 +147,16 @@ export function MaskEditorScreen({
     () => createVisibilityMask(coveragePolygons, history.operations),
     [coveragePolygons, history.operations],
   );
-  const hasVisibleRegion = history.operations.some(
-    ({ kind }) => kind === 'visiblePolygon',
-  );
+  const hasCapturedCoverage = coveragePolygons.length > 0;
 
   const addOperation = (
-    operation:
-      | Omit<Extract<VisibilityMaskOperation, { kind: 'visiblePolygon' }>, 'id'>
-      | Omit<
-          Extract<
-            VisibilityMaskOperation,
-            { kind: 'blockedStroke' | 'visibleStroke' }
-          >,
-          'id'
-        >,
+    operation: Omit<
+      Extract<
+        VisibilityMaskOperation,
+        { kind: 'blockedStroke' | 'visibleStroke' }
+      >,
+      'id'
+    >,
   ) =>
     setHistory((current) =>
       addMaskOperation(current, {
@@ -171,7 +166,7 @@ export function MaskEditorScreen({
     );
 
   const save = async () => {
-    if (!data?.panorama || !hasVisibleRegion) return;
+    if (!data?.panorama || !hasCapturedCoverage) return;
     setSaving(true);
     setError(null);
     try {
@@ -228,10 +223,10 @@ export function MaskEditorScreen({
       <View style={styles.heading}>
         <View style={styles.headingCopy}>
           <AppText tone="title">
-            {data.activeMask ? 'Edit visibility mask' : 'Draw visibility mask'}
+            {data.activeMask ? 'Edit obstacle mask' : 'Paint obstacles'}
           </AppText>
           <AppText numberOfLines={1} tone="muted">
-            {data.profileName} · everything unmarked is blocked
+            {data.profileName} · paint obstacles red · two fingers move
           </AppText>
         </View>
         <ActionButton label="Back" onPress={navigation.goBack} variant="text" />
@@ -239,126 +234,40 @@ export function MaskEditorScreen({
 
       <Canvas
         activeTool={activeTool}
-        brushRadiusDegrees={brushRadiusDegrees}
+        brushDiameterPixels={brushDiameterPixels}
         mask={mask}
-        onCommitPolygon={(points) =>
-          addOperation({ kind: 'visiblePolygon', points })
-        }
-        onCommitStroke={(points) => {
-          if (activeTool !== 'blockedStroke' && activeTool !== 'visibleStroke')
-            return;
+        onCommitStroke={(points, angularRadiusDegrees) => {
           addOperation({
             kind: activeTool,
-            angularRadiusDegrees: brushRadiusDegrees,
+            angularRadiusDegrees,
             points,
           });
         }}
-        operations={history.operations}
         panorama={data.panorama}
-        showMaskPreview={showMaskPreview}
       />
 
-      <ScrollView
-        contentContainerStyle={styles.controls}
-        horizontal
-        showsHorizontalScrollIndicator
-        style={styles.toolScroller}
-      >
-        <ActionButton
-          label="Pan / zoom"
-          onPress={() => setActiveTool('pan')}
-          variant={activeTool === 'pan' ? 'primary' : 'secondary'}
-        />
-        <ActionButton
-          label="Mark visible sky"
-          onPress={() => setActiveTool('visiblePolygon')}
-          variant={activeTool === 'visiblePolygon' ? 'primary' : 'secondary'}
-        />
-        <ActionButton
-          label="Blocked brush"
-          onPress={() => setActiveTool('blockedStroke')}
-          variant={activeTool === 'blockedStroke' ? 'primary' : 'secondary'}
-        />
-        <ActionButton
-          label="Visible brush"
-          onPress={() => setActiveTool('visibleStroke')}
-          variant={activeTool === 'visibleStroke' ? 'primary' : 'secondary'}
-        />
-      </ScrollView>
-      <View style={styles.actionRows}>
-        <View style={styles.compactRow}>
+      <View style={styles.controls}>
+        <View style={styles.toolRow}>
           <ActionButton
-            disabled={history.undoStack.length === 0}
-            label="Undo"
-            onPress={() => setHistory(undoMaskEdit)}
-            variant="secondary"
+            label="Draw"
+            onPress={() => setActiveTool('blockedStroke')}
+            style={styles.toolButton}
+            variant={activeTool === 'blockedStroke' ? 'primary' : 'secondary'}
           />
           <ActionButton
-            disabled={history.redoStack.length === 0}
-            label="Redo"
-            onPress={() => setHistory(redoMaskEdit)}
-            variant="secondary"
+            label="Erase"
+            onPress={() => setActiveTool('visibleStroke')}
+            style={styles.toolButton}
+            variant={activeTool === 'visibleStroke' ? 'primary' : 'secondary'}
           />
-          <ActionButton
-            disabled={history.operations.length === 0}
-            label="Reset"
-            onPress={() => setHistory(resetMaskOperations)}
-            variant="danger"
-          />
-          <ActionButton
-            label={showMaskPreview ? 'Before' : 'After'}
-            onPress={() => setShowMaskPreview((current) => !current)}
-            variant="secondary"
+          <BrushSizeControl
+            onChange={setBrushDiameterPixels}
+            valuePixels={brushDiameterPixels}
           />
         </View>
-        {activeTool === 'blockedStroke' || activeTool === 'visibleStroke' ? (
-          <View style={styles.compactRow}>
-            <AppText tone="label">
-              Brush {brushRadiusDegrees.toFixed(2)}°
-            </AppText>
-            {[0.05, 0.25, 1].map((radius) => (
-              <ActionButton
-                key={radius}
-                label={`${radius}°`}
-                onPress={() => setBrushRadiusDegrees(radius)}
-                variant={
-                  brushRadiusDegrees === radius ? 'primary' : 'secondary'
-                }
-              />
-            ))}
-          </View>
-        ) : null}
-        {history.operations.length > 0 ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator
-            style={styles.operationScroller}
-          >
-            <View style={styles.compactRow}>
-              {history.operations.map((operation, index) => (
-                <ActionButton
-                  accessibilityLabel={`Remove ${operationLabel(operation, index).toLowerCase()}`}
-                  key={operation.id}
-                  label={`Remove · ${operationLabel(operation, index)}`}
-                  onPress={() =>
-                    setHistory((current) =>
-                      removeMaskOperation(current, operation.id),
-                    )
-                  }
-                  variant="secondary"
-                />
-              ))}
-            </View>
-          </ScrollView>
-        ) : null}
         {error ? <AppText style={styles.error}>{error}</AppText> : null}
-        {!hasVisibleRegion ? (
-          <AppText tone="muted">
-            Close at least one visible region before completion.
-          </AppText>
-        ) : null}
         <ActionButton
-          disabled={!hasVisibleRegion}
+          disabled={!hasCapturedCoverage}
           label="Complete mask"
           onPress={() => setConfirmationVisible(true)}
         />
@@ -371,8 +280,8 @@ export function MaskEditorScreen({
         visible={confirmationVisible}
       >
         <AppText>
-          All unmarked and uncaptured directions will be blocked. You can edit
-          this mask later without replacing the panorama.
+          Red areas and uncaptured directions will be blocked. You can edit this
+          mask later without replacing the panorama.
         </AppText>
         <ActionButton
           label="Save binary mask"
@@ -390,7 +299,6 @@ export function MaskEditorScreen({
 }
 
 const styles = StyleSheet.create({
-  actionRows: { gap: 8, padding: 10 },
   centered: {
     alignItems: 'center',
     backgroundColor: colors.background,
@@ -399,8 +307,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: layout.screenPadding,
   },
-  compactRow: { alignItems: 'center', flexDirection: 'row', gap: 8 },
-  controls: { gap: 8, paddingHorizontal: 10, paddingVertical: 8 },
+  controls: { gap: 8, padding: 10 },
   error: { color: colors.danger },
   heading: {
     alignItems: 'center',
@@ -410,7 +317,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   headingCopy: { flex: 1 },
-  operationScroller: { flexGrow: 0, maxHeight: 60 },
   screen: { backgroundColor: colors.background, flex: 1 },
-  toolScroller: { flexGrow: 0, maxHeight: 60 },
+  toolButton: { minWidth: 82 },
+  toolRow: { alignItems: 'center', flexDirection: 'row', gap: 8 },
 });

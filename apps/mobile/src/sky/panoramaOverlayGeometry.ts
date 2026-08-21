@@ -1,149 +1,188 @@
 import type { ActivePanoramaTile } from '../storage/panoramaDraftRepository';
-import type { CanvasSizePixels } from './projection';
-import { unwrapAzimuthDegreesNear } from './projection';
-import {
-  constrainSkyViewport,
-  createSkyViewport,
-  getVerticalSpanDegrees,
-  type SkyViewport,
-} from './skyViewport';
+import type { PlanetariumPanoramaMesh } from './planetariumPanoramaGeometry';
+import type {
+  CanvasSizePixels,
+  HorizontalDirectionDegrees,
+} from './projection';
 
-const normalizeAzimuthDegrees = (value: number) => ((value % 360) + 360) % 360;
-const MAXIMUM_INITIAL_EDITOR_SPAN_DEGREES = 120;
+const DEGREES_TO_RADIANS = Math.PI / 180;
+const RADIANS_TO_DEGREES = 180 / Math.PI;
+const MINIMUM_EDITOR_SPAN = 0.2;
+const MAXIMUM_EDITOR_SPAN = 2.4;
+const INITIAL_VIEW_PADDING = 1.12;
+
+export interface PanoramaEditorPoint {
+  x: number;
+  y: number;
+}
+
+export interface PanoramaEditorViewport {
+  centerX: number;
+  centerY: number;
+  horizontalSpan: number;
+}
+
+export interface ProjectedPanoramaEditorMesh {
+  indices: number[];
+  vertices: { xPixels: number; yPixels: number }[];
+}
+
+const clampSpan = (span: number) =>
+  Math.max(MINIMUM_EDITOR_SPAN, Math.min(MAXIMUM_EDITOR_SPAN, span));
+
+export const directionToPanoramaEditorPoint = (
+  direction: HorizontalDirectionDegrees,
+): PanoramaEditorPoint => {
+  const radialDistance = (90 - direction.altitudeDegrees) / 90;
+  const azimuthRadians = direction.azimuthDegrees * DEGREES_TO_RADIANS;
+  return {
+    x: radialDistance * Math.sin(azimuthRadians),
+    y: -radialDistance * Math.cos(azimuthRadians),
+  };
+};
+
+export const panoramaEditorPointToDirection = (
+  point: PanoramaEditorPoint,
+): HorizontalDirectionDegrees | null => {
+  'worklet';
+  const radialDistance = Math.hypot(point.x, point.y);
+  if (radialDistance > 1) return null;
+  return {
+    altitudeDegrees: 90 - radialDistance * 90,
+    azimuthDegrees:
+      (((Math.atan2(point.x, -point.y) * RADIANS_TO_DEGREES) % 360) + 360) %
+      360,
+  };
+};
+
+const verticalSpan = (
+  viewport: PanoramaEditorViewport,
+  canvas: CanvasSizePixels,
+) => {
+  'worklet';
+  return viewport.horizontalSpan * (canvas.heightPixels / canvas.widthPixels);
+};
+
+export const projectPanoramaEditorPoint = (
+  point: PanoramaEditorPoint,
+  viewport: PanoramaEditorViewport,
+  canvas: CanvasSizePixels,
+) => ({
+  xPixels:
+    (0.5 + (point.x - viewport.centerX) / viewport.horizontalSpan) *
+    canvas.widthPixels,
+  yPixels:
+    (0.5 + (point.y - viewport.centerY) / verticalSpan(viewport, canvas)) *
+    canvas.heightPixels,
+});
+
+export const unprojectPanoramaEditorPoint = (
+  point: { xPixels: number; yPixels: number },
+  viewport: PanoramaEditorViewport,
+  canvas: CanvasSizePixels,
+): PanoramaEditorPoint => {
+  'worklet';
+  return {
+    x:
+      viewport.centerX +
+      (point.xPixels / canvas.widthPixels - 0.5) * viewport.horizontalSpan,
+    y:
+      viewport.centerY +
+      (point.yPixels / canvas.heightPixels - 0.5) *
+        verticalSpan(viewport, canvas),
+  };
+};
 
 export const createPanoramaEditorViewport = (
   tiles: readonly ActivePanoramaTile[],
-): SkyViewport => {
-  if (tiles.length === 0) {
-    return createSkyViewport({
-      centerAltitudeDegrees: 45,
-      centerAzimuthDegrees: 180,
-      horizontalSpanDegrees: 360,
-    });
+): PanoramaEditorViewport => {
+  const points = tiles.flatMap((tile) =>
+    tile.coveragePolygon.map(directionToPanoramaEditorPoint),
+  );
+  if (points.length === 0) {
+    return { centerX: 0, centerY: 0, horizontalSpan: 2.2 };
   }
-  const azimuthSamples = tiles
-    .flatMap((tile) => [
-      tile.centerAzimuthDegrees - tile.horizontalFieldOfViewDegrees / 2,
-      tile.centerAzimuthDegrees,
-      tile.centerAzimuthDegrees + tile.horizontalFieldOfViewDegrees / 2,
-    ])
-    .map(normalizeAzimuthDegrees)
-    .sort((left, right) => left - right);
-  let largestGapDegrees = -1;
-  let arcStartDegrees = azimuthSamples[0]!;
-  for (let index = 0; index < azimuthSamples.length; index += 1) {
-    const current = azimuthSamples[index]!;
-    const next =
-      index === azimuthSamples.length - 1
-        ? azimuthSamples[0]! + 360
-        : azimuthSamples[index + 1]!;
-    const gapDegrees = next - current;
-    if (gapDegrees > largestGapDegrees) {
-      largestGapDegrees = gapDegrees;
-      arcStartDegrees = normalizeAzimuthDegrees(next);
-    }
-  }
-  const coveredSpanDegrees = 360 - largestGapDegrees;
-  const fittedCenterAzimuthDegrees = normalizeAzimuthDegrees(
-    arcStartDegrees + coveredSpanDegrees / 2,
-  );
-  const minimumAltitudeDegrees = Math.max(
-    0,
-    Math.min(
-      ...tiles.map(
-        (tile) =>
-          tile.centerAltitudeDegrees - tile.verticalFieldOfViewDegrees / 2,
-      ),
+  const xs = points.map(({ x }) => x);
+  const ys = points.map(({ y }) => y);
+  const minimumX = Math.min(...xs);
+  const maximumX = Math.max(...xs);
+  const minimumY = Math.min(...ys);
+  const maximumY = Math.max(...ys);
+  return {
+    centerX: (minimumX + maximumX) / 2,
+    centerY: (minimumY + maximumY) / 2,
+    horizontalSpan: clampSpan(
+      Math.max(0.65, maximumX - minimumX, maximumY - minimumY) *
+        INITIAL_VIEW_PADDING,
     ),
-  );
-  const maximumAltitudeDegrees = Math.min(
-    90,
-    Math.max(
-      ...tiles.map(
-        (tile) =>
-          tile.centerAltitudeDegrees + tile.verticalFieldOfViewDegrees / 2,
-      ),
-    ),
-  );
-  return createSkyViewport({
-    centerAltitudeDegrees:
-      (minimumAltitudeDegrees + maximumAltitudeDegrees) / 2,
-    centerAzimuthDegrees:
-      coveredSpanDegrees <= MAXIMUM_INITIAL_EDITOR_SPAN_DEGREES
-        ? fittedCenterAzimuthDegrees
-        : normalizeAzimuthDegrees(tiles[0]!.centerAzimuthDegrees),
-    horizontalSpanDegrees: Math.min(
-      MAXIMUM_INITIAL_EDITOR_SPAN_DEGREES,
-      Math.max(80, coveredSpanDegrees * 1.12),
-    ),
-  });
+  };
 };
 
-export interface ProjectedPanoramaTile {
-  key: string;
-  tileId: string;
-  uri: string;
-  centerXPixels: number;
-  centerYPixels: number;
-  widthPixels: number;
-  heightPixels: number;
-  rotationDegrees: number;
-}
-
-export const projectPanoramaTilesToViewport = (
-  tiles: readonly ActivePanoramaTile[],
-  rawViewport: SkyViewport,
+export const applyPanoramaEditorPan = (
+  viewport: PanoramaEditorViewport,
   canvas: CanvasSizePixels,
-): ProjectedPanoramaTile[] => {
-  const viewport = constrainSkyViewport(rawViewport, canvas);
-  const verticalSpanDegrees = getVerticalSpanDegrees(viewport, canvas);
-  return tiles.flatMap((tile) => {
-    const widthPixels =
-      (tile.horizontalFieldOfViewDegrees / viewport.horizontalSpanDegrees) *
-      canvas.widthPixels;
-    const heightPixels =
-      (tile.verticalFieldOfViewDegrees / verticalSpanDegrees) *
-      canvas.heightPixels;
-    const centerYPixels =
-      (0.5 -
-        (tile.centerAltitudeDegrees - viewport.centerAltitudeDegrees) /
-          verticalSpanDegrees) *
-      canvas.heightPixels;
-    if (
-      centerYPixels + heightPixels / 2 < 0 ||
-      centerYPixels - heightPixels / 2 > canvas.heightPixels
-    ) {
-      return [];
-    }
-    const nearestAzimuthDegrees = unwrapAzimuthDegreesNear(
-      tile.centerAzimuthDegrees,
-      viewport.centerAzimuthDegrees,
+  gesture: { translationXPixels: number; translationYPixels: number },
+): PanoramaEditorViewport => ({
+  ...viewport,
+  centerX:
+    viewport.centerX -
+    (gesture.translationXPixels / canvas.widthPixels) * viewport.horizontalSpan,
+  centerY:
+    viewport.centerY -
+    (gesture.translationYPixels / canvas.heightPixels) *
+      verticalSpan(viewport, canvas),
+});
+
+export const applyPanoramaEditorZoom = (
+  viewport: PanoramaEditorViewport,
+  canvas: CanvasSizePixels,
+  gesture: { focalXPixels: number; focalYPixels: number; scale: number },
+): PanoramaEditorViewport => {
+  if (!Number.isFinite(gesture.scale) || gesture.scale <= 0) {
+    throw new RangeError('scale must be positive');
+  }
+  const nextHorizontalSpan = clampSpan(viewport.horizontalSpan / gesture.scale);
+  const focalRatioX = gesture.focalXPixels / canvas.widthPixels - 0.5;
+  const focalRatioY = gesture.focalYPixels / canvas.heightPixels - 0.5;
+  const focalX = viewport.centerX + focalRatioX * viewport.horizontalSpan;
+  const focalY =
+    viewport.centerY + focalRatioY * verticalSpan(viewport, canvas);
+  const nextViewport = { ...viewport, horizontalSpan: nextHorizontalSpan };
+  return {
+    centerX: focalX - focalRatioX * nextHorizontalSpan,
+    centerY: focalY - focalRatioY * verticalSpan(nextViewport, canvas),
+    horizontalSpan: nextHorizontalSpan,
+  };
+};
+
+/** Maps a rectilinear photograph's spherical mesh onto one hemisphere disk. */
+export const projectPanoramaMeshToEditorViewport = (
+  mesh: PlanetariumPanoramaMesh,
+  viewport: PanoramaEditorViewport,
+  canvas: CanvasSizePixels,
+): ProjectedPanoramaEditorMesh => ({
+  indices: [...mesh.indices],
+  vertices: mesh.directions.map((direction) => {
+    const point = projectPanoramaEditorPoint(
+      directionToPanoramaEditorPoint(direction),
+      viewport,
+      canvas,
     );
-    return [-360, 0, 360].flatMap((wrapOffsetDegrees) => {
-      const unwrappedAzimuthDegrees = nearestAzimuthDegrees + wrapOffsetDegrees;
-      const centerXPixels =
-        (0.5 +
-          (unwrappedAzimuthDegrees - viewport.centerAzimuthDegrees) /
-            viewport.horizontalSpanDegrees) *
-        canvas.widthPixels;
-      if (
-        centerXPixels + widthPixels / 2 < 0 ||
-        centerXPixels - widthPixels / 2 > canvas.widthPixels
-      ) {
-        return [];
-      }
-      return [
-        {
-          key: `${tile.id}-${unwrappedAzimuthDegrees}`,
-          tileId: tile.id,
-          uri: tile.uri,
-          centerXPixels,
-          centerYPixels,
-          widthPixels,
-          heightPixels,
-          rotationDegrees: tile.rollDegrees,
-        },
-      ];
-    });
-  });
+    return { xPixels: point.xPixels, yPixels: point.yPixels };
+  }),
+});
+
+export const panoramaEditorAngularRadiusToPixels = (
+  angularRadiusDegrees: number,
+  viewport: PanoramaEditorViewport,
+  canvas: CanvasSizePixels,
+) => (angularRadiusDegrees / 90 / viewport.horizontalSpan) * canvas.widthPixels;
+
+export const panoramaEditorPixelRadiusToDegrees = (
+  radiusPixels: number,
+  viewport: PanoramaEditorViewport,
+  canvas: CanvasSizePixels,
+) => {
+  'worklet';
+  return (radiusPixels / canvas.widthPixels) * viewport.horizontalSpan * 90;
 };

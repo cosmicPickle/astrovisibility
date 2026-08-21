@@ -1,82 +1,72 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import type { LayoutChangeEvent } from 'react-native';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
 } from 'react-native-reanimated';
-import Svg, { Circle, Image as SvgImage, Polyline } from 'react-native-svg';
+import Svg from 'react-native-svg';
 
-import { AppText } from '../components/ui/AppText';
 import {
+  applyPanoramaEditorPan,
+  applyPanoramaEditorZoom,
   createPanoramaEditorViewport,
-  projectPanoramaTilesToViewport,
+  panoramaEditorPixelRadiusToDegrees,
+  panoramaEditorPointToDirection,
+  unprojectPanoramaEditorPoint,
+  type PanoramaEditorViewport,
 } from '../sky/panoramaOverlayGeometry';
-import {
-  applySkyPan,
-  applySkyZoom,
-  constrainSkyViewport,
-  getVerticalSpanDegrees,
-  type SkyViewport,
-} from '../sky/skyViewport';
 import { colors } from '../theme/tokens';
 import type { MaskEditorCanvasProps } from './MaskEditorScreen';
 import { MaskOverlayLayer } from './MaskOverlayLayer';
+import { PanoramaEditorLayer } from './PanoramaEditorLayer';
 import type { AngularPointDegrees } from './visibilityMask';
+
+type DraftStroke = Readonly<{
+  angularRadiusDegrees: number;
+  kind: MaskEditorCanvasProps['activeTool'];
+  points: readonly AngularPointDegrees[];
+}>;
 
 export function MaskEditorCanvas({
   activeTool,
-  brushRadiusDegrees,
+  brushDiameterPixels,
   mask,
-  onCommitPolygon,
   onCommitStroke,
   panorama,
-  showMaskPreview,
 }: MaskEditorCanvasProps) {
   const [canvas, setCanvas] = useState({ widthPixels: 1, heightPixels: 1 });
-  const [viewport, setViewport] = useState<SkyViewport>(() =>
+  const [viewport, setViewport] = useState<PanoramaEditorViewport>(() =>
     createPanoramaEditorViewport(panorama.tiles),
   );
-  const [draftPolygon, setDraftPolygon] = useState<AngularPointDegrees[]>([]);
+  const [draftStroke, setDraftStroke] = useState<DraftStroke | null>(null);
   const strokePoints = useSharedValue<AngularPointDegrees[]>([]);
+  const strokeRadiusDegrees = useSharedValue(0);
   const translationX = useSharedValue(0);
   const translationY = useSharedValue(0);
   const gestureScale = useSharedValue(1);
   const gestureFocalX = useSharedValue(0);
   const gestureFocalY = useSharedValue(0);
 
-  const directionAt = useCallback(
-    (xPixels: number, yPixels: number): AngularPointDegrees => {
-      const constrained = constrainSkyViewport(viewport, canvas);
-      const verticalSpan = getVerticalSpanDegrees(constrained, canvas);
-      return {
-        azimuthDegrees:
-          constrained.centerAzimuthDegrees +
-          (xPixels / canvas.widthPixels - 0.5) *
-            constrained.horizontalSpanDegrees,
-        altitudeDegrees: Math.max(
-          0,
-          Math.min(
-            90,
-            constrained.centerAltitudeDegrees +
-              (0.5 - yPixels / canvas.heightPixels) * verticalSpan,
-          ),
-        ),
-      };
+  const updateDraftStroke = useCallback(
+    (points: readonly AngularPointDegrees[], angularRadiusDegrees: number) =>
+      setDraftStroke({ angularRadiusDegrees, kind: activeTool, points }),
+    [activeTool],
+  );
+  const finishStroke = useCallback(
+    (points: readonly AngularPointDegrees[], angularRadiusDegrees: number) => {
+      setDraftStroke(null);
+      if (points.length > 0) onCommitStroke(points, angularRadiusDegrees);
     },
-    [canvas, viewport],
+    [onCommitStroke],
   );
-  const appendPolygonPoint = useCallback(
-    (xPixels: number, yPixels: number) =>
-      setDraftPolygon((current) => [...current, directionAt(xPixels, yPixels)]),
-    [directionAt],
-  );
+  const clearDraftStroke = useCallback(() => setDraftStroke(null), []);
   const commitPan = useCallback(
     (xPixels: number, yPixels: number) =>
       setViewport((current) =>
-        applySkyPan(current, canvas, {
+        applyPanoramaEditorPan(current, canvas, {
           translationXPixels: xPixels,
           translationYPixels: yPixels,
         }),
@@ -86,7 +76,7 @@ export function MaskEditorCanvas({
   const commitZoom = useCallback(
     (scale: number, xPixels: number, yPixels: number) =>
       setViewport((current) =>
-        applySkyZoom(current, canvas, {
+        applyPanoramaEditorZoom(current, canvas, {
           focalXPixels: xPixels,
           focalYPixels: yPixels,
           scale,
@@ -95,78 +85,79 @@ export function MaskEditorCanvas({
     [canvas],
   );
 
-  const tap = Gesture.Tap()
-    .enabled(activeTool === 'visiblePolygon')
-    .onEnd((event) => runOnJS(appendPolygonPoint)(event.x, event.y));
-  const pan = Gesture.Pan()
-    .enabled(activeTool !== 'visiblePolygon')
+  const stroke = Gesture.Pan()
     .maxPointers(1)
     .onBegin((event) => {
-      if (activeTool !== 'pan' && activeTool !== 'visiblePolygon') {
-        const verticalSpanDegrees = Math.min(
-          90,
-          viewport.horizontalSpanDegrees *
-            (canvas.heightPixels / canvas.widthPixels),
-        );
-        strokePoints.value = [
-          {
-            azimuthDegrees:
-              viewport.centerAzimuthDegrees +
-              (event.x / canvas.widthPixels - 0.5) *
-                viewport.horizontalSpanDegrees,
-            altitudeDegrees: Math.max(
-              0,
-              Math.min(
-                90,
-                viewport.centerAltitudeDegrees +
-                  (0.5 - event.y / canvas.heightPixels) * verticalSpanDegrees,
-              ),
-            ),
-          },
-        ];
+      const point = panoramaEditorPointToDirection(
+        unprojectPanoramaEditorPoint(
+          { xPixels: event.x, yPixels: event.y },
+          viewport,
+          canvas,
+        ),
+      );
+      if (!point) {
+        strokePoints.value = [];
+        runOnJS(clearDraftStroke)();
+        return;
       }
+      const angularRadiusDegrees = panoramaEditorPixelRadiusToDegrees(
+        brushDiameterPixels / 2,
+        viewport,
+        canvas,
+      );
+      strokePoints.value = [point];
+      strokeRadiusDegrees.value = angularRadiusDegrees;
+      runOnJS(updateDraftStroke)([point], angularRadiusDegrees);
     })
     .onUpdate((event) => {
-      if (activeTool === 'pan') {
-        translationX.value = event.translationX;
-        translationY.value = event.translationY;
-      } else if (activeTool !== 'visiblePolygon') {
-        if (strokePoints.value.length < 10_000) {
-          const verticalSpanDegrees = Math.min(
-            90,
-            viewport.horizontalSpanDegrees *
-              (canvas.heightPixels / canvas.widthPixels),
-          );
-          strokePoints.value = [
-            ...strokePoints.value,
-            {
-              azimuthDegrees:
-                viewport.centerAzimuthDegrees +
-                (event.x / canvas.widthPixels - 0.5) *
-                  viewport.horizontalSpanDegrees,
-              altitudeDegrees: Math.max(
-                0,
-                Math.min(
-                  90,
-                  viewport.centerAltitudeDegrees +
-                    (0.5 - event.y / canvas.heightPixels) * verticalSpanDegrees,
-                ),
-              ),
-            },
-          ];
-        }
+      if (
+        strokePoints.value.length === 0 ||
+        strokePoints.value.length >= 10_000
+      ) {
+        return;
       }
-    })
-    .onEnd((event) => {
-      if (activeTool === 'pan') {
-        runOnJS(commitPan)(event.translationX, event.translationY);
-      } else if (activeTool !== 'visiblePolygon') {
-        if (strokePoints.value.length > 0) {
-          runOnJS(onCommitStroke)(strokePoints.value);
-        }
-        strokePoints.value = [];
+      const point = panoramaEditorPointToDirection(
+        unprojectPanoramaEditorPoint(
+          { xPixels: event.x, yPixels: event.y },
+          viewport,
+          canvas,
+        ),
+      );
+      if (!point) return;
+      const previous = strokePoints.value[strokePoints.value.length - 1]!;
+      const minimumSampleDistanceDegrees = panoramaEditorPixelRadiusToDegrees(
+        2,
+        viewport,
+        canvas,
+      );
+      if (
+        Math.hypot(
+          point.azimuthDegrees - previous.azimuthDegrees,
+          point.altitudeDegrees - previous.altitudeDegrees,
+        ) < minimumSampleDistanceDegrees
+      ) {
+        return;
       }
+      strokePoints.value = [...strokePoints.value, point];
+      runOnJS(updateDraftStroke)(strokePoints.value, strokeRadiusDegrees.value);
     })
+    .onEnd(() => {
+      runOnJS(finishStroke)(strokePoints.value, strokeRadiusDegrees.value);
+      strokePoints.value = [];
+    })
+    .onFinalize((_event, success) => {
+      if (!success) runOnJS(clearDraftStroke)();
+      strokePoints.value = [];
+    });
+  const navigationPan = Gesture.Pan()
+    .minPointers(2)
+    .onUpdate((event) => {
+      translationX.value = event.translationX;
+      translationY.value = event.translationY;
+    })
+    .onEnd((event) =>
+      runOnJS(commitPan)(event.translationX, event.translationY),
+    )
     .onFinalize(() => {
       translationX.value = 0;
       translationY.value = 0;
@@ -183,7 +174,7 @@ export function MaskEditorCanvas({
     .onFinalize(() => {
       gestureScale.value = 1;
     });
-  const gesture = Gesture.Simultaneous(tap, pan, pinch);
+  const gesture = Gesture.Simultaneous(stroke, navigationPan, pinch);
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
       { translateX: translationX.value },
@@ -201,34 +192,11 @@ export function MaskEditorCanvas({
       { scale: gestureScale.value },
     ],
   }));
-  const panoramaTiles = useMemo(
-    () => projectPanoramaTilesToViewport(panorama.tiles, viewport, canvas),
-    [canvas, panorama.tiles, viewport],
-  );
-  const projectedDraft = draftPolygon.map((point) => {
-    const constrained = constrainSkyViewport(viewport, canvas);
-    const verticalSpan = getVerticalSpanDegrees(constrained, canvas);
-    const delta =
-      ((((point.azimuthDegrees - constrained.centerAzimuthDegrees) % 360) +
-        540) %
-        360) -
-      180;
-    return {
-      xPixels:
-        (0.5 + delta / constrained.horizontalSpanDegrees) * canvas.widthPixels,
-      yPixels:
-        (0.5 -
-          (point.altitudeDegrees - constrained.centerAltitudeDegrees) /
-            verticalSpan) *
-        canvas.heightPixels,
-    };
-  });
-  const brushRadiusPixels =
-    (brushRadiusDegrees / viewport.horizontalSpanDegrees) * canvas.widthPixels;
   const handleLayout = (event: LayoutChangeEvent) => {
     const { height, width } = event.nativeEvent.layout;
-    if (height > 0 && width > 0)
+    if (height > 0 && width > 0) {
       setCanvas({ heightPixels: height, widthPixels: width });
+    }
   };
 
   return (
@@ -239,117 +207,34 @@ export function MaskEditorCanvas({
     >
       <GestureDetector gesture={gesture}>
         <Animated.View style={[styles.canvas, animatedStyle]}>
-          <Svg height="100%" width="100%">
-            {panoramaTiles.map((tile) => (
-              <SvgImage
-                height={tile.heightPixels}
-                href={{ uri: tile.uri }}
-                key={tile.key}
-                opacity={1}
-                preserveAspectRatio="xMidYMid slice"
-                transform={`rotate(${tile.rotationDegrees} ${tile.centerXPixels} ${tile.centerYPixels})`}
-                width={tile.widthPixels}
-                x={tile.centerXPixels - tile.widthPixels / 2}
-                y={tile.centerYPixels - tile.heightPixels / 2}
-              />
-            ))}
-            {showMaskPreview ? (
-              <MaskOverlayLayer
-                canvas={canvas}
-                mask={mask}
-                opacityPercent={70}
-                viewport={viewport}
-              />
-            ) : null}
-            {projectedDraft.length > 0 ? (
-              <Polyline
-                fill="rgba(91,156,255,0.15)"
-                points={projectedDraft
-                  .map(({ xPixels, yPixels }) => `${xPixels},${yPixels}`)
-                  .join(' ')}
-                stroke={colors.primary}
-                strokeDasharray="5 4"
-                strokeWidth={2}
-              />
-            ) : null}
-            {activeTool === 'blockedStroke' ||
-            activeTool === 'visibleStroke' ? (
-              <Circle
-                cx={26 + brushRadiusPixels}
-                cy={26 + brushRadiusPixels}
-                fill="transparent"
-                r={Math.max(2, brushRadiusPixels)}
-                stroke={
-                  activeTool === 'visibleStroke'
-                    ? colors.primary
-                    : colors.blocked
-                }
-                strokeDasharray={
-                  activeTool === 'blockedStroke' ? '4 3' : undefined
-                }
-                strokeWidth={2}
-              />
-            ) : null}
+          <PanoramaEditorLayer
+            canvas={canvas}
+            tiles={panorama.tiles}
+            viewport={viewport}
+          />
+          <Svg height="100%" pointerEvents="none" width="100%">
+            <MaskOverlayLayer
+              canvas={canvas}
+              draftStroke={draftStroke}
+              mask={mask}
+              opacityPercent={76}
+              viewport={viewport}
+            />
           </Svg>
         </Animated.View>
       </GestureDetector>
-      {activeTool === 'visiblePolygon' && draftPolygon.length >= 3 ? (
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => {
-            onCommitPolygon(draftPolygon);
-            setDraftPolygon([]);
-          }}
-          style={styles.closeRegion}
-        >
-          <AppText style={styles.closeRegionText}>Close region</AppText>
-        </Pressable>
-      ) : null}
-      {activeTool === 'visiblePolygon' && draftPolygon.length > 0 ? (
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => setDraftPolygon([])}
-          style={styles.cancelRegion}
-        >
-          <AppText style={styles.cancelRegionText}>Cancel region</AppText>
-        </Pressable>
-      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   canvas: { flex: 1 },
-  cancelRegion: {
-    backgroundColor: colors.surfaceRaised,
-    borderColor: colors.outline,
-    borderRadius: 8,
-    borderWidth: 1,
-    bottom: 12,
-    justifyContent: 'center',
-    left: 12,
-    minHeight: 44,
-    paddingHorizontal: 16,
-    position: 'absolute',
-  },
-  cancelRegionText: { color: colors.text, fontWeight: '700' },
-  closeRegion: {
-    backgroundColor: colors.primary,
-    borderRadius: 8,
-    bottom: 12,
-    minHeight: 44,
-    paddingHorizontal: 16,
-    position: 'absolute',
-    right: 12,
-    justifyContent: 'center',
-  },
-  closeRegionText: { color: colors.onPrimary, fontWeight: '800' },
   container: {
     backgroundColor: colors.backdrop,
     borderColor: colors.outline,
     borderWidth: 1,
     flex: 1,
-    minHeight: 300,
+    minHeight: 180,
     overflow: 'hidden',
   },
 });
