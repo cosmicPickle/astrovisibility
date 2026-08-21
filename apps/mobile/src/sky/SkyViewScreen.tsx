@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { createAstronomicalDarknessIntervals } from '../astronomy/astronomicalDarkness';
+import {
+  createAstronomicalDarknessIntervals,
+  intersectTimeIntervals,
+} from '../astronomy/astronomicalDarkness';
 import {
   Alert,
   ActivityIndicator,
@@ -45,6 +48,7 @@ import {
   type TrajectoryMarker,
 } from '../astronomy/trajectory';
 import { ActionButton } from '../components/ui/ActionButton';
+import { AppIcon } from '../components/ui/AppIcon';
 import { AppText } from '../components/ui/AppText';
 import { ModalSheet } from '../components/ui/ModalSheet';
 import { OpacitySlider } from '../components/ui/OpacitySlider';
@@ -224,12 +228,17 @@ export const SkyViewScreen = ({
   const [inspectedMarker, setInspectedMarker] =
     useState<TrajectoryMarker | null>(null);
   const [openSheet, setOpenSheet] = useState<
-    'equipment' | 'info' | 'mask' | 'menu' | 'panorama' | 'time' | null
+    | 'equipment'
+    | 'info'
+    | 'mask'
+    | 'menu'
+    | 'panorama'
+    | 'time'
+    | 'viewOptions'
+    | null
   >(null);
   const [mutationError, setMutationError] = useState<string | null>(null);
-  const [panoramaVisible, setPanoramaVisible] = useState(true);
   const [panoramaOpacityPercent, setPanoramaOpacityPercent] = useState(55);
-  const [maskVisible, setMaskVisible] = useState(true);
   const [maskOpacityPercent, setMaskOpacityPercent] = useState(60);
   const [trajectory, setTrajectory] = useState<SelectedTargetTrajectory | null>(
     null,
@@ -431,25 +440,61 @@ export const SkyViewScreen = ({
     selectedTarget,
     visibilityCache,
   ]);
+  const darkAboveHorizonIntervals = useMemo(
+    () =>
+      trajectory
+        ? intersectTimeIntervals(
+            trajectory.aboveHorizonIntervals,
+            astronomicalDarknessIntervals,
+          )
+        : [],
+    [astronomicalDarknessIntervals, trajectory],
+  );
+  const darkVisibilityIntervals = useMemo(
+    () =>
+      trajectory
+        ? intersectTimeIntervals(
+            trajectory.visibilityIntervals,
+            astronomicalDarknessIntervals,
+          )
+        : [],
+    [astronomicalDarknessIntervals, trajectory],
+  );
+  const darkVisibleMilliseconds = useMemo(
+    () =>
+      darkVisibilityIntervals.reduce(
+        (total, interval) => total + interval.durationMilliseconds,
+        0,
+      ),
+    [darkVisibilityIntervals],
+  );
+  const darkAboveHorizonMilliseconds = useMemo(
+    () =>
+      darkAboveHorizonIntervals.reduce(
+        (total, interval) => total + interval.durationMilliseconds,
+        0,
+      ),
+    [darkAboveHorizonIntervals],
+  );
   const aboveHorizonIntervals = useMemo(
     () =>
       data && trajectory
         ? formatAboveHorizonIntervals(
-            trajectory.aboveHorizonIntervals,
+            darkAboveHorizonIntervals,
             data.profile.timeZoneId,
           )
         : [],
-    [data, trajectory],
+    [darkAboveHorizonIntervals, data, trajectory],
   );
   const visibleIntervals = useMemo(
     () =>
       data && trajectory
         ? formatAboveHorizonIntervals(
-            trajectory.visibilityIntervals,
+            darkVisibilityIntervals,
             data.profile.timeZoneId,
           )
         : [],
-    [data, trajectory],
+    [darkVisibilityIntervals, data, trajectory],
   );
   const selectedFieldOfView = useMemo(
     () =>
@@ -608,7 +653,7 @@ export const SkyViewScreen = ({
                   panorama: data.panorama,
                   tiles: data.panorama.tiles,
                   opacityPercent: panoramaOpacityPercent,
-                  visible: panoramaVisible,
+                  visible: panoramaOpacityPercent > 0,
                 }
               : null
           }
@@ -617,7 +662,7 @@ export const SkyViewScreen = ({
               ? {
                   mask: data.mask,
                   opacityPercent: maskOpacityPercent,
-                  visible: maskVisible,
+                  visible: maskOpacityPercent > 0,
                 }
               : null
           }
@@ -632,46 +677,50 @@ export const SkyViewScreen = ({
             </AppText>
           </View>
         ) : null}
-        <View style={styles.equipmentControl}>
-          <ActionButton
-            label={selectedEquipment?.name ?? 'No imaging setup'}
-            onPress={() => setOpenSheet('equipment')}
-            variant="secondary"
-          />
-        </View>
-        {data.panorama ? (
-          <View style={styles.panoramaControl}>
-            <ActionButton
-              label={`Panorama ${panoramaOpacityPercent}%`}
-              onPress={() => setOpenSheet('panorama')}
-              variant="secondary"
-            />
-          </View>
-        ) : null}
-        {data.mask ? (
-          <View style={styles.maskControl}>
-            <ActionButton
-              label={`Mask ${maskOpacityPercent}%`}
-              onPress={() => setOpenSheet('mask')}
-              variant="secondary"
-            />
-          </View>
-        ) : null}
+        <Pressable
+          accessibilityLabel="View options"
+          accessibilityRole="button"
+          onPress={() => setOpenSheet('viewOptions')}
+          style={({ pressed }) => [
+            styles.overlayIconButton,
+            styles.viewOptionsControl,
+            pressed && styles.controlPressed,
+          ]}
+        >
+          <AppIcon name="eye" />
+        </Pressable>
         <View style={styles.targetListControl}>
-          <ActionButton
-            label="View All Targets"
+          <Pressable
+            accessibilityLabel="View all targets"
+            accessibilityRole="button"
             onPress={() =>
               navigation.openTargetList(data.profile.id, observingWindow)
             }
-          />
+            style={({ pressed }) => [
+              styles.overlayIconButton,
+              pressed && styles.controlPressed,
+            ]}
+          >
+            <AppIcon name="search" />
+          </Pressable>
         </View>
         {selectedTarget ? (
           <View style={styles.targetSummary}>
             <View style={styles.targetSummaryHeading}>
               <View style={styles.targetSummaryCopy}>
-                <AppText style={styles.targetName}>
-                  {selectedTarget.preferredName}
-                </AppText>
+                <View style={styles.targetNameRow}>
+                  <AppText style={styles.targetName}>
+                    {selectedTarget.preferredName}
+                  </AppText>
+                  <Pressable
+                    accessibilityLabel={`More information about ${selectedTarget.preferredName}`}
+                    accessibilityRole="button"
+                    onPress={() => setOpenSheet('info')}
+                    style={styles.infoButton}
+                  >
+                    <AppIcon name="info" size={20} />
+                  </Pressable>
+                </View>
                 <AppText tone="muted">{aliasesFor(selectedTarget)}</AppText>
               </View>
               <ActionButton
@@ -715,44 +764,26 @@ export const SkyViewScreen = ({
               ) : data.mask && trajectory ? (
                 <>
                   <AppText style={styles.visibleText}>
-                    {trajectory.totalVisibleMilliseconds > 0
-                      ? `${formatDuration(trajectory.totalVisibleMilliseconds)} visible through local obstructions`
+                    {darkVisibleMilliseconds > 0
+                      ? `${formatDuration(darkVisibleMilliseconds)} visible through local obstructions`
                       : 'No visible time through local obstructions'}
                   </AppText>
-                  <AppText tone="muted">
+                  <AppText style={styles.transitionText}>
                     {visibleIntervals.length > 0
-                      ? visibleIntervals.join(' · ')
+                      ? `Visibility: ${visibleIntervals.join('; ')}`
                       : 'No visible intervals'}
-                  </AppText>
-                  {trajectory.transitions.length > 0 ? (
-                    <AppText style={styles.transitionText}>
-                      {trajectory.transitions
-                        .map(({ displayLabel }) => displayLabel)
-                        .join(' · ')}
-                    </AppText>
-                  ) : null}
-                  <AppText tone="muted">
-                    {formatDuration(trajectory.totalAboveHorizonMilliseconds)}{' '}
-                    above horizon
-                    {selectedEquipment ? ` · ${selectedEquipment.name}` : ''}
                   </AppText>
                 </>
               ) : (
                 <>
                   <AppText style={styles.unassessedText}>
-                    Above horizon; obstructions not assessed
+                    Obstructions not assessed
                   </AppText>
                   <AppText tone="muted">
-                    {trajectory?.totalAboveHorizonMilliseconds
-                      ? `${formatDuration(trajectory.totalAboveHorizonMilliseconds)} above horizon`
-                      : 'Below horizon throughout this window'}
-                    {selectedEquipment ? ` · ${selectedEquipment.name}` : ''}
+                    {aboveHorizonIntervals.length > 0
+                      ? `Astronomical darkness above horizon: ${aboveHorizonIntervals.join('; ')}`
+                      : 'No astronomical darkness above the horizon in this window'}
                   </AppText>
-                  {aboveHorizonIntervals.length > 0 ? (
-                    <AppText tone="muted">
-                      {aboveHorizonIntervals.join(' · ')}
-                    </AppText>
-                  ) : null}
                 </>
               )}
               {inspectedMarker ? (
@@ -774,11 +805,6 @@ export const SkyViewScreen = ({
                 </AppText>
               ) : null}
             </View>
-            <ActionButton
-              label="More Info"
-              onPress={() => setOpenSheet('info')}
-              variant="secondary"
-            />
           </View>
         ) : null}
       </View>
@@ -788,6 +814,33 @@ export const SkyViewScreen = ({
           {mutationError}
         </AppText>
       ) : null}
+
+      <ModalSheet
+        closeAccessibilityLabel="Close view options"
+        onClose={() => setOpenSheet(null)}
+        title="View options"
+        visible={openSheet === 'viewOptions'}
+      >
+        <ActionButton
+          label={`Imaging setup · ${selectedEquipment?.name ?? 'None'}`}
+          onPress={() => setOpenSheet('equipment')}
+          variant="secondary"
+        />
+        {data.panorama ? (
+          <ActionButton
+            label={`Panorama opacity · ${panoramaOpacityPercent}%`}
+            onPress={() => setOpenSheet('panorama')}
+            variant="secondary"
+          />
+        ) : null}
+        {data.mask ? (
+          <ActionButton
+            label={`Mask opacity · ${maskOpacityPercent}%`}
+            onPress={() => setOpenSheet('mask')}
+            variant="secondary"
+          />
+        ) : null}
+      </ModalSheet>
 
       <ModalSheet
         closeAccessibilityLabel="Close equipment sheet"
@@ -818,23 +871,14 @@ export const SkyViewScreen = ({
       <ModalSheet
         closeAccessibilityLabel="Close mask overlay controls"
         onClose={() => setOpenSheet(null)}
-        title="Visibility mask overlay"
+        title="Mask opacity"
         visible={openSheet === 'mask'}
       >
-        <ActionButton
-          label={maskVisible ? 'Hide mask' : 'Show mask'}
-          onPress={() => setMaskVisible((current) => !current)}
-          variant="secondary"
-        />
         <OpacitySlider
           label="Mask opacity"
           onChange={setMaskOpacityPercent}
           value={maskOpacityPercent}
         />
-        <AppText tone="muted">
-          Blue solid areas are marked visible. Neutral dashed corrections are
-          blocked. Unmarked and uncaptured directions remain blocked.
-        </AppText>
       </ModalSheet>
 
       <ModalSheet
@@ -892,8 +936,8 @@ export const SkyViewScreen = ({
                   ? 'Calculating'
                   : trajectory
                     ? data.mask
-                      ? formatDuration(trajectory.totalAboveHorizonMilliseconds)
-                      : `${formatDuration(trajectory.totalAboveHorizonMilliseconds)} · local obstructions not assessed`
+                      ? formatDuration(darkAboveHorizonMilliseconds)
+                      : `${formatDuration(darkAboveHorizonMilliseconds)} · local obstructions not assessed`
                     : 'Not calculated'
               }
             />
@@ -907,7 +951,7 @@ export const SkyViewScreen = ({
                 !data.mask
                   ? 'Not assessed; no completed mask'
                   : trajectory
-                    ? `${formatDuration(trajectory.totalVisibleMilliseconds)} · ${visibleIntervals.join(' · ') || 'no visible intervals'}`
+                    ? `${formatDuration(darkVisibleMilliseconds)} · ${visibleIntervals.join('; ') || 'no visible intervals'}`
                     : trajectoryStatus === 'error'
                       ? 'Calculation failed'
                       : 'Calculating'
@@ -932,23 +976,14 @@ export const SkyViewScreen = ({
       <ModalSheet
         closeAccessibilityLabel="Close panorama overlay controls"
         onClose={() => setOpenSheet(null)}
-        title="Panorama overlay"
+        title="Panorama opacity"
         visible={openSheet === 'panorama'}
       >
-        <ActionButton
-          label={panoramaVisible ? 'Hide panorama' : 'Show panorama'}
-          onPress={() => setPanoramaVisible((current) => !current)}
-          variant="secondary"
-        />
         <OpacitySlider
           label="Panorama opacity"
           onChange={setPanoramaOpacityPercent}
           value={panoramaOpacityPercent}
         />
-        <AppText tone="muted">
-          The panorama is visual only. Its opacity never changes astronomy or
-          obstruction calculations.
-        </AppText>
       </ModalSheet>
 
       <ObservingWindowSheet
@@ -1070,24 +1105,7 @@ const styles = StyleSheet.create({
     gap: 4,
     padding: 12,
   },
-  equipmentControl: {
-    left: 12,
-    maxWidth: '58%',
-    position: 'absolute',
-    top: 72,
-  },
-  panoramaControl: {
-    left: 12,
-    maxWidth: '58%',
-    position: 'absolute',
-    top: 126,
-  },
-  maskControl: {
-    left: 12,
-    maxWidth: '58%',
-    position: 'absolute',
-    top: 180,
-  },
+  controlPressed: { opacity: 0.72 },
   fovNote: {
     fontSize: 12,
   },
@@ -1116,6 +1134,13 @@ const styles = StyleSheet.create({
   iconText: {
     fontSize: 34,
     lineHeight: 36,
+  },
+  infoButton: {
+    alignItems: 'center',
+    height: layout.minimumTouchTarget,
+    justifyContent: 'center',
+    marginVertical: -10,
+    width: layout.minimumTouchTarget,
   },
   menuStatus: {
     backgroundColor: colors.surfaceRaised,
@@ -1146,6 +1171,16 @@ const styles = StyleSheet.create({
     right: 12,
     top: 10,
   },
+  overlayIconButton: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(17, 24, 39, 0.94)',
+    borderColor: colors.outline,
+    borderRadius: 24,
+    borderWidth: StyleSheet.hairlineWidth,
+    height: 48,
+    justifyContent: 'center',
+    width: 48,
+  },
   profileHeading: {
     flex: 1,
   },
@@ -1169,6 +1204,10 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
   },
+  targetNameRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+  },
   targetSummary: {
     backgroundColor: 'rgba(17, 24, 39, 0.97)',
     borderColor: colors.spaceViolet,
@@ -1183,6 +1222,7 @@ const styles = StyleSheet.create({
   },
   targetSummaryCopy: {
     flex: 1,
+    gap: 2,
   },
   targetSummaryHeading: {
     alignItems: 'flex-start',
@@ -1214,5 +1254,10 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 13,
     fontWeight: '800',
+  },
+  viewOptionsControl: {
+    bottom: 12,
+    left: 12,
+    position: 'absolute',
   },
 });

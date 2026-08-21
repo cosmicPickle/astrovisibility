@@ -16,11 +16,12 @@
   - [x] Implement/test astronomical darkness intervals, arc grouping, and dark
         visibility totals/ranking.
   - [x] Implement/test revised equipment suitability and known-size ordering.
-  - [ ] Implement/test Sky View icon menu, opacity sheets, and compact target
+  - [x] Implement/test Sky View icon menu, opacity sheets, and compact target
         summary.
   - [x] Implement/test target search and segmented category filter.
   - [ ] Run complete gates and exact-release Android visual/device QA.
   - [ ] Remove this active state, commit final report, and push `main`.
-- Current step: consolidate Sky View controls and selected-target information.
+- Current step: run complete gates, then build and visually inspect the release
+  app on representative and constrained Android viewports.
 - Blockers/open questions: none; category mapping and darkness threshold are
   resolved by the focused specification.

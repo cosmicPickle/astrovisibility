@@ -324,7 +324,10 @@ describe('SkyViewScreen', () => {
     );
     await waitFor(() => screen.getByText(profile.name));
     expect(screen.getByText('Local visibility not assessed')).toBeTruthy();
-    expect(screen.getByText('No imaging setup')).toBeTruthy();
+    expect(screen.queryByText('No imaging setup')).toBeNull();
+    await fireEvent.press(screen.getByLabelText('View options'));
+    expect(screen.getByText('Imaging setup · None')).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('Close view options'));
     expect(screen.getByText('Orion Nebula')).toBeTruthy();
     expect(screen.queryByText(/visible until/i)).toBeNull();
   });
@@ -341,10 +344,10 @@ describe('SkyViewScreen', () => {
     await waitFor(() => screen.getByText(profile.name));
     await fireEvent.press(screen.getByText('Orion Nebula'));
     expect(screen.getByText('M 42 · NGC 1976')).toBeTruthy();
-    await waitFor(() =>
-      screen.getByText('Above horizon; obstructions not assessed'),
+    await waitFor(() => screen.getByText('Obstructions not assessed'));
+    await fireEvent.press(
+      screen.getByLabelText('More information about Orion Nebula'),
     );
-    await fireEvent.press(screen.getByText('More Info'));
     expect(screen.getByText('Right ascension (J2000)')).toBeTruthy();
     expect(screen.getByText('5.588 h')).toBeTruthy();
     expect(screen.getByText('-5.391°')).toBeTruthy();
@@ -369,7 +372,10 @@ describe('SkyViewScreen', () => {
       />,
     );
     await waitFor(() => screen.getByText(profile.name));
-    await fireEvent.press(screen.getByText(equipment.name));
+    await fireEvent.press(screen.getByLabelText('View options'));
+    await fireEvent.press(
+      screen.getByText(`Imaging setup · ${equipment.name}`),
+    );
     await fireEvent.press(
       screen.getByLabelText(`Use ${secondEquipment.name} imaging setup`),
     );
@@ -379,7 +385,11 @@ describe('SkyViewScreen', () => {
         secondEquipment.id,
       ),
     );
-    expect(screen.getByText(secondEquipment.name)).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('View options'));
+    expect(
+      screen.getByText(`Imaging setup · ${secondEquipment.name}`),
+    ).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('Close view options'));
   });
 
   it('wires the compact time, profile menu, and target-list affordances', async () => {
@@ -403,7 +413,7 @@ describe('SkyViewScreen', () => {
     await fireEvent.press(screen.getByLabelText('Profile menu'));
     await fireEvent.press(screen.getByText('Edit profile'));
     expect(skyNavigation.editProfile).toHaveBeenCalledWith(profile.id);
-    await fireEvent.press(screen.getByText('View All Targets'));
+    await fireEvent.press(screen.getByLabelText('View all targets'));
     expect(skyNavigation.openTargetList).toHaveBeenCalledWith(
       profile.id,
       expect.objectContaining({
@@ -462,12 +472,10 @@ describe('SkyViewScreen', () => {
       'visible',
     );
 
-    await fireEvent.press(screen.getByText('Panorama 55%'));
-    expect(screen.getByText('Panorama overlay')).toBeTruthy();
-    await fireEvent.press(screen.getByText('Hide panorama'));
-    expect(screen.getByTestId('panorama-visible').props.children).toBe(
-      'hidden',
-    );
+    await fireEvent.press(screen.getByLabelText('View options'));
+    await fireEvent.press(screen.getByText('Panorama opacity · 55%'));
+    expect(screen.getAllByText('Panorama opacity')).toHaveLength(2);
+    expect(screen.queryByText('Hide panorama')).toBeNull();
     fireEvent(
       screen.getByLabelText('Panorama opacity'),
       'accessibilityAction',
@@ -476,7 +484,12 @@ describe('SkyViewScreen', () => {
       },
     );
     await waitFor(() =>
-      expect(screen.getByTestId('panorama-opacity').props.children).toBe(60),
+      expect(
+        screen.getByLabelText('Panorama opacity').props.accessibilityValue.now,
+      ).toBe(60),
+    );
+    await fireEvent.press(
+      screen.getByLabelText('Close panorama overlay controls'),
     );
   });
 
@@ -495,9 +508,9 @@ describe('SkyViewScreen', () => {
     expect(screen.getByTestId('mask-opacity').props.children).toBe(60);
     expect(screen.getByTestId('mask-visible').props.children).toBe('visible');
 
-    await fireEvent.press(screen.getByText('Mask 60%'));
-    await fireEvent.press(screen.getByText('Hide mask'));
-    expect(screen.getByTestId('mask-visible').props.children).toBe('hidden');
+    await fireEvent.press(screen.getByLabelText('View options'));
+    await fireEvent.press(screen.getByText('Mask opacity · 60%'));
+    expect(screen.queryByText('Hide mask')).toBeNull();
     fireEvent(screen.getByLabelText('Mask opacity'), 'accessibilityAction', {
       nativeEvent: { actionName: 'decrement' },
     });
@@ -585,9 +598,7 @@ describe('SkyViewScreen', () => {
     expect(screen.getByTestId('field-of-view-equipment').props.children).toBe(
       equipment.name,
     );
-    await waitFor(() =>
-      screen.getByText('Above horizon; obstructions not assessed'),
-    );
+    await waitFor(() => screen.getByText('Obstructions not assessed'));
     expect(screen.queryByText(/visible until/i)).toBeNull();
   });
 
@@ -611,7 +622,8 @@ describe('SkyViewScreen', () => {
     await waitFor(() =>
       screen.getByText('5m visible through local obstructions'),
     );
-    expect(screen.getByText('Visible until 23:05')).toBeTruthy();
+    expect(screen.getByText('Visibility: 23:00–23:05')).toBeTruthy();
+    expect(screen.queryByText('Visible until 23:05')).toBeNull();
     expect(
       String(screen.getByTestId('trajectory-assessments').props.children),
     ).toContain('visible');
@@ -621,9 +633,7 @@ describe('SkyViewScreen', () => {
     expect(
       screen.getByTestId('trajectory-transition-count').props.children,
     ).toBe(1);
-    expect(
-      screen.queryByText('Above horizon; obstructions not assessed'),
-    ).toBeNull();
+    expect(screen.queryByText('Obstructions not assessed')).toBeNull();
   });
 
   it('keeps the exact base arc visible while mask classification is pending', async () => {
@@ -670,7 +680,8 @@ describe('SkyViewScreen', () => {
     await fireEvent.press(screen.getByText('Orion Nebula'));
     await waitFor(() => expect(calculateVisibility).toHaveBeenCalledTimes(1));
 
-    await fireEvent.press(screen.getByText('Panorama 55%'));
+    await fireEvent.press(screen.getByLabelText('View options'));
+    await fireEvent.press(screen.getByText('Panorama opacity · 55%'));
     fireEvent(
       screen.getByLabelText('Panorama opacity'),
       'accessibilityAction',
@@ -678,7 +689,14 @@ describe('SkyViewScreen', () => {
         nativeEvent: { actionName: 'increment' },
       },
     );
-    await waitFor(() => screen.getByText('Panorama 60%'));
+    await waitFor(() =>
+      expect(
+        screen.getByLabelText('Panorama opacity').props.accessibilityValue.now,
+      ).toBe(60),
+    );
+    await fireEvent.press(
+      screen.getByLabelText('Close panorama overlay controls'),
+    );
     expect(calculateVisibility).toHaveBeenCalledTimes(1);
   });
 
