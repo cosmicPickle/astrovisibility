@@ -4,6 +4,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import type { CapturedProofTile } from './captureSession';
 import {
+  PANORAMA_CAPTURE_PICTURE_OPTIONS,
   PanoramaCaptureScreen,
   refreshCapturePermissions,
   type PanoramaCaptureController,
@@ -139,6 +140,13 @@ describe('PanoramaCaptureScreen', () => {
   beforeEach(() => {
     mockCaptureAltitudeDegrees = 60;
     mockPoseReadiness = 'ready';
+  });
+
+  it('disables the native shutter sound for panorama photos', () => {
+    expect(PANORAMA_CAPTURE_PICTURE_OPTIONS).toEqual({
+      quality: 0.55,
+      shutterSound: false,
+    });
   });
 
   it('rechecks revocable permissions when capture returns to the foreground', async () => {

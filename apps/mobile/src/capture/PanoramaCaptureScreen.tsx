@@ -1,4 +1,9 @@
-import { Camera, CameraView, useCameraPermissions } from 'expo-camera';
+import {
+  Camera,
+  CameraView,
+  type CameraPictureOptions,
+  useCameraPermissions,
+} from 'expo-camera';
 import * as Linking from 'expo-linking';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -65,6 +70,11 @@ export interface PickedPanoramaImage {
   heightPixels: number;
   fileExtension: string;
 }
+
+export const PANORAMA_CAPTURE_PICTURE_OPTIONS = {
+  quality: 0.55,
+  shutterSound: false,
+} satisfies CameraPictureOptions;
 
 export interface PanoramaCaptureServices {
   getCameraPermission?(): Promise<boolean>;
@@ -175,7 +185,9 @@ export const PanoramaCaptureScreen = ({
         },
         async takePicture(cameraView) {
           if (!cameraView) throw new Error('Camera preview is not ready.');
-          const picture = await cameraView.takePictureAsync({ quality: 0.55 });
+          const picture = await cameraView.takePictureAsync(
+            PANORAMA_CAPTURE_PICTURE_OPTIONS,
+          );
           return {
             uri: picture.uri,
             widthPixels: picture.width,
