@@ -169,6 +169,16 @@ describe('selected-target trajectory', () => {
     ]);
   });
 
+  it('treats the observing-window end as exclusive', () => {
+    expect(
+      createHourlyMarkers({
+        startTimestampUtc: '2026-08-20T21:00:00.000Z',
+        endTimestampUtc: '2026-08-21T21:00:00.000Z',
+        timeZoneId: 'Europe/Sofia',
+      }).filter(({ localTimeLabel }) => localTimeLabel === '00:00'),
+    ).toHaveLength(1);
+  });
+
   it('keeps both occurrences of a repeated hourly marker', () => {
     expect(
       createHourlyMarkers({

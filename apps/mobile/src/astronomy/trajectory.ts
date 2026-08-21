@@ -159,7 +159,7 @@ export const createHourlyMarkers = (input: {
           const timestampMilliseconds = Date.parse(timestampUtc);
           if (
             timestampMilliseconds >= startMilliseconds &&
-            timestampMilliseconds <= endMilliseconds
+            timestampMilliseconds < endMilliseconds
           ) {
             candidates.push({
               timestampUtc,
