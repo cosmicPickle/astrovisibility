@@ -196,6 +196,18 @@ const migrations: Migration[] = [
         AND sensor_height_millimeters * pixel_size_micrometers / 1000 <= 100;
     `,
   },
+  {
+    version: 5,
+    sql: `
+      UPDATE profiles
+      SET active_mask_revision_id = NULL,
+          active_panorama_revision_id = NULL;
+
+      DELETE FROM panorama_capture_drafts;
+      DELETE FROM mask_revisions;
+      DELETE FROM panorama_revisions;
+    `,
+  },
 ];
 
 export async function migrateDatabase(database: SqlDatabase): Promise<void> {

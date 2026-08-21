@@ -52,10 +52,6 @@ export default function RootLayout() {
             options={{ title: 'Edit imaging setup' }}
           />
           <Stack.Screen
-            name="capture-proof"
-            options={{ title: 'Capture proof' }}
-          />
-          <Stack.Screen
             name="licences"
             options={{ title: 'About · licences' }}
           />

@@ -17,11 +17,9 @@ export type OrientationSnapshot = {
   rawRotation: RawDeviceRotation | null;
 };
 
-export type ReviewedTilePlacement = PanoramaTilePlacement & {
-  rollDegrees: number;
-};
+export type ReviewedTilePlacement = PanoramaTilePlacement;
 
-export type CaptureSourceKind = 'camera' | 'import';
+export type CaptureSourceKind = 'camera';
 export type OrientationConfidence = 'high' | 'medium' | 'low' | 'manual';
 
 export type CapturedProofTile = {
@@ -57,11 +55,10 @@ const clamp = (value: number, minimum: number, maximum: number) =>
 
 export const MAXIMUM_CAPTURE_EDGE_PIXELS = 12_000;
 export const MAXIMUM_CAPTURE_PIXELS = 40_000_000;
-export const MINIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES = 20;
-export const MAXIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES = 80;
+export const MINIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES = 0;
+export const MAXIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES = 90;
 
-export type GuidedCaptureAltitudeStatus =
-  'allowed' | 'too-high' | 'too-low' | 'too-tall';
+export type GuidedCaptureAltitudeStatus = 'allowed' | 'below-horizon';
 
 const normalizeAzimuthDegrees = (value: number) => ((value % 360) + 360) % 360;
 
@@ -91,13 +88,8 @@ export function assertCaptureDimensionsWithinLimits(
 export const captureOrientationConfidence = (
   headingAccuracyDegrees: number | null,
   motionAvailable: boolean,
-  sourceKind: CaptureSourceKind,
 ): OrientationConfidence => {
-  if (
-    sourceKind === 'import' ||
-    !motionAvailable ||
-    headingAccuracyDegrees === null
-  ) {
+  if (!motionAvailable || headingAccuracyDegrees === null) {
     return 'manual';
   }
   if (headingAccuracyDegrees <= 15) return 'high';
@@ -140,7 +132,6 @@ export const createCapturedTile = (
     orientationConfidence: captureOrientationConfidence(
       input.orientation.headingAccuracyDegrees,
       input.motionAvailable ?? input.orientation.rawRotation !== null,
-      input.sourceKind ?? 'camera',
     ),
   });
 };

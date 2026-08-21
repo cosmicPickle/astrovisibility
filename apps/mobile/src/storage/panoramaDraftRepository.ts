@@ -39,6 +39,7 @@ export interface ActivePanoramaTile {
   rollDegrees: number;
   horizontalFieldOfViewDegrees: number;
   verticalFieldOfViewDegrees: number;
+  coveragePolygon: CapturedProofTile['coveragePolygon'];
   widthPixels: number;
   heightPixels: number;
 }
@@ -60,7 +61,7 @@ interface DraftRow {
 interface DraftTileRow {
   id: string;
   fileRelativePath: string;
-  sourceKind: 'camera' | 'import';
+  sourceKind: 'camera';
   widthPixels: number;
   heightPixels: number;
   capturedAtUtc: string;
@@ -410,6 +411,7 @@ export class PanoramaDraftRepository {
       rollDegrees: number;
       horizontalFieldOfViewDegrees: number;
       verticalFieldOfViewDegrees: number;
+      coveragePolygonJson: string;
     }>(
       `SELECT id, file_relative_path AS relativePath,
         width_pixels AS widthPixels, height_pixels AS heightPixels,
@@ -417,7 +419,8 @@ export class PanoramaDraftRepository {
         center_altitude_degrees + correction_altitude_degrees AS centerAltitudeDegrees,
         roll_degrees + correction_roll_degrees AS rollDegrees,
         horizontal_fov_degrees AS horizontalFieldOfViewDegrees,
-        vertical_fov_degrees AS verticalFieldOfViewDegrees
+        vertical_fov_degrees AS verticalFieldOfViewDegrees,
+        coverage_polygon_json AS coveragePolygonJson
        FROM panorama_tiles WHERE panorama_revision_id = ? ORDER BY ordinal`,
       [revision.id],
     );
@@ -426,6 +429,9 @@ export class PanoramaDraftRepository {
       tiles: rows.map((row) => ({
         ...row,
         centerAzimuthDegrees: normalizeAzimuthDegrees(row.centerAzimuthDegrees),
+        coveragePolygon: JSON.parse(
+          row.coveragePolygonJson,
+        ) as CapturedProofTile['coveragePolygon'],
         uri: this.files.resolveOwnedFileUri(row.relativePath),
       })),
     };

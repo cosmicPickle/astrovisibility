@@ -25,6 +25,11 @@ const panorama: ActivePanorama = {
       verticalFieldOfViewDegrees: 40,
       widthPixels: 1600,
       heightPixels: 1200,
+      coveragePolygon: [
+        { azimuthDegrees: 340, altitudeDegrees: 52 },
+        { azimuthDegrees: 370, altitudeDegrees: 58 },
+        { azimuthDegrees: 365, altitudeDegrees: 88 },
+      ],
     },
   ],
 };
@@ -58,6 +63,7 @@ const TestCanvas = (props: MaskEditorCanvasProps) => (
     <Text testID="preview-state">
       {props.showMaskPreview ? 'after' : 'before'}
     </Text>
+    <Text testID="coverage">{JSON.stringify(props.mask.coveragePolygons)}</Text>
     <Pressable
       accessibilityLabel="Test add region"
       onPress={() =>
@@ -101,6 +107,9 @@ describe('MaskEditorScreen', () => {
     );
     await waitFor(() => screen.getByText('Draw visibility mask'));
     expect(screen.getByTestId('active-tool').props.children).toBe('pan');
+    expect(screen.getByTestId('coverage').props.children).toBe(
+      JSON.stringify([panorama.tiles[0]!.coveragePolygon]),
+    );
 
     await fireEvent.press(screen.getByText('Mark visible sky'));
     await fireEvent.press(screen.getByLabelText('Test add region'));

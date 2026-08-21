@@ -5,7 +5,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ActionButton } from '../components/ui/ActionButton';
 import { AppText } from '../components/ui/AppText';
 import { ModalSheet } from '../components/ui/ModalSheet';
-import { createTileCoveragePolygon } from '../panorama/tileGeometry';
 import { bootstrapStorage } from '../storage/bootstrapStorage';
 import type {
   ActiveMaskRevision,
@@ -141,14 +140,7 @@ export function MaskEditorScreen({
   const coveragePolygons = useMemo(
     () =>
       data?.activeMask?.coveragePolygons ??
-      data?.panorama?.tiles.map((tile) =>
-        createTileCoveragePolygon({
-          centerAltitudeDegrees: tile.centerAltitudeDegrees,
-          centerAzimuthDegrees: tile.centerAzimuthDegrees,
-          horizontalFieldOfViewDegrees: tile.horizontalFieldOfViewDegrees,
-          verticalFieldOfViewDegrees: tile.verticalFieldOfViewDegrees,
-        }),
-      ) ??
+      data?.panorama?.tiles.map((tile) => tile.coveragePolygon) ??
       [],
     [data],
   );

@@ -20,23 +20,31 @@ import {
   type CaptureCameraFieldOfView,
   type DevicePoseSample,
 } from './devicePose';
+import type { CapturePoseReadiness } from './poseReadiness';
 
 const CAPTURE_ATLAS_FIELD_OF_VIEW_DEGREES = 100;
 
 const captureAltitudeMessage = (
   status: Exclude<ReturnType<typeof poseCaptureAltitudeStatus>, 'allowed'>,
 ) => {
-  if (status === 'too-low') {
-    return 'Raise the phone until the bottom of the blue frame is at least 20° altitude.';
-  }
-  if (status === 'too-high') {
-    return 'Aim no higher than 80° altitude.';
-  }
-  return 'Raise the bottom of the blue frame above 20° and aim no higher than 80°.';
+  return status === 'below-horizon'
+    ? 'Aim the center of the camera at or above the horizon.'
+    : '';
 };
 
 const fieldOfViewLabel = (fieldOfView: CaptureCameraFieldOfView) =>
-  `${Math.round(fieldOfView.horizontalDegrees)}° × ${Math.round(fieldOfView.verticalDegrees)}° camera FOV · ${fieldOfView.approximate ? 'estimate' : 'device metadata'}`;
+  `${Math.round(fieldOfView.horizontalDegrees)}° × ${Math.round(fieldOfView.verticalDegrees)}° camera FOV · ${fieldOfView.approximate ? 'fallback estimate' : 'metadata-derived estimate'}`;
+
+const poseReadinessMessage = (readiness: CapturePoseReadiness) => {
+  if (readiness === 'stabilizing') return 'Hold the phone steady…';
+  if (readiness === 'stale')
+    return 'Direction update paused. Hold the phone steady.';
+  if (readiness === 'unreliable') {
+    return 'Direction is unreliable. Move away from metal and sweep the phone in a figure eight.';
+  }
+  if (readiness === 'acquiring') return 'Acquiring phone direction…';
+  return null;
+};
 
 const toPanoramaTile = (tile: CapturedProofTile): ActivePanoramaTile => ({
   centerAltitudeDegrees: tile.reviewedPlacement.centerAltitudeDegrees,
@@ -45,6 +53,7 @@ const toPanoramaTile = (tile: CapturedProofTile): ActivePanoramaTile => ({
   horizontalFieldOfViewDegrees:
     tile.reviewedPlacement.horizontalFieldOfViewDegrees,
   id: tile.id,
+  coveragePolygon: tile.coveragePolygon,
   rollDegrees: tile.reviewedPlacement.rollDegrees,
   uri: tile.uri,
   verticalFieldOfViewDegrees: tile.reviewedPlacement.verticalFieldOfViewDegrees,
@@ -72,11 +81,11 @@ export function PoseDrivenCaptureView({
   cameraRef,
   fieldOfView,
   onCapture,
-  onImport,
   onOpenSettings,
   onReview,
   pose,
   poseError,
+  poseReadiness,
   profile,
   tiles,
 }: {
@@ -85,11 +94,11 @@ export function PoseDrivenCaptureView({
   cameraRef: RefObject<CameraView | null>;
   fieldOfView: CaptureCameraFieldOfView;
   onCapture(): void;
-  onImport(): void;
   onOpenSettings(): void;
   onReview(): void;
   pose: DevicePoseSample | null;
   poseError: string | null;
+  poseReadiness: CapturePoseReadiness;
   profile: ProfileRecord;
   tiles: readonly CapturedProofTile[];
 }) {
@@ -122,12 +131,13 @@ export function PoseDrivenCaptureView({
       }),
     [profile],
   );
-  const altitudeStatus = pose
-    ? poseCaptureAltitudeStatus(pose, fieldOfView)
-    : null;
-  const poseReliable = pose !== null && pose.accuracy !== 0;
+  const altitudeStatus = pose ? poseCaptureAltitudeStatus(pose) : null;
   const captureAllowed =
-    cameraGranted && poseReliable && altitudeStatus === 'allowed';
+    !busy &&
+    cameraGranted &&
+    poseReadiness === 'ready' &&
+    altitudeStatus === 'allowed';
+  const readinessMessage = poseReadinessMessage(poseReadiness);
   const frameSize = guideSize(canvas, fieldOfView);
   const handleAtlasLayout = (event: LayoutChangeEvent) => {
     const { height, width } = event.nativeEvent.layout;
@@ -141,16 +151,18 @@ export function PoseDrivenCaptureView({
       <View accessibilityLabel="Live camera preview" style={styles.previewHalf}>
         {cameraGranted ? (
           <CameraView
+            accessibilityLabel="Rear camera preview at 1x"
             facing="back"
             ratio="4:3"
             ref={cameraRef}
             style={StyleSheet.absoluteFill}
+            zoom={0}
           />
         ) : (
           <View style={styles.fallback}>
             <AppText tone="label">Camera access unavailable</AppText>
             <AppText tone="muted">
-              Import an image or enable camera access in system settings.
+              Enable camera access in system settings, then return here.
             </AppText>
             <ActionButton
               label="Open settings"
@@ -209,10 +221,9 @@ export function PoseDrivenCaptureView({
               {captureAltitudeMessage(altitudeStatus)}
             </AppText>
           ) : null}
-          {pose?.accuracy === 0 ? (
+          {readinessMessage ? (
             <AppText accessibilityRole="alert" style={styles.limitText}>
-              Direction is unreliable. Move away from metal and sweep the phone
-              in a figure eight.
+              {readinessMessage}
             </AppText>
           ) : null}
           {poseError ? (
@@ -225,12 +236,6 @@ export function PoseDrivenCaptureView({
             label="Capture"
             loading={busy}
             onPress={onCapture}
-          />
-          <ActionButton
-            label="Import"
-            loading={busy}
-            onPress={onImport}
-            variant="secondary"
           />
           <ActionButton
             disabled={tiles.length === 0}

@@ -142,55 +142,6 @@ async function setup(databasePath = ':memory:') {
 }
 
 describe('MaskRepository', () => {
-  it('migrates schema v2 masks to revision-scoped operation identity without losing geometry', async () => {
-    const native = new DatabaseSync(':memory:');
-    native.exec(`
-      PRAGMA foreign_keys = ON;
-      CREATE TABLE equipment_configurations (
-        id TEXT PRIMARY KEY NOT NULL,
-        sensor_width_millimeters REAL NOT NULL,
-        sensor_height_millimeters REAL NOT NULL,
-        pixel_size_micrometers REAL NOT NULL
-      );
-      CREATE TABLE mask_revisions (id TEXT PRIMARY KEY NOT NULL);
-      CREATE TABLE mask_operations (
-        id TEXT PRIMARY KEY NOT NULL,
-        mask_revision_id TEXT NOT NULL REFERENCES mask_revisions(id) ON DELETE CASCADE,
-        ordinal INTEGER NOT NULL CHECK(ordinal >= 0),
-        kind TEXT NOT NULL CHECK(kind IN ('visiblePolygon', 'blockedStroke', 'visibleStroke')),
-        geometry_json TEXT NOT NULL,
-        UNIQUE(mask_revision_id, ordinal)
-      );
-      CREATE INDEX mask_operations_revision_idx ON mask_operations(mask_revision_id);
-      INSERT INTO mask_revisions (id) VALUES ('mask-v2'), ('mask-v3');
-      INSERT INTO mask_operations (
-        id, mask_revision_id, ordinal, kind, geometry_json
-      ) VALUES ('stable-region', 'mask-v2', 0, 'visiblePolygon', '{"points":[]}');
-      PRAGMA user_version = 2;
-    `);
-    const database = new NodeSqliteDatabase(native);
-
-    await migrateDatabase(database);
-    await database.runAsync(
-      `INSERT INTO mask_operations (
-        id, mask_revision_id, ordinal, kind, geometry_json
-      ) VALUES ('stable-region', 'mask-v3', 0, 'visiblePolygon', '{"points":[]}')`,
-    );
-
-    expect(
-      await database.getFirstAsync<{ version: number }>(
-        'SELECT user_version AS version FROM pragma_user_version',
-      ),
-    ).toEqual({ version: 4 });
-    expect(
-      await database.getFirstAsync<{ count: number }>(
-        `SELECT COUNT(*) AS count FROM mask_operations
-         WHERE id = 'stable-region'`,
-      ),
-    ).toEqual({ count: 2 });
-    native.close();
-  });
-
   it('saves immutable revisions atomically, preserves history, and reloads exact panorama coverage', async () => {
     const directory = mkdtempSync(path.join(tmpdir(), 'astro-mask-restart-'));
     const databasePath = path.join(directory, 'mask.sqlite');

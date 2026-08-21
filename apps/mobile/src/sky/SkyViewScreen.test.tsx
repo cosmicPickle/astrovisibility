@@ -77,6 +77,11 @@ const panorama = {
       verticalFieldOfViewDegrees: 45,
       widthPixels: 1600,
       heightPixels: 1200,
+      coveragePolygon: [
+        { azimuthDegrees: 150, altitudeDegrees: 10 },
+        { azimuthDegrees: 210, altitudeDegrees: 10 },
+        { azimuthDegrees: 210, altitudeDegrees: 60 },
+      ],
     },
   ],
 };

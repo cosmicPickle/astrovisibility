@@ -3,7 +3,6 @@ import type {
   ReviewedTilePlacement,
 } from './captureSession';
 import {
-  MAXIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES,
   MINIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES,
   type GuidedCaptureAltitudeStatus,
 } from './captureSession';
@@ -11,7 +10,6 @@ import {
   createPlanetariumCamera,
   createPlanetariumCameraFromBasis,
   getPlanetariumCameraCenter,
-  vectorToHorizontalDirection,
   type PlanetariumCamera,
   type Vector3,
 } from '../sky/planetariumProjection';
@@ -36,8 +34,6 @@ export interface CaptureCameraFieldOfView {
   verticalDegrees: number;
 }
 
-const VECTOR_EPSILON = 1e-8;
-const BOUNDARY_SEGMENTS_PER_EDGE = 24;
 const radiansToDegrees = (radians: number) => (radians * 180) / Math.PI;
 
 const finiteVector = (vector: DevicePoseVector) =>
@@ -192,92 +188,13 @@ export const devicePoseToOrientationSnapshot = (
   };
 };
 
-const normalizeVector = (vector: Vector3): Vector3 => {
-  const length = Math.hypot(vector.x, vector.y, vector.z);
-  if (length <= VECTOR_EPSILON) throw new RangeError('Direction is degenerate');
-  return { x: vector.x / length, y: vector.y / length, z: vector.z / length };
-};
-
-const directionAtTangent = (
-  camera: PlanetariumCamera,
-  horizontalTangent: number,
-  verticalTangent: number,
-) =>
-  vectorToHorizontalDirection(
-    normalizeVector({
-      x:
-        camera.forward.x +
-        camera.right.x * horizontalTangent +
-        camera.up.x * verticalTangent,
-      y:
-        camera.forward.y +
-        camera.right.y * horizontalTangent +
-        camera.up.y * verticalTangent,
-      z:
-        camera.forward.z +
-        camera.right.z * horizontalTangent +
-        camera.up.z * verticalTangent,
-    }),
-  );
-
-export const cameraFrameDirections = (
-  sample: DevicePoseSample,
-  rawFieldOfView: CaptureCameraFieldOfView,
-) => {
-  const fieldOfView = validateFieldOfView(rawFieldOfView);
-  const camera = createPoseDrivenPlanetariumCamera(sample, 90);
-  const horizontalTangent = Math.tan(
-    (fieldOfView.horizontalDegrees * Math.PI) / 360,
-  );
-  const verticalTangent = Math.tan(
-    (fieldOfView.verticalDegrees * Math.PI) / 360,
-  );
-  const directions = [];
-  for (let index = 0; index <= BOUNDARY_SEGMENTS_PER_EDGE; index += 1) {
-    const ratio = (index / BOUNDARY_SEGMENTS_PER_EDGE) * 2 - 1;
-    directions.push(
-      directionAtTangent(camera, ratio * horizontalTangent, verticalTangent),
-      directionAtTangent(camera, ratio * horizontalTangent, -verticalTangent),
-      directionAtTangent(camera, horizontalTangent, ratio * verticalTangent),
-      directionAtTangent(camera, -horizontalTangent, ratio * verticalTangent),
-    );
-  }
-  // The extrema can occur inside the rectilinear footprint when it contains a
-  // celestial pole, so checking corners or the perimeter alone is incorrect.
-  for (let row = 0; row <= 12; row += 1) {
-    const verticalRatio = (row / 12) * 2 - 1;
-    for (let column = 0; column <= 12; column += 1) {
-      const horizontalRatio = (column / 12) * 2 - 1;
-      directions.push(
-        directionAtTangent(
-          camera,
-          horizontalRatio * horizontalTangent,
-          verticalRatio * verticalTangent,
-        ),
-      );
-    }
-  }
-  return directions;
-};
-
 export const poseCaptureAltitudeStatus = (
   sample: DevicePoseSample,
-  fieldOfView: CaptureCameraFieldOfView,
 ): GuidedCaptureAltitudeStatus => {
   const camera = createPoseDrivenPlanetariumCamera(sample, 90);
-  const altitudes = cameraFrameDirections(sample, fieldOfView).map(
-    ({ altitudeDegrees }) => altitudeDegrees,
-  );
-  const tooLow =
-    Math.min(...altitudes) < MINIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES;
-  // A normal portrait phone camera can be taller than the complete 20°–80°
-  // band. Keep the lower image boundary clear of the horizon, while applying
-  // the upper limit to the aiming direction so the frame can include zenith.
-  const tooHigh =
-    getPlanetariumCameraCenter(camera).altitudeDegrees >
-    MAXIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES;
-  if (tooLow && tooHigh) return 'too-tall';
-  if (tooLow) return 'too-low';
-  if (tooHigh) return 'too-high';
-  return 'allowed';
+  const centerAltitudeDegrees =
+    getPlanetariumCameraCenter(camera).altitudeDegrees;
+  return centerAltitudeDegrees < MINIMUM_GUIDED_CAPTURE_ALTITUDE_DEGREES
+    ? 'below-horizon'
+    : 'allowed';
 };

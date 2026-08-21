@@ -19,9 +19,27 @@ jest.mock('../sky/PlanetariumScene', () => ({
   PlanetariumScene: 'PlanetariumScene',
 }));
 let mockCaptureAltitudeDegrees = 60;
+let mockPoseReadiness = 'ready';
+const mockPose = () => {
+  const radians = (mockCaptureAltitudeDegrees * Math.PI) / 180;
+  return {
+    accuracy: 3,
+    forward: {
+      east: 0,
+      north: Math.cos(radians),
+      up: Math.sin(radians),
+    },
+    right: { east: 1, north: 0, up: 0 },
+    timestampNanoseconds: 1,
+    up: {
+      east: 0,
+      north: -Math.sin(radians),
+      up: Math.cos(radians),
+    },
+  };
+};
 jest.mock('./useDevicePose', () => ({
   useDevicePose: () => {
-    const radians = (mockCaptureAltitudeDegrees * Math.PI) / 180;
     return {
       available: true,
       error: null,
@@ -30,21 +48,9 @@ jest.mock('./useDevicePose', () => ({
         horizontalDegrees: 55,
         verticalDegrees: 69,
       },
-      pose: {
-        accuracy: 3,
-        forward: {
-          east: 0,
-          north: Math.cos(radians),
-          up: Math.sin(radians),
-        },
-        right: { east: 1, north: 0, up: 0 },
-        timestampNanoseconds: 1,
-        up: {
-          east: 0,
-          north: -Math.sin(radians),
-          up: Math.cos(radians),
-        },
-      },
+      getCapturePose: () => (mockPoseReadiness === 'ready' ? mockPose() : null),
+      pose: mockPose(),
+      readiness: mockPoseReadiness,
     };
   },
 }));
@@ -61,14 +67,14 @@ const profile = {
   updatedAtUtc: '2026-08-19T12:00:00.000Z',
 };
 
-const importedTile: CapturedProofTile = {
+const capturedTile: CapturedProofTile = {
   id: 'tile-1',
   uri: 'owned://draft/tile-1.jpg',
   widthPixels: 1200,
   heightPixels: 900,
   capturedAtUtc: '2026-08-19T12:01:00.000Z',
-  sourceKind: 'import',
-  orientationConfidence: 'manual',
+  sourceKind: 'camera',
+  orientationConfidence: 'high',
   orientationSnapshot: {
     trueHeadingDegrees: 180,
     headingAccuracyDegrees: null,
@@ -100,7 +106,7 @@ const emptyDraft = {
   tiles: [],
 };
 
-const withTile = { ...emptyDraft, tiles: [importedTile] };
+const withTile = { ...emptyDraft, tiles: [capturedTile] };
 
 const renderScreen = (
   controller: PanoramaCaptureController,
@@ -125,12 +131,6 @@ const renderScreen = (
 
 const services = (): PanoramaCaptureServices => ({
   openSettings: jest.fn(),
-  pickImage: jest.fn().mockResolvedValue({
-    uri: 'temp://import.jpg',
-    widthPixels: 900,
-    heightPixels: 1600,
-    fileExtension: 'jpg',
-  }),
   requestCameraPermission: jest.fn().mockResolvedValue(false),
   takePicture: jest.fn(),
 });
@@ -138,6 +138,7 @@ const services = (): PanoramaCaptureServices => ({
 describe('PanoramaCaptureScreen', () => {
   beforeEach(() => {
     mockCaptureAltitudeDegrees = 60;
+    mockPoseReadiness = 'ready';
   });
 
   it('rechecks revocable permissions when capture returns to the foreground', async () => {
@@ -152,7 +153,7 @@ describe('PanoramaCaptureScreen', () => {
     expect(native.getCameraPermission).toHaveBeenCalledTimes(1);
   });
 
-  it('explains permissions before prompting and recovers from denial through image import', async () => {
+  it('explains permissions before prompting and recovers from denial through settings', async () => {
     const native = services();
     const controller: PanoramaCaptureController = {
       load: jest.fn().mockResolvedValue({
@@ -162,7 +163,7 @@ describe('PanoramaCaptureScreen', () => {
         draft: null,
       }),
       createDraft: jest.fn().mockResolvedValue(emptyDraft),
-      addTile: jest.fn().mockResolvedValue(withTile),
+      addTile: jest.fn(),
       updateTilePlacement: jest.fn(),
       discardDraft: jest.fn(),
       completeDraft: jest.fn(),
@@ -175,14 +176,15 @@ describe('PanoramaCaptureScreen', () => {
     await act(async () => fireEvent.press(screen.getByText('Start capture')));
     await waitFor(() => screen.getByText('Camera access unavailable'));
     expect(
-      screen.getByText(/Import an image or enable camera access/i),
+      screen.getByText(/Enable camera access in system settings/i),
     ).toBeTruthy();
+    expect(screen.queryByText('Import')).toBeNull();
     expect(screen.queryByText(/Suggested 25% overlap/i)).toBeNull();
     expect(screen.queryByText('Az −5°')).toBeNull();
     expect(screen.queryByText('Az +5°')).toBeNull();
     expect(screen.getByLabelText('Current camera footprint')).toBeTruthy();
     expect(
-      screen.getByText(/55° × 69° camera FOV · device metadata/i),
+      screen.getByText(/55° × 69° camera FOV · metadata-derived estimate/i),
     ).toBeTruthy();
     expect(screen.getByText('0 captured')).toBeTruthy();
     expect(
@@ -196,21 +198,102 @@ describe('PanoramaCaptureScreen', () => {
       ).flex,
     ).toBe(56);
 
-    await act(async () => fireEvent.press(screen.getByText('Import')));
+    fireEvent.press(screen.getByText('Open settings'));
+    expect(native.openSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the rear camera at 1x and saves the ready pose captured at shutter time', async () => {
+    mockCaptureAltitudeDegrees = 0;
+    const native = {
+      ...services(),
+      requestCameraPermission: jest.fn().mockResolvedValue(true),
+      takePicture: jest.fn().mockResolvedValue({
+        uri: 'temp://capture.jpg',
+        widthPixels: 1600,
+        heightPixels: 1200,
+        fileExtension: 'jpg',
+      }),
+    };
+    const controller: PanoramaCaptureController = {
+      load: jest.fn().mockResolvedValue({
+        profile,
+        profileName: 'Bedroom window',
+        activePanorama: null,
+        draft: null,
+      }),
+      createDraft: jest.fn().mockResolvedValue(emptyDraft),
+      addTile: jest.fn().mockResolvedValue(emptyDraft),
+      updateTilePlacement: jest.fn(),
+      discardDraft: jest.fn(),
+      completeDraft: jest.fn(),
+    };
+    const screen = await renderScreen(controller, native);
+    await waitFor(() => screen.getByText('Capture surroundings'));
+    await act(async () => fireEvent.press(screen.getByText('Start capture')));
+    await waitFor(() => screen.getByText('0 captured'));
+
+    expect(
+      screen.getByLabelText('Rear camera preview at 1x').props,
+    ).toMatchObject({
+      facing: 'back',
+      ratio: '4:3',
+      zoom: 0,
+    });
+    await act(async () => fireEvent.press(screen.getByText('Capture')));
     await waitFor(() => expect(controller.addTile).toHaveBeenCalledTimes(1));
+    expect(native.takePicture).toHaveBeenCalledTimes(1);
     expect(controller.addTile).toHaveBeenCalledWith(
       'draft-1',
       expect.objectContaining({
+        sourceKind: 'camera',
         reviewedPlacement: expect.objectContaining({
+          centerAltitudeDegrees: 0,
           horizontalFieldOfViewDegrees: 55,
           verticalFieldOfViewDegrees: 69,
         }),
       }),
     );
-    expect(screen.getByText('1 tile · 360° not required')).toBeTruthy();
-    await act(async () => fireEvent.press(screen.getByText('Review')));
-    await waitFor(() => screen.getByText(/Manual placement/i));
   });
+
+  it.each([
+    ['stabilizing', /Hold the phone steady/i],
+    ['stale', /Direction update paused/i],
+    ['unreliable', /Direction is unreliable/i],
+  ])(
+    'blocks capture while pose readiness is %s',
+    async (readiness, message) => {
+      mockPoseReadiness = readiness;
+      const native = {
+        ...services(),
+        requestCameraPermission: jest.fn().mockResolvedValue(true),
+        takePicture: jest.fn(),
+      };
+      const controller: PanoramaCaptureController = {
+        load: jest.fn().mockResolvedValue({
+          profile,
+          profileName: 'Bedroom window',
+          activePanorama: null,
+          draft: null,
+        }),
+        createDraft: jest.fn().mockResolvedValue(emptyDraft),
+        addTile: jest.fn(),
+        updateTilePlacement: jest.fn(),
+        discardDraft: jest.fn(),
+        completeDraft: jest.fn(),
+      };
+      const screen = await renderScreen(controller, native);
+      await waitFor(() => screen.getByText('Capture surroundings'));
+      await act(async () => fireEvent.press(screen.getByText('Start capture')));
+      await waitFor(() => screen.getByText(message));
+
+      expect(
+        screen.getByRole('button', { name: 'Capture' }).props
+          .accessibilityState,
+      ).toEqual({ disabled: true });
+      fireEvent.press(screen.getByRole('button', { name: 'Capture' }));
+      expect(native.takePicture).not.toHaveBeenCalled();
+    },
+  );
 
   it('resumes a durable draft, applies reviewed correction, and atomically completes it', async () => {
     const onSaved = jest.fn();
@@ -227,9 +310,9 @@ describe('PanoramaCaptureScreen', () => {
         ...withTile,
         tiles: [
           {
-            ...importedTile,
+            ...capturedTile,
             reviewedPlacement: {
-              ...importedTile.reviewedPlacement,
+              ...capturedTile.reviewedPlacement,
               centerAzimuthDegrees: 185,
             },
           },
@@ -283,11 +366,8 @@ describe('PanoramaCaptureScreen', () => {
     );
   });
 
-  it.each([
-    [45, /bottom of the blue frame.*20°/i],
-    [85, /aim no higher than 80°/i],
-  ])(
-    'blocks camera capture at %i degrees and explains the valid altitude range',
+  it.each([[-1, /center of the camera.*horizon/i]])(
+    'blocks camera capture below the horizon at %i degrees',
     async (altitudeDegrees, expectedMessage) => {
       mockCaptureAltitudeDegrees = altitudeDegrees;
       const native = {
@@ -319,7 +399,7 @@ describe('PanoramaCaptureScreen', () => {
       ).toEqual({ disabled: true });
       fireEvent.press(screen.getByRole('button', { name: 'Capture' }));
       expect(native.takePicture).not.toHaveBeenCalled();
-      expect(screen.getByRole('button', { name: 'Import' })).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'Import' })).toBeNull();
     },
   );
 });

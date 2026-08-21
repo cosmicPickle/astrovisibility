@@ -1,5 +1,4 @@
 import { Camera, CameraView, useCameraPermissions } from 'expo-camera';
-import * as ImagePicker from 'expo-image-picker';
 import * as Linking from 'expo-linking';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -29,9 +28,11 @@ import {
   applyTileCorrection,
   createCapturedTile,
   type CapturedProofTile,
-  type OrientationSnapshot,
 } from './captureSession';
-import { devicePoseToOrientationSnapshot } from './devicePose';
+import {
+  devicePoseToOrientationSnapshot,
+  type DevicePoseSample,
+} from './devicePose';
 import { PoseDrivenCaptureView } from './PoseDrivenCaptureView';
 import { useDevicePose } from './useDevicePose';
 
@@ -68,7 +69,6 @@ export interface PickedPanoramaImage {
 export interface PanoramaCaptureServices {
   getCameraPermission?(): Promise<boolean>;
   openSettings(): Promise<void>;
-  pickImage(): Promise<PickedPanoramaImage | null>;
   requestCameraPermission(): Promise<boolean>;
   takePicture(camera: CameraView | null): Promise<PickedPanoramaImage>;
 }
@@ -132,42 +132,9 @@ export const panoramaCaptureController: PanoramaCaptureController = {
   },
 };
 
-const fileExtensionFromAsset = (asset: ImagePicker.ImagePickerAsset) => {
-  const fromName = asset.fileName?.split('.').at(-1)?.toLowerCase();
-  if (fromName?.match(/^[a-z0-9]{1,5}$/)) return fromName;
-  if (asset.mimeType === 'image/png') return 'png';
-  return 'jpg';
-};
-
-const defaultPickImage = async (): Promise<PickedPanoramaImage | null> => {
-  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-  if (!permission.granted) throw new Error('Photo library permission denied.');
-  const result = await ImagePicker.launchImageLibraryAsync({
-    allowsEditing: false,
-    mediaTypes: ['images'],
-    quality: 0.8,
-  });
-  const asset = result.canceled ? undefined : result.assets[0];
-  return asset
-    ? {
-        uri: asset.uri,
-        widthPixels: asset.width,
-        heightPixels: asset.height,
-        fileExtension: fileExtensionFromAsset(asset),
-      }
-    : null;
-};
-
 const countLabel = (count: number) =>
   `${count} tile${count === 1 ? '' : 's'} · 360° not required`;
 const degrees = (value: number) => `${Math.round(value)}°`;
-const manualImportOrientation: OrientationSnapshot = {
-  estimatedAltitudeDegrees: 45,
-  headingAccuracyDegrees: null,
-  rawRotation: null,
-  rollDegrees: 0,
-  trueHeadingDegrees: 0,
-};
 
 export const PanoramaCaptureScreen = ({
   controller = panoramaCaptureController,
@@ -203,7 +170,6 @@ export const PanoramaCaptureScreen = ({
           return (await Camera.getCameraPermissionsAsync()).granted;
         },
         openSettings: Linking.openSettings,
-        pickImage: defaultPickImage,
         async requestCameraPermission() {
           return (await requestCameraPermission()).granted;
         },
@@ -263,7 +229,7 @@ export const PanoramaCaptureScreen = ({
           setCameraGranted(permissions.cameraGranted);
           if (!permissions.cameraGranted) {
             setError(
-              'Camera access is unavailable. Import an image, retry, or enable access in system settings.',
+              'Camera access is unavailable. Retry or enable access in system settings.',
             );
           }
         },
@@ -307,12 +273,10 @@ export const PanoramaCaptureScreen = ({
 
   const persistAsset = async (
     asset: PickedPanoramaImage,
-    sourceKind: 'camera' | 'import',
+    capturePose: DevicePoseSample,
   ) => {
     const activeDraft = await ensureDraft();
-    const orientation = devicePose.pose
-      ? devicePoseToOrientationSnapshot(devicePose.pose)
-      : manualImportOrientation;
+    const orientation = devicePoseToOrientationSnapshot(capturePose);
     const captured = createCapturedTile({
       id: createLocalRecordId('tile'),
       uri: asset.uri,
@@ -322,8 +286,8 @@ export const PanoramaCaptureScreen = ({
       orientation,
       horizontalFieldOfViewDegrees: devicePose.fieldOfView.horizontalDegrees,
       verticalFieldOfViewDegrees: devicePose.fieldOfView.verticalDegrees,
-      sourceKind,
-      motionAvailable: devicePose.pose !== null,
+      sourceKind: 'camera',
+      motionAvailable: true,
     });
     const updated = await controller.addTile(activeDraft.id, {
       ...captured,
@@ -335,33 +299,17 @@ export const PanoramaCaptureScreen = ({
   };
 
   const captureTile = async () => {
-    if (!devicePose.pose) return;
+    const capturePose = devicePose.getCapturePose();
+    if (!capturePose) return;
     setBusy(true);
     setError(null);
     try {
-      await persistAsset(await native.takePicture(camera.current), 'camera');
+      await persistAsset(await native.takePicture(camera.current), capturePose);
     } catch (captureError) {
       setError(
         captureError instanceof Error
           ? captureError.message
           : 'Capture failed without changing the draft.',
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const importTile = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const asset = await native.pickImage();
-      if (asset) await persistAsset(asset, 'import');
-    } catch (importError) {
-      setError(
-        importError instanceof Error
-          ? `${importError.message} You can retry or open system settings.`
-          : 'The image could not be imported.',
       );
     } finally {
       setBusy(false);
@@ -482,7 +430,7 @@ export const PanoramaCaptureScreen = ({
             </AppText>
             <AppText tone="muted">
               Images, directions, and drafts stay in app-local storage. Sensor
-              unavailability still allows image import and manual placement.
+              direction must be available and steady before capture.
             </AppText>
           </SectionCard>
           {draft ? (
@@ -563,11 +511,11 @@ export const PanoramaCaptureScreen = ({
           cameraRef={camera}
           fieldOfView={devicePose.fieldOfView}
           onCapture={() => void captureTile()}
-          onImport={() => void importTile()}
           onOpenSettings={() => void native.openSettings()}
           onReview={openReview}
           pose={devicePose.pose}
           poseError={devicePose.error ?? error}
+          poseReadiness={devicePose.readiness}
           profile={loadResult.profile}
           tiles={draft?.tiles ?? []}
         />
@@ -609,9 +557,7 @@ export const PanoramaCaptureScreen = ({
           {selectedTile ? (
             <SectionCard>
               <AppText tone="label">
-                {selectedTile.sourceKind === 'import'
-                  ? 'Manual placement'
-                  : `${selectedTile.orientationConfidence} sensor confidence`}
+                {selectedTile.orientationConfidence} sensor confidence
               </AppText>
               <AppText>
                 {degrees(selectedTile.reviewedPlacement.centerAzimuthDegrees)}

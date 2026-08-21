@@ -43,8 +43,11 @@ describe('capture proof tile representation', () => {
     });
 
     expect(tile.orientationSnapshot).toEqual(orientation);
-    expect(tile.coveragePolygon[0].azimuthDegrees).toBe(327);
-    expect(tile.coveragePolygon[1].azimuthDegrees).toBe(389);
+    expect(tile.coveragePolygon.length).toBeGreaterThan(100);
+    expect(
+      Math.max(...tile.coveragePolygon.map((point) => point.azimuthDegrees)) -
+        Math.min(...tile.coveragePolygon.map((point) => point.azimuthDegrees)),
+    ).toBeGreaterThan(300);
     expect(
       Math.max(...tile.coveragePolygon.map((point) => point.altitudeDegrees)),
     ).toBe(90);
@@ -98,9 +101,8 @@ describe('capture proof tile representation', () => {
   });
 
   it('grades captured and manually placed orientation confidence truthfully', () => {
-    expect(captureOrientationConfidence(8, true, 'camera')).toBe('high');
-    expect(captureOrientationConfidence(35, true, 'camera')).toBe('low');
-    expect(captureOrientationConfidence(null, false, 'camera')).toBe('manual');
-    expect(captureOrientationConfidence(5, true, 'import')).toBe('manual');
+    expect(captureOrientationConfidence(8, true)).toBe('high');
+    expect(captureOrientationConfidence(35, true)).toBe('low');
+    expect(captureOrientationConfidence(null, false)).toBe('manual');
   });
 });

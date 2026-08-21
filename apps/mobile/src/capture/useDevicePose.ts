@@ -1,7 +1,7 @@
 import AstrovisibilityDevicePose, {
   type NativeDevicePose,
 } from 'astrovisibility-device-pose';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { ProfileRecord } from '../storage/profileRepository';
 import {
@@ -10,6 +10,13 @@ import {
   type CaptureCameraFieldOfView,
   type DevicePoseSample,
 } from './devicePose';
+import {
+  advancePoseReadiness,
+  evaluatePoseReadiness,
+  getReadyCapturePose,
+  type CapturePoseReadiness,
+  type PoseReadinessTracker,
+} from './poseReadiness';
 
 const DEFAULT_FIELD_OF_VIEW: CaptureCameraFieldOfView = {
   approximate: true,
@@ -22,7 +29,9 @@ export interface DevicePoseState {
   available: boolean | null;
   error: string | null;
   fieldOfView: CaptureCameraFieldOfView;
+  getCapturePose(): DevicePoseSample | null;
   pose: DevicePoseSample | null;
+  readiness: CapturePoseReadiness;
 }
 
 export const useDevicePose = (
@@ -30,16 +39,25 @@ export const useDevicePose = (
   profile: ProfileRecord | null,
 ): DevicePoseState => {
   const previousPose = useRef<DevicePoseSample | null>(null);
+  const readinessTracker = useRef<PoseReadinessTracker | null>(null);
   const [state, setState] = useState<DevicePoseState>({
     available: null,
     error: null,
     fieldOfView: DEFAULT_FIELD_OF_VIEW,
+    getCapturePose: () => null,
     pose: null,
+    readiness: 'acquiring',
   });
+
+  const getCapturePose = useCallback(
+    () => getReadyCapturePose(readinessTracker.current, Date.now()),
+    [],
+  );
 
   useEffect(() => {
     if (!active || !profile) {
       previousPose.current = null;
+      readinessTracker.current = null;
       return undefined;
     }
     let mounted = true;
@@ -79,17 +97,27 @@ export const useDevicePose = (
                 )
               : validated;
             previousPose.current = pose;
+            readinessTracker.current = advancePoseReadiness(
+              readinessTracker.current,
+              validated,
+              Date.now(),
+            );
             setState((current) => ({
               ...current,
               available: true,
               error: null,
               pose,
+              readiness: evaluatePoseReadiness(
+                readinessTracker.current,
+                Date.now(),
+              ),
             }));
           } catch {
             setState((current) => ({
               ...current,
               error: 'The phone returned an invalid orientation sample.',
               pose: null,
+              readiness: 'acquiring',
             }));
           }
         },
@@ -101,15 +129,32 @@ export const useDevicePose = (
         ...current,
         available: false,
         error:
-          'Phone orientation is unavailable. You can still import and place images manually.',
+          'Phone orientation is unavailable. Capture requires a usable rotation-vector sensor.',
+        readiness: 'acquiring',
       }));
     });
+    const freshnessTimer = setInterval(() => {
+      if (!mounted) return;
+      setState((current) => {
+        const readiness = evaluatePoseReadiness(
+          readinessTracker.current,
+          Date.now(),
+        );
+        return current.readiness === readiness
+          ? current
+          : { ...current, readiness };
+      });
+    }, 100);
     return () => {
+      clearInterval(freshnessTimer);
       mounted = false;
       previousPose.current = null;
+      readinessTracker.current = null;
       subscription?.remove();
     };
   }, [active, profile]);
 
-  return active && profile ? state : { ...state, pose: null };
+  return active && profile
+    ? { ...state, getCapturePose }
+    : { ...state, getCapturePose, pose: null, readiness: 'acquiring' };
 };

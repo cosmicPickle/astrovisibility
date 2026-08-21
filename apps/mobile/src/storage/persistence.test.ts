@@ -145,7 +145,7 @@ describe('SQLite migrations and repositories', () => {
     const version = await database.getFirstAsync<{ user_version: number }>(
       'PRAGMA user_version',
     );
-    expect(version?.user_version).toBe(4);
+    expect(version?.user_version).toBe(5);
 
     const firstRepository = new ProfileRepository(database);
     await firstRepository.create(profile);
@@ -325,6 +325,89 @@ describe('SQLite migrations and repositories', () => {
       sensorHeightMillimeters: 4.32,
       pixelSizeMicrometers: 2,
     });
+    native.close();
+  });
+
+  it('invalidates legacy panorama, mask, and draft data while preserving setup records', async () => {
+    const { native, database } = createDatabase();
+    const files = new MemoryOwnedFileStore();
+    await migrateDatabase(database);
+    await new ProfileRepository(database).create(profile);
+    await new EquipmentRepository(database).create(equipment);
+    files.temporary.add('temp://panorama.jpg');
+    await saveCompletedPanorama(database, files, {
+      id: 'legacy-panorama',
+      profileId: profile.id,
+      formatVersion: 1,
+      createdAtUtc: '2026-08-19T12:01:00.000Z',
+      tiles: [
+        {
+          id: 'legacy-tile',
+          temporaryUri: 'temp://panorama.jpg',
+          fileExtension: 'jpg',
+          widthPixels: 1600,
+          heightPixels: 1200,
+          centerAzimuthDegrees: 0,
+          centerAltitudeDegrees: 45,
+          rollDegrees: 0,
+          horizontalFovDegrees: 55,
+          verticalFovDegrees: 69,
+          capturedAtUtc: '2026-08-19T12:01:00.000Z',
+          coveragePolygonJson: JSON.stringify([
+            { azimuthDegrees: -27.5, altitudeDegrees: 10.5 },
+            { azimuthDegrees: 27.5, altitudeDegrees: 10.5 },
+            { azimuthDegrees: 27.5, altitudeDegrees: 79.5 },
+          ]),
+        },
+      ],
+    });
+    await saveCompletedMask(database, {
+      id: 'legacy-mask',
+      profileId: profile.id,
+      panoramaRevisionId: 'legacy-panorama',
+      formatVersion: 1,
+      coverageJson: JSON.stringify([]),
+      createdAtUtc: '2026-08-19T12:02:00.000Z',
+      operations: [],
+    });
+    await database.runAsync(
+      `INSERT INTO panorama_capture_drafts (
+        id, profile_id, format_version, created_at_utc, updated_at_utc
+      ) VALUES (?, ?, 1, ?, ?)`,
+      [
+        'legacy-draft',
+        profile.id,
+        '2026-08-19T12:03:00.000Z',
+        '2026-08-19T12:03:00.000Z',
+      ],
+    );
+    await database.execAsync('PRAGMA user_version = 4');
+
+    await migrateDatabase(database);
+    await removeOrphanedOwnedFiles(database, files);
+
+    expect(
+      await new ProfileRepository(database).getById(profile.id),
+    ).not.toBeNull();
+    expect(
+      await new EquipmentRepository(database).getById(equipment.id),
+    ).not.toBeNull();
+    expect(
+      await database.getFirstAsync<{ count: number }>(
+        'SELECT COUNT(*) AS count FROM panorama_revisions',
+      ),
+    ).toEqual({ count: 0 });
+    expect(
+      await database.getFirstAsync<{ count: number }>(
+        'SELECT COUNT(*) AS count FROM mask_revisions',
+      ),
+    ).toEqual({ count: 0 });
+    expect(
+      await database.getFirstAsync<{ count: number }>(
+        'SELECT COUNT(*) AS count FROM panorama_capture_drafts',
+      ),
+    ).toEqual({ count: 0 });
+    expect(files.durable).toEqual(new Set());
     native.close();
   });
 

@@ -141,8 +141,8 @@ describe('panorama capture drafts', () => {
         id: 'tile-2',
         temporaryUri: 'temp://import.png',
         fileExtension: 'png',
-        sourceKind: 'import',
-        orientationConfidence: 'manual',
+        sourceKind: 'camera',
+        orientationConfidence: 'high',
       },
       '2026-08-19T12:02:00.000Z',
     );
@@ -163,8 +163,8 @@ describe('panorama capture drafts', () => {
     const draft = await restarted.getForProfile(profile.id);
     expect(draft?.tiles).toHaveLength(2);
     expect(draft?.tiles[1]).toMatchObject({
-      sourceKind: 'import',
-      orientationConfidence: 'manual',
+      sourceKind: 'camera',
+      orientationConfidence: 'high',
       uri: expect.stringContaining('panorama-drafts/draft-1'),
       reviewedPlacement: {
         centerAzimuthDegrees: 15,
@@ -193,7 +193,13 @@ describe('panorama capture drafts', () => {
     expect(await repository.getForProfile(profile.id)).toBeNull();
     expect(await repository.getActiveForProfile(profile.id)).toMatchObject({
       id: 'panorama-1',
-      tiles: [{ id: 'tile-1', centerAzimuthDegrees: 355 }],
+      tiles: [
+        {
+          id: 'tile-1',
+          centerAzimuthDegrees: 355,
+          coveragePolygon: tile.coveragePolygon,
+        },
+      ],
     });
     expect(files.durable).toEqual(
       new Set(['profiles/profile-1/panoramas/panorama-1/tiles/tile-1.jpg']),

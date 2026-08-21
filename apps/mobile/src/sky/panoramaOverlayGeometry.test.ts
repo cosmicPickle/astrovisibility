@@ -13,6 +13,11 @@ const tile: ActivePanoramaTile = {
   verticalFieldOfViewDegrees: 40,
   widthPixels: 1600,
   heightPixels: 1200,
+  coveragePolygon: [
+    { azimuthDegrees: -30, altitudeDegrees: 25 },
+    { azimuthDegrees: 30, altitudeDegrees: 25 },
+    { azimuthDegrees: 30, altitudeDegrees: 65 },
+  ],
 };
 
 describe('panorama Sky View overlay projection', () => {

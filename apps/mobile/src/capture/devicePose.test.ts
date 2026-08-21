@@ -1,5 +1,4 @@
 import {
-  cameraFrameDirections,
   createPoseDrivenPlanetariumCamera,
   devicePoseToReviewedPlacement,
   devicePoseToOrientationSnapshot,
@@ -136,42 +135,7 @@ describe('native device pose boundary', () => {
 });
 
 describe('spherical capture footprint', () => {
-  it('uses all four camera-frame corners for the 20 through 80 degree limits', () => {
-    const upward45: DevicePoseSample = {
-      ...northHorizonPose,
-      forward: {
-        east: 0,
-        north: Math.SQRT1_2,
-        up: Math.SQRT1_2,
-      },
-      right: { east: 1, north: 0, up: 0 },
-      up: {
-        east: 0,
-        north: -Math.SQRT1_2,
-        up: Math.SQRT1_2,
-      },
-    };
-    const fieldOfView = { horizontalDegrees: 55, verticalDegrees: 40 };
-    const directions = cameraFrameDirections(upward45, fieldOfView);
-    const altitudes = directions.map(({ altitudeDegrees }) => altitudeDegrees);
-    expect(directions.length).toBeGreaterThanOrEqual(64);
-    // A rectilinear camera's spherical corner altitudes are not centre ± half
-    // the vertical FOV when the horizontal FOV is non-zero.
-    expect(Math.min(...altitudes)).toBeGreaterThan(22);
-    expect(Math.min(...altitudes)).toBeLessThan(23);
-    expect(Math.max(...altitudes)).toBeGreaterThan(64);
-    expect(Math.max(...altitudes)).toBeLessThan(66);
-    expect(poseCaptureAltitudeStatus(upward45, fieldOfView)).toBe('allowed');
-
-    const low = {
-      ...upward45,
-      forward: { east: 0, north: Math.cos(Math.PI / 6), up: 0.5 },
-      up: { east: 0, north: -0.5, up: Math.cos(Math.PI / 6) },
-    };
-    expect(poseCaptureAltitudeStatus(low, fieldOfView)).toBe('too-low');
-  });
-
-  it('keeps a tall portrait camera reachable while enforcing its lower edge and aim', () => {
+  it('allows camera centres from the horizon through the zenith', () => {
     const poseAtAltitude = (altitudeDegrees: number): DevicePoseSample => {
       const altitudeRadians = (altitudeDegrees * Math.PI) / 180;
       return {
@@ -188,19 +152,11 @@ describe('spherical capture footprint', () => {
         },
       };
     };
-    const portraitPhoneFieldOfView = {
-      horizontalDegrees: 55,
-      verticalDegrees: 69,
-    };
-
-    expect(
-      poseCaptureAltitudeStatus(poseAtAltitude(60), portraitPhoneFieldOfView),
-    ).toBe('allowed');
-    expect(
-      poseCaptureAltitudeStatus(poseAtAltitude(45), portraitPhoneFieldOfView),
-    ).toBe('too-low');
-    expect(
-      poseCaptureAltitudeStatus(poseAtAltitude(85), portraitPhoneFieldOfView),
-    ).toBe('too-high');
+    for (const altitudeDegrees of [0, 45, 80, 90]) {
+      expect(poseCaptureAltitudeStatus(poseAtAltitude(altitudeDegrees))).toBe(
+        'allowed',
+      );
+    }
+    expect(poseCaptureAltitudeStatus(poseAtAltitude(-1))).toBe('below-horizon');
   });
 });

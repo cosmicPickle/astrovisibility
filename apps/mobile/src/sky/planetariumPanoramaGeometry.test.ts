@@ -12,6 +12,11 @@ const upwardTile: ActivePanoramaTile = {
   verticalFieldOfViewDegrees: 45,
   widthPixels: 1600,
   heightPixels: 1200,
+  coveragePolygon: [
+    { azimuthDegrees: 0, altitudeDegrees: 65 },
+    { azimuthDegrees: 120, altitudeDegrees: 65 },
+    { azimuthDegrees: 240, altitudeDegrees: 65 },
+  ],
 };
 
 describe('planetarium panorama mesh', () => {

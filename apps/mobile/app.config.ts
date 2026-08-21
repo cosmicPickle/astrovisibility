@@ -43,20 +43,6 @@ export default ({ config }: ConfigContext): AstrovisibilityExpoConfig => ({
           'Allow Astrovisibility to save your observing position when you choose Use current location.',
       },
     ],
-    [
-      'expo-image-picker',
-      {
-        photosPermission:
-          'Allow Astrovisibility to import surroundings for manual sky placement.',
-      },
-    ],
-    [
-      'expo-sensors',
-      {
-        motionPermission:
-          'Allow Astrovisibility to orient captured sky tiles during panorama capture.',
-      },
-    ],
   ],
   experiments: {
     typedRoutes: true,
