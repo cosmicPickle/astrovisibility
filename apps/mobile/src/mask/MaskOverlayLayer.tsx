@@ -1,9 +1,17 @@
-import { Circle, Defs, Mask as SvgMask, Path, Rect } from 'react-native-svg';
+import {
+  Circle,
+  Defs,
+  Image as SvgImage,
+  Mask as SvgMask,
+  Path,
+  Rect,
+} from 'react-native-svg';
 
 import type { AngularPointDegrees, VisibilityMask } from './visibilityMask';
 import { colors } from '../theme/tokens';
 import { projectMaskToPanoramaEditorViewport } from '../sky/maskOverlayGeometry';
 import type { PanoramaEditorViewport } from '../sky/panoramaOverlayGeometry';
+import { projectDirectionalAtlasRect } from './PanoramaEditorLayer';
 
 type DraftMaskStroke = Readonly<{
   angularRadiusDegrees: number;
@@ -43,6 +51,7 @@ export function MaskOverlayLayer({
   const strokes = projected.operations.filter(
     (operation) => operation.kind !== 'visiblePolygon',
   );
+  const atlasRect = projectDirectionalAtlasRect(viewport, canvas);
   return (
     <>
       <Defs>
@@ -62,6 +71,16 @@ export function MaskOverlayLayer({
             x={0}
             y={0}
           />
+          {mask.raster ? (
+            <SvgImage
+              height={atlasRect.height}
+              href={{ uri: mask.raster.uri }}
+              preserveAspectRatio="none"
+              width={atlasRect.width}
+              x={atlasRect.x}
+              y={atlasRect.y}
+            />
+          ) : null}
           {strokes.map((operation) => {
             const paint =
               operation.kind === 'blockedStroke' ? 'white' : 'black';

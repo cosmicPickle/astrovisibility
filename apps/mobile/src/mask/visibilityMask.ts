@@ -2,6 +2,10 @@ import {
   normalizeAzimuthDegrees,
   unwrapAzimuthDegreesNear,
 } from '../sky/projection';
+import {
+  classifyRasterMaskDirection,
+  rasterMaskSegmentMayCrossBoundary,
+} from './rasterMask';
 
 export type AngularPointDegrees = Readonly<{
   azimuthDegrees: number;
@@ -26,6 +30,12 @@ export type VisibilityMaskOperation =
 export type VisibilityMask = Readonly<{
   coveragePolygons: readonly (readonly AngularPointDegrees[])[];
   operations: readonly VisibilityMaskOperation[];
+  raster?: Readonly<{
+    blockedBitset: Uint8Array;
+    heightPixels: number;
+    uri: string;
+    widthPixels: number;
+  }>;
 }>;
 export type MaskClassification = 'blocked' | 'visible';
 
@@ -476,6 +486,13 @@ function boundsOverlap(
 export function createVisibilityMaskEvaluator(
   mask: VisibilityMask,
 ): VisibilityMaskEvaluator {
+  if (mask.raster) {
+    return {
+      classify: (point) => classifyRasterMaskDirection(mask.raster!, point),
+      segmentMayCrossBoundary: (left, right) =>
+        rasterMaskSegmentMayCrossBoundary(mask.raster!, left, right),
+    };
+  }
   const cached = evaluatorCache.get(mask);
   if (cached) return cached;
   const compilePolygon = (

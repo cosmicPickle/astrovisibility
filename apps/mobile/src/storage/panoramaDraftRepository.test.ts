@@ -46,17 +46,15 @@ class NodeSqliteDatabase implements SqlDatabase {
 class MemoryOwnedFileStore implements OwnedFileStore {
   readonly temporary = new Set<string>();
   readonly durable = new Set<string>();
-  failCopyAt: number | undefined;
-  private copyCount = 0;
+  failPromotion = false;
 
   async promoteTemporaryFile(sourceUri: string, destination: string) {
+    if (this.failPromotion) throw new Error('storage full');
     if (!this.temporary.delete(sourceUri)) throw new Error('missing source');
     this.durable.add(destination);
   }
 
   async copyOwnedFile(source: string, destination: string) {
-    this.copyCount += 1;
-    if (this.copyCount === this.failCopyAt) throw new Error('storage full');
     if (!this.durable.has(source)) throw new Error('missing owned source');
     this.durable.add(destination);
   }
@@ -115,6 +113,14 @@ const tile = {
     { azimuthDegrees: 386, altitudeDegrees: 48 },
     { azimuthDegrees: 324, altitudeDegrees: 48 },
   ],
+};
+
+const panoramaAsset = {
+  coverageBitset: new Uint8Array(8).fill(0xff),
+  heightPixels: 8,
+  projection: 'azimuthal-equidistant-upper-hemisphere' as const,
+  temporaryUri: 'temp://panorama.png',
+  widthPixels: 8,
 };
 
 async function setup() {
@@ -183,26 +189,24 @@ describe('panorama capture drafts', () => {
     const repository = new PanoramaDraftRepository(database, files);
     await repository.create('draft-1', profile.id, profile.createdAtUtc);
     await repository.addTile('draft-1', tile, tile.capturedAtUtc);
+    files.temporary.add(panoramaAsset.temporaryUri);
 
     await repository.complete(
       'draft-1',
       'panorama-1',
       '2026-08-19T12:04:00.000Z',
+      panoramaAsset,
     );
 
     expect(await repository.getForProfile(profile.id)).toBeNull();
     expect(await repository.getActiveForProfile(profile.id)).toMatchObject({
       id: 'panorama-1',
-      tiles: [
-        {
-          id: 'tile-1',
-          centerAzimuthDegrees: 355,
-          coveragePolygon: tile.coveragePolygon,
-        },
-      ],
+      heightPixels: 8,
+      tiles: [],
+      widthPixels: 8,
     });
     expect(files.durable).toEqual(
-      new Set(['profiles/profile-1/panoramas/panorama-1/tiles/tile-1.jpg']),
+      new Set(['profiles/profile-1/panoramas/panorama-1/panorama.png']),
     );
     native.close();
   });
@@ -213,10 +217,16 @@ describe('panorama capture drafts', () => {
     const repository = new PanoramaDraftRepository(database, files);
     await repository.create('draft-1', profile.id, profile.createdAtUtc);
     await repository.addTile('draft-1', tile, tile.capturedAtUtc);
-    files.failCopyAt = 1;
+    files.temporary.add(panoramaAsset.temporaryUri);
+    files.failPromotion = true;
 
     await expect(
-      repository.complete('draft-1', 'panorama-1', '2026-08-19T12:04:00.000Z'),
+      repository.complete(
+        'draft-1',
+        'panorama-1',
+        '2026-08-19T12:04:00.000Z',
+        panoramaAsset,
+      ),
     ).rejects.toThrow('storage full');
 
     expect(await repository.getForProfile(profile.id)).not.toBeNull();

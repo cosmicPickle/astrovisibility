@@ -1,117 +1,68 @@
 import { z } from 'zod';
 
-import {
-  canonicalizeMaskOperations,
-  createVisibilityMask,
-  type AngularPointDegrees,
-  type VisibilityMask,
-  type VisibilityMaskOperation,
-} from '../mask/visibilityMask';
+import { blockedBitsetByteLength } from '../mask/rasterMask';
+import type { VisibilityMask } from '../mask/visibilityMask';
+import { DIRECTIONAL_ATLAS_PROJECTION } from '../panorama/directionalAtlas';
 import type { OwnedFileStore, SqlDatabase } from './types';
 import { inImmediateTransaction } from './types';
 
 const safeId = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const utcInstant = z.iso.datetime({ offset: true });
-const angularPointSchema = z.object({
-  azimuthDegrees: z.number().finite(),
-  altitudeDegrees: z.number().min(0).max(90),
-});
-const polygonSchema = z.array(angularPointSchema).min(3).max(10_000);
-const persistedCoverageSchema = z.array(polygonSchema).max(200);
-const operationSchema = z.discriminatedUnion('kind', [
-  z.object({
-    id: safeId,
-    kind: z.literal('visiblePolygon'),
-    points: polygonSchema,
-  }),
-  z.object({
-    id: safeId,
-    kind: z.enum(['blockedStroke', 'visibleStroke']),
-    angularRadiusDegrees: z.number().positive().max(180),
-    points: z.array(angularPointSchema).min(1).max(10_000),
-  }),
-]);
-const saveInputSchema = z.object({
-  id: safeId,
-  profileId: safeId,
-  panoramaRevisionId: safeId,
-  createdAtUtc: utcInstant,
-  operations: z.array(operationSchema).max(10_000),
-});
 
 export type SaveMaskRevisionInput = Readonly<{
-  id: string;
-  profileId: string;
-  panoramaRevisionId: string;
+  blockedBitset: Uint8Array;
   createdAtUtc: string;
-  operations: readonly VisibilityMaskOperation[];
+  heightPixels: number;
+  id: string;
+  panoramaRevisionId: string;
+  profileId: string;
+  projection: typeof DIRECTIONAL_ATLAS_PROJECTION;
+  temporaryUri: string;
+  widthPixels: number;
 }>;
 
 export type ActiveMaskRevision = Readonly<{
-  id: string;
-  profileId: string;
-  panoramaRevisionId: string;
-  formatVersion: number;
   createdAtUtc: string;
   coveragePolygons: VisibilityMask['coveragePolygons'];
+  formatVersion: number;
+  id: string;
   operations: VisibilityMask['operations'];
+  panoramaRevisionId: string;
+  profileId: string;
+  raster?: NonNullable<VisibilityMask['raster']>;
 }>;
 
 type ActiveRevisionRow = {
-  id: string;
-  profileId: string;
-  panoramaRevisionId: string;
-  formatVersion: number;
-  coverageJson: string;
+  blockedBitset: Uint8Array;
   createdAtUtc: string;
-};
-
-type OperationRow = {
+  formatVersion: number;
+  heightPixels: number;
   id: string;
-  kind: 'visiblePolygon' | 'blockedStroke' | 'visibleStroke';
-  geometryJson: string;
+  panoramaRevisionId: string;
+  profileId: string;
+  projection: string;
+  relativePath: string;
+  widthPixels: number;
 };
 
-function parseJson(value: string, label: string): unknown {
-  try {
-    return JSON.parse(value) as unknown;
-  } catch {
-    throw new Error(`${label} contains invalid JSON.`);
+const validateRaster = (input: SaveMaskRevisionInput) => {
+  safeId.parse(input.id);
+  safeId.parse(input.profileId);
+  safeId.parse(input.panoramaRevisionId);
+  utcInstant.parse(input.createdAtUtc);
+  if (
+    input.projection !== DIRECTIONAL_ATLAS_PROJECTION ||
+    !input.temporaryUri ||
+    !Number.isInteger(input.widthPixels) ||
+    !Number.isInteger(input.heightPixels) ||
+    input.widthPixels <= 0 ||
+    input.heightPixels <= 0 ||
+    input.blockedBitset.length !==
+      blockedBitsetByteLength(input.widthPixels, input.heightPixels)
+  ) {
+    throw new Error('The binary mask image is invalid.');
   }
-}
-
-function parseCoverageJson(value: string): AngularPointDegrees[][] {
-  return persistedCoverageSchema.parse(parseJson(value, 'Mask coverage'));
-}
-
-function serializeOperation(operation: VisibilityMaskOperation): string {
-  return operation.kind === 'visiblePolygon'
-    ? JSON.stringify({ points: operation.points })
-    : JSON.stringify({
-        points: operation.points,
-        angularRadiusDegrees: operation.angularRadiusDegrees,
-      });
-}
-
-function parseOperation(row: OperationRow): VisibilityMaskOperation {
-  const geometry = parseJson(row.geometryJson, `Mask operation ${row.id}`);
-  if (row.kind === 'visiblePolygon') {
-    const parsed = z.object({ points: polygonSchema }).parse(geometry);
-    return { id: row.id, kind: row.kind, points: parsed.points };
-  }
-  const parsed = z
-    .object({
-      angularRadiusDegrees: z.number().positive().max(180),
-      points: z.array(angularPointSchema).min(1).max(10_000),
-    })
-    .parse(geometry);
-  return {
-    id: row.id,
-    kind: row.kind,
-    angularRadiusDegrees: parsed.angularRadiusDegrees,
-    points: parsed.points,
-  };
-}
+};
 
 export class MaskRepository {
   private readonly database: SqlDatabase;
@@ -122,89 +73,98 @@ export class MaskRepository {
     this.files = files;
   }
 
-  async saveRevision(rawInput: SaveMaskRevisionInput): Promise<void> {
-    const input = saveInputSchema.parse(rawInput);
-    const operations = canonicalizeMaskOperations(input.operations);
-    await inImmediateTransaction(this.database, async () => {
-      const panorama = await this.database.getFirstAsync<{
-        id: string;
-      }>(
-        `SELECT panorama_revisions.id
-         FROM profiles
-         JOIN panorama_revisions
-           ON panorama_revisions.id = profiles.active_panorama_revision_id
-         WHERE profiles.id = ?
-           AND panorama_revisions.id = ?
-           AND panorama_revisions.profile_id = profiles.id
-           AND panorama_revisions.status = 'complete'`,
-        [input.profileId, input.panoramaRevisionId],
+  async saveRevision(input: SaveMaskRevisionInput): Promise<void> {
+    validateRaster(input);
+    const panorama = await this.database.getFirstAsync<{
+      heightPixels: number;
+      projection: string;
+      widthPixels: number;
+    }>(
+      `SELECT panorama_revisions.width_pixels AS widthPixels,
+        panorama_revisions.height_pixels AS heightPixels,
+        panorama_revisions.projection
+       FROM profiles
+       JOIN panorama_revisions
+         ON panorama_revisions.id = profiles.active_panorama_revision_id
+       WHERE profiles.id = ?
+         AND panorama_revisions.id = ?
+         AND panorama_revisions.profile_id = profiles.id
+         AND panorama_revisions.status = 'complete'`,
+      [input.profileId, input.panoramaRevisionId],
+    );
+    if (
+      !panorama ||
+      panorama.projection !== input.projection ||
+      panorama.widthPixels !== input.widthPixels ||
+      panorama.heightPixels !== input.heightPixels
+    ) {
+      throw new Error(
+        'A mask revision must match the active directional panorama.',
       );
-      if (!panorama) {
-        throw new Error(
-          'A mask revision must reference the profile active panorama.',
-        );
-      }
-      const tileRows = await this.database.getAllAsync<{
-        coverageJson: string | null;
-      }>(
-        `SELECT coverage_polygon_json AS coverageJson
-         FROM panorama_tiles WHERE panorama_revision_id = ? ORDER BY ordinal`,
-        [input.panoramaRevisionId],
-      );
-      if (
-        tileRows.length === 0 ||
-        tileRows.some(({ coverageJson }) => !coverageJson)
-      ) {
-        throw new Error(
-          'The active panorama has incomplete directional coverage.',
-        );
-      }
-      const coveragePolygons = tileRows.map(({ coverageJson }) =>
-        polygonSchema.parse(parseJson(coverageJson!, 'Panorama tile coverage')),
-      );
-      const mask = createVisibilityMask(coveragePolygons, operations);
-
-      await this.database.runAsync(
-        `INSERT INTO mask_revisions (
-          id, profile_id, panorama_revision_id, status, format_version,
-          coverage_json, created_at_utc
-        ) VALUES (?, ?, ?, 'complete', 1, ?, ?)`,
-        [
-          input.id,
-          input.profileId,
-          input.panoramaRevisionId,
-          JSON.stringify(mask.coveragePolygons),
-          input.createdAtUtc,
-        ],
-      );
-      for (const [ordinal, operation] of mask.operations.entries()) {
+    }
+    const previous = await this.database.getFirstAsync<{
+      id: string;
+      relativePath: string;
+    }>(
+      `SELECT mask_revisions.id,
+        mask_revisions.file_relative_path AS relativePath
+       FROM profiles
+       JOIN mask_revisions
+         ON mask_revisions.id = profiles.active_mask_revision_id
+       WHERE profiles.id = ?`,
+      [input.profileId],
+    );
+    const relativePath = `profiles/${input.profileId}/panoramas/${input.panoramaRevisionId}/masks/${input.id}.png`;
+    let promoted = false;
+    try {
+      await this.files.promoteTemporaryFile(input.temporaryUri, relativePath);
+      promoted = true;
+      await inImmediateTransaction(this.database, async () => {
         await this.database.runAsync(
-          `INSERT INTO mask_operations (
-            id, mask_revision_id, ordinal, kind, geometry_json
-          ) VALUES (?, ?, ?, ?, ?)`,
+          `INSERT INTO mask_revisions (
+            id, profile_id, panorama_revision_id, status, format_version,
+            coverage_json, created_at_utc, file_relative_path, width_pixels,
+            height_pixels, projection, blocked_bits
+          ) VALUES (?, ?, ?, 'complete', 2, '[]', ?, ?, ?, ?, ?, ?)`,
           [
-            operation.id,
             input.id,
-            ordinal,
-            operation.kind,
-            serializeOperation(operation),
+            input.profileId,
+            input.panoramaRevisionId,
+            input.createdAtUtc,
+            relativePath,
+            input.widthPixels,
+            input.heightPixels,
+            input.projection,
+            input.blockedBitset,
           ],
         );
-      }
-      const activation = await this.database.runAsync(
-        `UPDATE profiles SET active_mask_revision_id = ?, updated_at_utc = ?
-         WHERE id = ? AND active_panorama_revision_id = ?`,
-        [
-          input.id,
-          input.createdAtUtc,
-          input.profileId,
-          input.panoramaRevisionId,
-        ],
-      );
-      if (activation.changes !== 1) {
-        throw new Error('The active panorama changed while saving the mask.');
-      }
-    });
+        const activation = await this.database.runAsync(
+          `UPDATE profiles SET active_mask_revision_id = ?, updated_at_utc = ?
+           WHERE id = ? AND active_panorama_revision_id = ?`,
+          [
+            input.id,
+            input.createdAtUtc,
+            input.profileId,
+            input.panoramaRevisionId,
+          ],
+        );
+        if (activation.changes !== 1) {
+          throw new Error('The active panorama changed while saving the mask.');
+        }
+        if (previous) {
+          await this.database.runAsync(
+            'DELETE FROM mask_revisions WHERE id = ?',
+            [previous.id],
+          );
+        }
+      });
+    } catch (error) {
+      if (promoted) await this.files.deleteOwnedFile(relativePath);
+      throw error;
+    }
+    if (previous?.relativePath) {
+      await this.files.deleteOwnedFile(previous.relativePath);
+    }
   }
 
   async getActiveForProfile(
@@ -216,8 +176,12 @@ export class MaskRepository {
         mask_revisions.profile_id AS profileId,
         mask_revisions.panorama_revision_id AS panoramaRevisionId,
         mask_revisions.format_version AS formatVersion,
-        mask_revisions.coverage_json AS coverageJson,
-        mask_revisions.created_at_utc AS createdAtUtc
+        mask_revisions.created_at_utc AS createdAtUtc,
+        mask_revisions.file_relative_path AS relativePath,
+        mask_revisions.width_pixels AS widthPixels,
+        mask_revisions.height_pixels AS heightPixels,
+        mask_revisions.projection,
+        mask_revisions.blocked_bits AS blockedBitset
        FROM profiles
        JOIN panorama_revisions
          ON panorama_revisions.id = profiles.active_panorama_revision_id
@@ -230,38 +194,37 @@ export class MaskRepository {
       [profileId],
     );
     if (!revision) return null;
-    if (revision.formatVersion !== 1) {
-      throw new Error(
-        `Unsupported mask format version: ${revision.formatVersion}.`,
-      );
+    if (
+      revision.formatVersion !== 2 ||
+      revision.projection !== DIRECTIONAL_ATLAS_PROJECTION ||
+      !revision.relativePath ||
+      !(revision.blockedBitset instanceof Uint8Array) ||
+      revision.blockedBitset.length !==
+        blockedBitsetByteLength(revision.widthPixels, revision.heightPixels)
+    ) {
+      throw new Error('The active binary mask metadata is invalid.');
     }
-    const rows = await this.database.getAllAsync<OperationRow>(
-      `SELECT id, kind, geometry_json AS geometryJson
-       FROM mask_operations WHERE mask_revision_id = ? ORDER BY ordinal`,
-      [revision.id],
-    );
-    const mask = createVisibilityMask(
-      parseCoverageJson(revision.coverageJson),
-      rows.map(parseOperation),
-    );
     return Object.freeze({
-      id: revision.id,
-      profileId: revision.profileId,
-      panoramaRevisionId: revision.panoramaRevisionId,
-      formatVersion: revision.formatVersion,
       createdAtUtc: revision.createdAtUtc,
-      coveragePolygons: mask.coveragePolygons,
-      operations: mask.operations,
+      coveragePolygons: [],
+      formatVersion: revision.formatVersion,
+      id: revision.id,
+      operations: [],
+      panoramaRevisionId: revision.panoramaRevisionId,
+      profileId: revision.profileId,
+      raster: Object.freeze({
+        blockedBitset: revision.blockedBitset,
+        heightPixels: revision.heightPixels,
+        uri: this.files.resolveOwnedFileUri(revision.relativePath),
+        widthPixels: revision.widthPixels,
+      }),
     });
   }
 
   async deleteActivePanoramaAndMasks(
     profileId: string,
     updatedAtUtc: string,
-  ): Promise<{
-    deleted: boolean;
-    fileCleanupFailures: string[];
-  }> {
+  ): Promise<{ deleted: boolean; fileCleanupFailures: string[] }> {
     safeId.parse(profileId);
     utcInstant.parse(updatedAtUtc);
     const relativePaths = await inImmediateTransaction(
@@ -276,10 +239,15 @@ export class MaskRepository {
         );
         if (!profile) throw new Error(`Profile not found: ${profileId}`);
         if (!profile.panoramaRevisionId) return null;
-        const rows = await this.database.getAllAsync<{ relativePath: string }>(
+        const rows = await this.database.getAllAsync<{
+          relativePath: string;
+        }>(
           `SELECT file_relative_path AS relativePath
-           FROM panorama_tiles WHERE panorama_revision_id = ?`,
-          [profile.panoramaRevisionId],
+           FROM panorama_revisions WHERE id = ?
+           UNION
+           SELECT file_relative_path AS relativePath
+           FROM mask_revisions WHERE panorama_revision_id = ?`,
+          [profile.panoramaRevisionId, profile.panoramaRevisionId],
         );
         const deactivation = await this.database.runAsync(
           `UPDATE profiles SET active_panorama_revision_id = NULL,
@@ -297,7 +265,7 @@ export class MaskRepository {
         if (deletion.changes !== 1) {
           throw new Error('The active panorama could not be deleted.');
         }
-        return rows.map(({ relativePath }) => relativePath);
+        return rows.map(({ relativePath }) => relativePath).filter(Boolean);
       },
     );
     if (!relativePaths) return { deleted: false, fileCleanupFailures: [] };

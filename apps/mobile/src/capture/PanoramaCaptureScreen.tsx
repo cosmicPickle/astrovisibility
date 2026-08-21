@@ -29,6 +29,7 @@ import type {
 import type { ProfileRecord } from '../storage/profileRepository';
 import { createLocalRecordId } from '../storage/recordIdentity';
 import { colors, layout } from '../theme/tokens';
+import { createDirectionalPanoramaImage } from '../panorama/directionalAtlasImage';
 import {
   applyTileCorrection,
   createCapturedTile,
@@ -136,10 +137,14 @@ export const panoramaCaptureController: PanoramaCaptureController = {
   },
   async completeDraft(draftId) {
     const storage = await bootstrapStorage();
+    const draft = await storage.panoramas.getById(draftId);
+    if (!draft) throw new Error('The panorama draft could not be reopened.');
+    const asset = await createDirectionalPanoramaImage(draft);
     await storage.panoramas.complete(
       draftId,
       createLocalRecordId('panorama'),
       new Date().toISOString(),
+      asset,
     );
   },
 };
@@ -155,7 +160,7 @@ export const PanoramaCaptureScreen = ({
   services,
 }: {
   controller?: PanoramaCaptureController;
-  navigation: { goBack(): void; onSaved(): void };
+  navigation: { goBack(): void; onAlign?(): void; onSaved(): void };
   profileId: string;
   services?: PanoramaCaptureServices;
 }) => {
@@ -392,6 +397,10 @@ export const PanoramaCaptureScreen = ({
     }
   };
   const finishCapture = () => {
+    if (navigation.onAlign) {
+      navigation.onAlign();
+      return;
+    }
     if (PANORAMA_ALIGNMENT_REVIEW_ENABLED) {
       openReview();
       return;
@@ -469,7 +478,7 @@ export const PanoramaCaptureScreen = ({
               />
               {draft.tiles.length > 0 ? (
                 <ActionButton
-                  label="Draw mask"
+                  label="Align Tiles"
                   onPress={finishCapture}
                   variant="secondary"
                 />

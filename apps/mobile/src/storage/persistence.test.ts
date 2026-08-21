@@ -145,7 +145,7 @@ describe('SQLite migrations and repositories', () => {
     const version = await database.getFirstAsync<{ user_version: number }>(
       'PRAGMA user_version',
     );
-    expect(version?.user_version).toBe(5);
+    expect(version?.user_version).toBe(6);
 
     const firstRepository = new ProfileRepository(database);
     await firstRepository.create(profile);

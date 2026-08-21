@@ -4,16 +4,24 @@ import { Pressable, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import type { ActivePanorama } from '../storage/panoramaDraftRepository';
-import type { VisibilityMaskOperation } from './visibilityMask';
 import {
   MaskEditorScreen,
   type MaskEditorCanvasProps,
   type MaskEditorController,
 } from './MaskEditorScreen';
 
+jest.mock('../panorama/directionalAtlasImage', () => ({
+  createMaskImageFile: () => 'file:///temporary/mask.png',
+}));
+
 const panorama: ActivePanorama = {
   id: 'panorama-1',
   profileId: 'profile-1',
+  coverageBitset: new Uint8Array(8).fill(0xff),
+  heightPixels: 8,
+  projection: 'azimuthal-equidistant-upper-hemisphere',
+  uri: 'file:///panorama-atlas.png',
+  widthPixels: 8,
   tiles: [
     {
       id: 'tile-1',
@@ -31,16 +39,6 @@ const panorama: ActivePanorama = {
         { azimuthDegrees: 365, altitudeDegrees: 88 },
       ],
     },
-  ],
-};
-
-const initialOperation: VisibilityMaskOperation = {
-  id: 'existing-region',
-  kind: 'visiblePolygon',
-  points: [
-    { azimuthDegrees: 350, altitudeDegrees: 55 },
-    { azimuthDegrees: 370, altitudeDegrees: 55 },
-    { azimuthDegrees: 360, altitudeDegrees: 85 },
   ],
 };
 
@@ -100,10 +98,8 @@ describe('MaskEditorScreen', () => {
     expect(screen.getByTestId('active-tool').props.children).toBe(
       'blockedStroke',
     );
-    expect(screen.getByTestId('coverage').props.children).toBe(
-      JSON.stringify([panorama.tiles[0]!.coveragePolygon]),
-    );
-    expect(screen.getByTestId('operation-count').props.children).toBe(1);
+    expect(screen.getByTestId('coverage').props.children).toBe('[]');
+    expect(screen.getByTestId('operation-count').props.children).toBe(0);
     expect(screen.getByText('Draw')).toBeTruthy();
     expect(screen.getByText('Erase')).toBeTruthy();
     expect(screen.getByText(/Brush size/)).toBeTruthy();
@@ -115,10 +111,10 @@ describe('MaskEditorScreen', () => {
     expect(screen.queryByText('Before')).toBeNull();
 
     await fireEvent.press(screen.getByLabelText('Test add stroke'));
-    expect(screen.getByTestId('operation-count').props.children).toBe(2);
+    expect(screen.getByTestId('operation-count').props.children).toBe(1);
     await fireEvent.press(screen.getByText('Erase'));
     await fireEvent.press(screen.getByLabelText('Test add stroke'));
-    expect(screen.getByTestId('operation-count').props.children).toBe(3);
+    expect(screen.getByTestId('operation-count').props.children).toBe(2);
   });
 
   it('can complete captured coverage without painting an obstacle', async () => {
@@ -138,11 +134,13 @@ describe('MaskEditorScreen', () => {
 
     await waitFor(() => expect(editorController.save).toHaveBeenCalled());
     const saved = (editorController.save as jest.Mock).mock.calls[0][0];
-    expect(saved.operations).toHaveLength(1);
-    expect(saved.operations[0]).toMatchObject({
-      id: 'coverage-1',
-      kind: 'visiblePolygon',
+    expect(saved).toMatchObject({
+      heightPixels: 8,
+      projection: 'azimuthal-equidistant-upper-hemisphere',
+      temporaryUri: 'file:///temporary/mask.png',
+      widthPixels: 8,
     });
+    expect(saved.blockedBitset).toBeInstanceOf(Uint8Array);
   });
 
   it('loads an existing revision, applies ordered brush corrections, removes operations, and saves a new revision', async () => {
@@ -152,10 +150,16 @@ describe('MaskEditorScreen', () => {
         id: 'mask-1',
         profileId: 'profile-1',
         panoramaRevisionId: panorama.id,
-        formatVersion: 1,
+        formatVersion: 2,
         createdAtUtc: '2026-08-19T10:00:00.000Z',
-        coveragePolygons: [panorama.tiles[0]!.coveragePolygon],
-        operations: [initialOperation],
+        coveragePolygons: [],
+        operations: [],
+        raster: {
+          blockedBitset: new Uint8Array(8),
+          heightPixels: 8,
+          uri: 'file:///mask.png',
+          widthPixels: 8,
+        },
       },
       panorama,
       profileName: 'Terrace',
@@ -170,32 +174,26 @@ describe('MaskEditorScreen', () => {
       />,
     );
     await waitFor(() => screen.getByText('Edit obstacle mask'));
-    expect(screen.getByTestId('operation-count').props.children).toBe(1);
+    expect(screen.getByTestId('operation-count').props.children).toBe(0);
     await fireEvent.press(screen.getByText('Draw'));
     await fireEvent.press(screen.getByLabelText('Test add stroke'));
-    expect(screen.getByTestId('operation-count').props.children).toBe(2);
+    expect(screen.getByTestId('operation-count').props.children).toBe(1);
     await fireEvent.press(screen.getByText('Erase'));
     await fireEvent.press(screen.getByLabelText('Test add stroke'));
-    expect(screen.getByTestId('operation-count').props.children).toBe(3);
+    expect(screen.getByTestId('operation-count').props.children).toBe(2);
     await fireEvent.press(screen.getByText('Complete mask'));
     expect(
-      screen.getByText(/red areas and uncaptured directions will be blocked/i),
+      screen.getByText(
+        /painted obstacles and uncaptured directions will be blocked/i,
+      ),
     ).toBeTruthy();
     await fireEvent.press(screen.getByText('Save binary mask'));
 
     await waitFor(() => expect(editorController.save).toHaveBeenCalled());
     const saved = (editorController.save as jest.Mock).mock.calls[0][0];
     expect(saved.panoramaRevisionId).toBe(panorama.id);
-    expect(saved.operations).toHaveLength(3);
-    expect(saved.operations[0].kind).toBe('visiblePolygon');
-    expect(saved.operations[1]).toMatchObject({
-      angularRadiusDegrees: 0.5,
-      kind: 'blockedStroke',
-    });
-    expect(saved.operations[2]).toMatchObject({
-      angularRadiusDegrees: 0.5,
-      kind: 'visibleStroke',
-    });
+    expect(saved.blockedBitset).toBeInstanceOf(Uint8Array);
+    expect(saved.temporaryUri).toBe('file:///temporary/mask.png');
     expect(onSaved).toHaveBeenCalled();
   });
 

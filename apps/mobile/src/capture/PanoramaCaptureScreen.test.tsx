@@ -127,6 +127,7 @@ const renderScreen = (
   controller: PanoramaCaptureController,
   services: PanoramaCaptureServices,
   onSaved = jest.fn(),
+  onAlign = jest.fn(),
 ) =>
   render(
     <SafeAreaProvider
@@ -137,7 +138,7 @@ const renderScreen = (
     >
       <PanoramaCaptureScreen
         controller={controller}
-        navigation={{ goBack: jest.fn(), onSaved }}
+        navigation={{ goBack: jest.fn(), onAlign, onSaved }}
         profileId="profile-1"
         services={services}
       />
@@ -326,8 +327,9 @@ describe('PanoramaCaptureScreen', () => {
     },
   );
 
-  it('resumes a durable draft and goes directly to mask editing', async () => {
+  it('resumes a durable draft and opens dedicated tile alignment', async () => {
     const onSaved = jest.fn();
+    const onAlign = jest.fn();
     const controller: PanoramaCaptureController = {
       load: jest.fn().mockResolvedValue({
         profile,
@@ -352,16 +354,15 @@ describe('PanoramaCaptureScreen', () => {
       discardDraft: jest.fn(),
       completeDraft: jest.fn().mockResolvedValue(undefined),
     };
-    const screen = await renderScreen(controller, services(), onSaved);
+    const screen = await renderScreen(controller, services(), onSaved, onAlign);
     await waitFor(() => screen.getByText('Resume 1-tile draft'));
     expect(screen.queryByText('Review draft')).toBeNull();
     expect(screen.queryByText('Review tile alignment')).toBeNull();
-    await act(async () => fireEvent.press(screen.getByText('Draw mask')));
-    await waitFor(() =>
-      expect(controller.completeDraft).toHaveBeenCalledWith('draft-1'),
-    );
+    await act(async () => fireEvent.press(screen.getByText('Align Tiles')));
+    expect(onAlign).toHaveBeenCalledTimes(1);
+    expect(controller.completeDraft).not.toHaveBeenCalled();
     expect(controller.updateTilePlacement).not.toHaveBeenCalled();
-    expect(onSaved).toHaveBeenCalledTimes(1);
+    expect(onSaved).not.toHaveBeenCalled();
   });
 
   it('allows an interrupted draft to be discarded explicitly', async () => {

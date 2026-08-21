@@ -40,6 +40,10 @@ export default function RootLayout() {
             options={{ title: 'Capture panorama' }}
           />
           <Stack.Screen
+            name="profiles/[id]/align-panorama"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
             name="profiles/[id]/mask"
             options={{ headerShown: false }}
           />

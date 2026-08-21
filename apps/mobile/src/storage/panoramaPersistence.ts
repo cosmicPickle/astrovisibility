@@ -193,7 +193,13 @@ export async function removeOrphanedOwnedFiles(
   const referencedRows = await database.getAllAsync<{ relativePath: string }>(
     `SELECT file_relative_path AS relativePath FROM panorama_tiles
      UNION
-     SELECT file_relative_path AS relativePath FROM panorama_capture_draft_tiles`,
+     SELECT file_relative_path AS relativePath FROM panorama_capture_draft_tiles
+     UNION
+     SELECT file_relative_path AS relativePath FROM panorama_revisions
+       WHERE file_relative_path IS NOT NULL
+     UNION
+     SELECT file_relative_path AS relativePath FROM mask_revisions
+       WHERE file_relative_path IS NOT NULL`,
   );
   const referenced = new Set(referencedRows.map((row) => row.relativePath));
   const orphans = (await fileStore.listOwnedFiles()).filter(

@@ -13,6 +13,8 @@ import type {
 import type { ActivePanorama } from '../storage/panoramaDraftRepository';
 import { createLocalRecordId } from '../storage/recordIdentity';
 import { colors, layout } from '../theme/tokens';
+import { createMaskImageFile } from '../panorama/directionalAtlasImage';
+import { DIRECTIONAL_ATLAS_PROJECTION } from '../panorama/directionalAtlas';
 import { MaskEditorCanvas } from './MaskEditorCanvas';
 import { BrushSizeControl } from './BrushSizeControl';
 import {
@@ -26,6 +28,11 @@ import {
   type VisibilityMask,
   type VisibilityMaskOperation,
 } from './visibilityMask';
+import {
+  applyRasterMaskOperations,
+  createBlockedBitsetFromCoverage,
+  createMaskRgba,
+} from './rasterMask';
 
 export type MaskEditorTool = 'blockedStroke' | 'visibleStroke';
 
@@ -68,16 +75,7 @@ export const maskEditorController: MaskEditorController = {
   },
 };
 
-const createInitialOperations = (
-  data: MaskEditorData,
-): readonly VisibilityMaskOperation[] =>
-  data.activeMask?.operations ??
-  data.panorama?.tiles.map((tile, index) => ({
-    id: `coverage-${index + 1}`,
-    kind: 'visiblePolygon' as const,
-    points: tile.coveragePolygon,
-  })) ??
-  [];
+const createInitialOperations = (): readonly VisibilityMaskOperation[] => [];
 
 export function MaskEditorScreen({
   controller = maskEditorController,
@@ -107,7 +105,7 @@ export function MaskEditorScreen({
     try {
       const loaded = await controller.load(profileId);
       setData(loaded);
-      setHistory(createMaskEditorHistory(createInitialOperations(loaded)));
+      setHistory(createMaskEditorHistory(createInitialOperations()));
     } catch {
       setError('The panorama and mask could not be read from this device.');
     } finally {
@@ -121,7 +119,7 @@ export function MaskEditorScreen({
       (loaded) => {
         if (!active) return;
         setData(loaded);
-        setHistory(createMaskEditorHistory(createInitialOperations(loaded)));
+        setHistory(createMaskEditorHistory(createInitialOperations()));
         setError(null);
         setLoading(false);
       },
@@ -136,18 +134,20 @@ export function MaskEditorScreen({
     };
   }, [controller, profileId]);
 
-  const coveragePolygons = useMemo(
-    () =>
-      data?.activeMask?.coveragePolygons ??
-      data?.panorama?.tiles.map((tile) => tile.coveragePolygon) ??
-      [],
-    [data],
-  );
+  const activeRaster = data?.activeMask?.raster;
   const mask = useMemo(
-    () => createVisibilityMask(coveragePolygons, history.operations),
-    [coveragePolygons, history.operations],
+    () => ({
+      ...createVisibilityMask([], history.operations),
+      ...(activeRaster ? { raster: activeRaster } : {}),
+    }),
+    [activeRaster, history.operations],
   );
-  const hasCapturedCoverage = coveragePolygons.length > 0;
+  const hasCapturedCoverage = Boolean(
+    data?.panorama?.uri &&
+    data.panorama.coverageBitset &&
+    data.panorama.widthPixels &&
+    data.panorama.heightPixels,
+  );
 
   const addOperation = (
     operation: Omit<
@@ -166,16 +166,50 @@ export function MaskEditorScreen({
     );
 
   const save = async () => {
-    if (!data?.panorama || !hasCapturedCoverage) return;
+    if (
+      !data?.panorama?.coverageBitset ||
+      !data.panorama.widthPixels ||
+      !data.panorama.heightPixels ||
+      !hasCapturedCoverage
+    ) {
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
+      const initialBlocked = data.activeMask?.raster?.blockedBitset
+        ? data.activeMask.raster.blockedBitset
+        : createBlockedBitsetFromCoverage(
+            data.panorama.coverageBitset,
+            data.panorama.widthPixels,
+            data.panorama.heightPixels,
+          );
+      const blockedBitset = applyRasterMaskOperations(
+        initialBlocked,
+        data.panorama.coverageBitset,
+        data.panorama.widthPixels,
+        data.panorama.heightPixels,
+        history.operations,
+      );
+      const temporaryUri = createMaskImageFile(
+        createMaskRgba(
+          blockedBitset,
+          data.panorama.widthPixels,
+          data.panorama.heightPixels,
+        ),
+        data.panorama.widthPixels,
+        data.panorama.heightPixels,
+      );
       await controller.save({
+        blockedBitset,
         id: createLocalRecordId('mask'),
         profileId,
         panoramaRevisionId: data.panorama.id,
         createdAtUtc: new Date().toISOString(),
-        operations: history.operations,
+        heightPixels: data.panorama.heightPixels,
+        projection: DIRECTIONAL_ATLAS_PROJECTION,
+        temporaryUri,
+        widthPixels: data.panorama.widthPixels,
       });
       setConfirmationVisible(false);
       navigation.onSaved();
@@ -260,11 +294,11 @@ export function MaskEditorScreen({
             style={styles.toolButton}
             variant={activeTool === 'visibleStroke' ? 'primary' : 'secondary'}
           />
-          <BrushSizeControl
-            onChange={setBrushDiameterPixels}
-            valuePixels={brushDiameterPixels}
-          />
         </View>
+        <BrushSizeControl
+          onChange={setBrushDiameterPixels}
+          valuePixels={brushDiameterPixels}
+        />
         {error ? <AppText style={styles.error}>{error}</AppText> : null}
         <ActionButton
           disabled={!hasCapturedCoverage}
@@ -280,8 +314,8 @@ export function MaskEditorScreen({
         visible={confirmationVisible}
       >
         <AppText>
-          Red areas and uncaptured directions will be blocked. You can edit this
-          mask later without replacing the panorama.
+          Painted obstacles and uncaptured directions will be blocked. The saved
+          mask is one neutral binary image and can be edited later.
         </AppText>
         <ActionButton
           label="Save binary mask"
@@ -318,6 +352,6 @@ const styles = StyleSheet.create({
   },
   headingCopy: { flex: 1 },
   screen: { backgroundColor: colors.background, flex: 1 },
-  toolButton: { minWidth: 82 },
+  toolButton: { flex: 1, minWidth: 82 },
   toolRow: { alignItems: 'center', flexDirection: 'row', gap: 8 },
 });

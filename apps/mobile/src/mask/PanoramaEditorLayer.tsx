@@ -1,70 +1,56 @@
 import {
   Canvas,
   Group,
-  ImageShader,
+  Image,
   Skia,
-  Vertices,
   useImage,
-  vec,
 } from '@shopify/react-native-skia';
-import { memo, useMemo } from 'react';
+import { useMemo } from 'react';
 import { StyleSheet } from 'react-native';
 
-import type { ActivePanoramaTile } from '../storage/panoramaDraftRepository';
+import type { ActivePanorama } from '../storage/panoramaDraftRepository';
 import {
   projectPanoramaEditorPoint,
-  projectPanoramaMeshToEditorViewport,
   type PanoramaEditorViewport,
 } from '../sky/panoramaOverlayGeometry';
-import { createPlanetariumPanoramaMesh } from '../sky/planetariumPanoramaGeometry';
 import type { CanvasSizePixels } from '../sky/projection';
 
-const PanoramaEditorTile = memo(function PanoramaEditorTile({
-  canvas,
-  tile,
-  viewport,
-}: {
-  canvas: CanvasSizePixels;
-  tile: ActivePanoramaTile;
-  viewport: PanoramaEditorViewport;
-}) {
-  const image = useImage(tile.uri);
-  const mesh = useMemo(() => createPlanetariumPanoramaMesh(tile), [tile]);
-  const projection = useMemo(
-    () => projectPanoramaMeshToEditorViewport(mesh, viewport, canvas),
-    [canvas, mesh, viewport],
+export function projectDirectionalAtlasRect(
+  viewport: PanoramaEditorViewport,
+  canvas: CanvasSizePixels,
+) {
+  const topLeft = projectPanoramaEditorPoint(
+    { x: -1, y: -1 },
+    viewport,
+    canvas,
   );
-  const textures = useMemo(
-    () => mesh.texturePointsPixels.map((point) => vec(point.x, point.y)),
-    [mesh.texturePointsPixels],
+  const bottomRight = projectPanoramaEditorPoint(
+    { x: 1, y: 1 },
+    viewport,
+    canvas,
   );
-  const vertices = useMemo(
-    () => projection.vertices.map((point) => vec(point.xPixels, point.yPixels)),
-    [projection.vertices],
-  );
-  if (!image || projection.indices.length === 0) return null;
-  return (
-    <Group>
-      <ImageShader image={image} tx="decal" ty="decal" />
-      <Vertices
-        indices={projection.indices}
-        mode="triangles"
-        textures={textures}
-        vertices={vertices}
-      />
-    </Group>
-  );
-});
+  return {
+    height: bottomRight.yPixels - topLeft.yPixels,
+    width: bottomRight.xPixels - topLeft.xPixels,
+    x: topLeft.xPixels,
+    y: topLeft.yPixels,
+  };
+}
 
 export function PanoramaEditorLayer({
   canvas,
-  tiles,
+  panorama,
   viewport,
 }: {
   canvas: CanvasSizePixels;
-  tiles: readonly ActivePanoramaTile[];
+  panorama: ActivePanorama;
   viewport: PanoramaEditorViewport;
 }) {
+  const image = useImage(panorama.uri ?? null);
+  const destination = useMemo(
+    () => projectDirectionalAtlasRect(viewport, canvas),
+    [canvas, viewport],
+  );
   const hemisphereClip = useMemo(() => {
     const center = projectPanoramaEditorPoint({ x: 0, y: 0 }, viewport, canvas);
     const path = Skia.Path.Make();
@@ -75,17 +61,18 @@ export function PanoramaEditorLayer({
     );
     return path;
   }, [canvas, viewport]);
+  if (!image) return null;
   return (
     <Canvas pointerEvents="none" style={StyleSheet.absoluteFill}>
       <Group clip={hemisphereClip}>
-        {tiles.map((tile) => (
-          <PanoramaEditorTile
-            canvas={canvas}
-            key={tile.id}
-            tile={tile}
-            viewport={viewport}
-          />
-        ))}
+        <Image
+          fit="fill"
+          height={destination.height}
+          image={image}
+          width={destination.width}
+          x={destination.x}
+          y={destination.y}
+        />
       </Group>
     </Canvas>
   );

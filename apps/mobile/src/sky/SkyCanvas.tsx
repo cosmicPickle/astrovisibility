@@ -43,6 +43,7 @@ export interface SkyCanvasProps {
   targets: readonly HorizontalCatalogueTarget[];
   trajectory: SelectedTargetTrajectory | null;
   panoramaOverlay: {
+    panorama?: ActivePanorama;
     tiles: ActivePanorama['tiles'];
     opacityPercent: number;
     visible: boolean;
@@ -229,6 +230,9 @@ export const SkyCanvas = ({
             mask={maskOverlay?.visible ? maskOverlay.mask : null}
             maskOpacity={(maskOverlay?.opacityPercent ?? 0) / 100}
             panoramaOpacity={(panoramaOverlay?.opacityPercent ?? 0) / 100}
+            panoramaImage={
+              panoramaOverlay?.visible ? panoramaOverlay.panorama : null
+            }
             panoramaTiles={
               panoramaOverlay?.visible ? panoramaOverlay.tiles : []
             }

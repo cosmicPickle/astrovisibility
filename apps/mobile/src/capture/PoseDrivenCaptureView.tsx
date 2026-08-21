@@ -253,7 +253,7 @@ export function PoseDrivenCaptureView({
           />
           <ActionButton
             disabled={tiles.length === 0}
-            label="Draw mask"
+            label="Align Tiles"
             onPress={onFinish}
             variant="secondary"
           />

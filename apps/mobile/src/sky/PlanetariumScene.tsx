@@ -21,8 +21,12 @@ import { useDerivedValue, type SharedValue } from 'react-native-reanimated';
 import type { SelectedTargetTrajectory } from '../astronomy/trajectory';
 import type { TargetDiurnalOrbit } from '../astronomy/diurnalTrajectory';
 import type { VisibilityMask } from '../mask/visibilityMask';
+import { createDirectionalAtlasMesh } from '../panorama/directionalAtlas';
 import type { EquipmentRecord } from '../storage/equipmentRepository';
-import type { ActivePanoramaTile } from '../storage/panoramaDraftRepository';
+import type {
+  ActivePanorama,
+  ActivePanoramaTile,
+} from '../storage/panoramaDraftRepository';
 import { colors } from '../theme/tokens';
 import {
   isPlanetariumLabelFullyInsideCanvas,
@@ -657,17 +661,74 @@ function PanoramaTileLayer({
   camera,
   canvas,
   opacity,
+  selected,
   tile,
 }: {
   camera: SharedValue<PlanetariumCamera>;
   canvas: CanvasSizePixels;
   opacity: number;
+  selected?: boolean;
   tile: ActivePanoramaTile;
 }) {
   const image = useImage(tile.uri);
   const mesh = useMemo(() => createPlanetariumPanoramaMesh(tile), [tile]);
   const textures = useMemo(
     () => mesh.texturePointsPixels.map((point) => vec(point.x, point.y)),
+    [mesh.texturePointsPixels],
+  );
+  const projectedMesh = useDerivedValue(() => {
+    const projection = projectPlanetariumPanoramaMesh(
+      mesh,
+      camera.value,
+      canvas,
+    );
+    return {
+      indices: projection.indices,
+      vertices: projection.vertices.map((point) =>
+        vec(point.xPixels, point.yPixels),
+      ),
+    };
+  });
+  const indices = useDerivedValue(() => projectedMesh.value.indices);
+  const vertices = useDerivedValue(() => projectedMesh.value.vertices);
+  if (!image) return null;
+  return (
+    <Group
+      opacity={selected === undefined ? opacity : selected ? 1 : opacity * 0.62}
+    >
+      <ImageShader image={image} tx="decal" ty="decal" />
+      <Vertices
+        indices={indices}
+        mode="triangles"
+        textures={textures}
+        vertices={vertices}
+      />
+    </Group>
+  );
+}
+
+function DirectionalAtlasLayer({
+  camera,
+  canvas,
+  heightPixels,
+  opacity,
+  uri,
+  widthPixels,
+}: {
+  camera: SharedValue<PlanetariumCamera>;
+  canvas: CanvasSizePixels;
+  heightPixels: number;
+  opacity: number;
+  uri: string;
+  widthPixels: number;
+}) {
+  const image = useImage(uri);
+  const mesh = useMemo(
+    () => createDirectionalAtlasMesh({ heightPixels, widthPixels }),
+    [heightPixels, widthPixels],
+  );
+  const textures = useMemo(
+    () => mesh.texturePointsPixels.map(({ x, y }) => vec(x, y)),
     [mesh.texturePointsPixels],
   );
   const projectedMesh = useDerivedValue(() => {
@@ -710,6 +771,18 @@ function MaskLayer({
   mask: VisibilityMask;
   opacity: number;
 }) {
+  if (mask.raster) {
+    return (
+      <DirectionalAtlasLayer
+        camera={camera}
+        canvas={canvas}
+        heightPixels={mask.raster.heightPixels}
+        opacity={opacity}
+        uri={mask.raster.uri}
+        widthPixels={mask.raster.widthPixels}
+      />
+    );
+  }
   return (
     <Group>
       <Fill color={colors.blocked} opacity={opacity * 0.2} />
@@ -832,7 +905,9 @@ export function PlanetariumScene({
   mask,
   maskOpacity,
   panoramaOpacity,
+  panoramaImage,
   panoramaTiles,
+  selectedPanoramaTileId,
   selectedTargetId,
   targets,
   trajectory,
@@ -845,7 +920,9 @@ export function PlanetariumScene({
   mask: VisibilityMask | null;
   maskOpacity: number;
   panoramaOpacity: number;
+  panoramaImage?: ActivePanorama | null;
   panoramaTiles: readonly ActivePanoramaTile[];
+  selectedPanoramaTileId?: string | null;
   selectedTargetId: string | null;
   targets: readonly RenderedPlanetariumTarget[];
   trajectory: SelectedTargetTrajectory | null;
@@ -858,12 +935,29 @@ export function PlanetariumScene({
         canvas={canvas}
         celestialEquatorDirections={celestialEquatorDirections}
       />
+      {panoramaImage?.uri &&
+      panoramaImage.widthPixels &&
+      panoramaImage.heightPixels ? (
+        <DirectionalAtlasLayer
+          camera={camera}
+          canvas={canvas}
+          heightPixels={panoramaImage.heightPixels}
+          opacity={panoramaOpacity}
+          uri={panoramaImage.uri}
+          widthPixels={panoramaImage.widthPixels}
+        />
+      ) : null}
       {panoramaTiles.map((tile) => (
         <PanoramaTileLayer
           camera={camera}
           canvas={canvas}
           key={tile.id}
           opacity={panoramaOpacity}
+          selected={
+            selectedPanoramaTileId === undefined
+              ? undefined
+              : tile.id === selectedPanoramaTileId
+          }
           tile={tile}
         />
       ))}

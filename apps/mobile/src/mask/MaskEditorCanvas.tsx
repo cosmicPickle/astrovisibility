@@ -39,7 +39,7 @@ export function MaskEditorCanvas({
 }: MaskEditorCanvasProps) {
   const [canvas, setCanvas] = useState({ widthPixels: 1, heightPixels: 1 });
   const [viewport, setViewport] = useState<PanoramaEditorViewport>(() =>
-    createPanoramaEditorViewport(panorama.tiles),
+    createPanoramaEditorViewport([]),
   );
   const [draftStroke, setDraftStroke] = useState<DraftStroke | null>(null);
   const strokePoints = useSharedValue<AngularPointDegrees[]>([]);
@@ -209,7 +209,7 @@ export function MaskEditorCanvas({
         <Animated.View style={[styles.canvas, animatedStyle]}>
           <PanoramaEditorLayer
             canvas={canvas}
-            tiles={panorama.tiles}
+            panorama={panorama}
             viewport={viewport}
           />
           <Svg height="100%" pointerEvents="none" width="100%">

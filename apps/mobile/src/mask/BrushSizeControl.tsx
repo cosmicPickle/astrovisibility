@@ -97,7 +97,7 @@ export function BrushSizeControl({
 }
 
 const styles = StyleSheet.create({
-  field: { flex: 1, gap: 4, minWidth: 140 },
+  field: { gap: 4, minWidth: 140, width: '100%' },
   fill: {
     backgroundColor: colors.danger,
     borderRadius: 2,

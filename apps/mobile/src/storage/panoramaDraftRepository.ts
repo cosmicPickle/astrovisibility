@@ -10,6 +10,11 @@ import type {
   OrientationSnapshot,
 } from '../capture/captureSession';
 import { normalizeAzimuthDegrees } from '../sky/projection';
+import {
+  DIRECTIONAL_ATLAS_PROJECTION,
+  type DirectionalAtlasSize,
+} from '../panorama/directionalAtlas';
+import { blockedBitsetByteLength } from '../mask/rasterMask';
 import type { OwnedFileStore, SqlDatabase } from './types';
 import { inImmediateTransaction } from './types';
 
@@ -48,6 +53,17 @@ export interface ActivePanorama {
   id: string;
   profileId: string;
   tiles: ActivePanoramaTile[];
+  uri?: string;
+  widthPixels?: number;
+  heightPixels?: number;
+  projection?: typeof DIRECTIONAL_ATLAS_PROJECTION;
+  coverageBitset?: Uint8Array;
+}
+
+export interface CompletedPanoramaAsset extends DirectionalAtlasSize {
+  coverageBitset: Uint8Array;
+  projection: typeof DIRECTIONAL_ATLAS_PROJECTION;
+  temporaryUri: string;
 }
 
 interface DraftRow {
@@ -95,11 +111,6 @@ const tileSelect = `
     vertical_fov_degrees AS verticalFieldOfViewDegrees,
     coverage_polygon_json AS coveragePolygonJson
   FROM panorama_capture_draft_tiles`;
-
-const shortestAzimuthDelta = (fromDegrees: number, toDegrees: number) => {
-  const delta = normalizeAzimuthDegrees(toDegrees - fromDegrees);
-  return delta > 180 ? delta - 360 : delta;
-};
 
 const validatePlacement = (
   placement: PanoramaTilePlacement & { rollDegrees: number },
@@ -290,6 +301,7 @@ export class PanoramaDraftRepository {
     draftId: string,
     panoramaId: string,
     completedAtUtc: string,
+    asset?: CompletedPanoramaAsset,
   ): Promise<void> {
     safeId.parse(panoramaId);
     utcInstant.parse(completedAtUtc);
@@ -304,65 +316,43 @@ export class PanoramaDraftRepository {
     );
     if (tiles.length === 0)
       throw new Error('Capture at least one tile before saving.');
-    const finalTiles = tiles.map((tile) => ({
-      ...tile,
-      relativePath: `profiles/${draft.profileId}/panoramas/${panoramaId}/tiles/${tile.id}.${tile.fileExtension}`,
-    }));
-    const copied: string[] = [];
+    if (!asset) {
+      throw new Error('A completed panorama requires one directional image.');
+    }
+    if (
+      asset.projection !== DIRECTIONAL_ATLAS_PROJECTION ||
+      !Number.isInteger(asset.widthPixels) ||
+      !Number.isInteger(asset.heightPixels) ||
+      asset.widthPixels <= 0 ||
+      asset.heightPixels <= 0 ||
+      asset.coverageBitset.length !==
+        blockedBitsetByteLength(asset.widthPixels, asset.heightPixels)
+    ) {
+      throw new Error('The directional panorama asset is invalid.');
+    }
+    const relativePath = `profiles/${draft.profileId}/panoramas/${panoramaId}/panorama.png`;
+    let promoted = false;
     try {
-      for (const tile of finalTiles) {
-        await this.files.copyOwnedFile(
-          tile.fileRelativePath,
-          tile.relativePath,
-        );
-        copied.push(tile.relativePath);
-      }
+      await this.files.promoteTemporaryFile(asset.temporaryUri, relativePath);
+      promoted = true;
       await inImmediateTransaction(this.database, async () => {
         await this.database.runAsync(
           `INSERT INTO panorama_revisions (
-            id, profile_id, status, format_version, created_at_utc
-          ) VALUES (?, ?, 'complete', ?, ?)`,
-          [panoramaId, draft.profileId, draft.formatVersion, completedAtUtc],
+            id, profile_id, status, format_version, created_at_utc,
+            file_relative_path, width_pixels, height_pixels, projection,
+            coverage_bits
+          ) VALUES (?, ?, 'complete', 2, ?, ?, ?, ?, ?, ?)`,
+          [
+            panoramaId,
+            draft.profileId,
+            completedAtUtc,
+            relativePath,
+            asset.widthPixels,
+            asset.heightPixels,
+            asset.projection,
+            asset.coverageBitset,
+          ],
         );
-        for (const [ordinal, tile] of finalTiles.entries()) {
-          const orientation = JSON.parse(
-            tile.orientationSnapshotJson,
-          ) as OrientationSnapshot;
-          await this.database.runAsync(
-            `INSERT INTO panorama_tiles (
-              id, panorama_revision_id, ordinal, file_relative_path,
-              width_pixels, height_pixels, center_azimuth_degrees,
-              center_altitude_degrees, roll_degrees, horizontal_fov_degrees,
-              vertical_fov_degrees, captured_at_utc, heading_accuracy_degrees,
-              orientation_confidence, correction_azimuth_degrees,
-              correction_altitude_degrees, correction_roll_degrees,
-              coverage_polygon_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-              tile.id,
-              panoramaId,
-              ordinal,
-              tile.relativePath,
-              tile.widthPixels,
-              tile.heightPixels,
-              normalizeAzimuthDegrees(orientation.trueHeadingDegrees),
-              orientation.estimatedAltitudeDegrees,
-              orientation.rollDegrees,
-              tile.horizontalFieldOfViewDegrees,
-              tile.verticalFieldOfViewDegrees,
-              tile.capturedAtUtc,
-              orientation.headingAccuracyDegrees,
-              tile.orientationConfidence,
-              shortestAzimuthDelta(
-                orientation.trueHeadingDegrees,
-                tile.centerAzimuthDegrees,
-              ),
-              tile.centerAltitudeDegrees - orientation.estimatedAltitudeDegrees,
-              tile.rollDegrees - orientation.rollDegrees,
-              tile.coveragePolygonJson,
-            ],
-          );
-        }
         const activation = await this.database.runAsync(
           `UPDATE profiles SET active_panorama_revision_id = ?,
             active_mask_revision_id = NULL, updated_at_utc = ?
@@ -378,9 +368,7 @@ export class PanoramaDraftRepository {
         );
       });
     } catch (error) {
-      await Promise.allSettled(
-        copied.map((path) => this.files.deleteOwnedFile(path)),
-      );
+      if (promoted) await this.files.deleteOwnedFile(relativePath);
       throw error;
     }
     await Promise.allSettled(
@@ -392,8 +380,18 @@ export class PanoramaDraftRepository {
     const revision = await this.database.getFirstAsync<{
       id: string;
       profileId: string;
+      relativePath: string;
+      widthPixels: number;
+      heightPixels: number;
+      projection: string;
+      coverageBitset: Uint8Array;
     }>(
-      `SELECT panorama_revisions.id, panorama_revisions.profile_id AS profileId
+      `SELECT panorama_revisions.id, panorama_revisions.profile_id AS profileId,
+        panorama_revisions.file_relative_path AS relativePath,
+        panorama_revisions.width_pixels AS widthPixels,
+        panorama_revisions.height_pixels AS heightPixels,
+        panorama_revisions.projection,
+        panorama_revisions.coverage_bits AS coverageBitset
        FROM profiles
        JOIN panorama_revisions
          ON panorama_revisions.id = profiles.active_panorama_revision_id
@@ -401,39 +399,24 @@ export class PanoramaDraftRepository {
       [profileId],
     );
     if (!revision) return null;
-    const rows = await this.database.getAllAsync<{
-      id: string;
-      relativePath: string;
-      widthPixels: number;
-      heightPixels: number;
-      centerAzimuthDegrees: number;
-      centerAltitudeDegrees: number;
-      rollDegrees: number;
-      horizontalFieldOfViewDegrees: number;
-      verticalFieldOfViewDegrees: number;
-      coveragePolygonJson: string;
-    }>(
-      `SELECT id, file_relative_path AS relativePath,
-        width_pixels AS widthPixels, height_pixels AS heightPixels,
-        center_azimuth_degrees + correction_azimuth_degrees AS centerAzimuthDegrees,
-        center_altitude_degrees + correction_altitude_degrees AS centerAltitudeDegrees,
-        roll_degrees + correction_roll_degrees AS rollDegrees,
-        horizontal_fov_degrees AS horizontalFieldOfViewDegrees,
-        vertical_fov_degrees AS verticalFieldOfViewDegrees,
-        coverage_polygon_json AS coveragePolygonJson
-       FROM panorama_tiles WHERE panorama_revision_id = ? ORDER BY ordinal`,
-      [revision.id],
-    );
+    if (
+      revision.projection !== DIRECTIONAL_ATLAS_PROJECTION ||
+      !revision.relativePath ||
+      !(revision.coverageBitset instanceof Uint8Array) ||
+      revision.coverageBitset.length !==
+        blockedBitsetByteLength(revision.widthPixels, revision.heightPixels)
+    ) {
+      throw new Error('The active panorama image metadata is invalid.');
+    }
     return {
-      ...revision,
-      tiles: rows.map((row) => ({
-        ...row,
-        centerAzimuthDegrees: normalizeAzimuthDegrees(row.centerAzimuthDegrees),
-        coveragePolygon: JSON.parse(
-          row.coveragePolygonJson,
-        ) as CapturedProofTile['coveragePolygon'],
-        uri: this.files.resolveOwnedFileUri(row.relativePath),
-      })),
+      id: revision.id,
+      profileId: revision.profileId,
+      tiles: [],
+      uri: this.files.resolveOwnedFileUri(revision.relativePath),
+      widthPixels: revision.widthPixels,
+      heightPixels: revision.heightPixels,
+      projection: DIRECTIONAL_ATLAS_PROJECTION,
+      coverageBitset: revision.coverageBitset,
     };
   }
 

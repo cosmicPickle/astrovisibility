@@ -104,6 +104,7 @@ export interface SkyRendererProps {
   targets: readonly HorizontalCatalogueTarget[];
   trajectory: SelectedTargetTrajectory | null;
   panoramaOverlay: {
+    panorama?: ActivePanorama;
     tiles: ActivePanorama['tiles'];
     opacityPercent: number;
     visible: boolean;
@@ -591,6 +592,7 @@ export const SkyViewScreen = ({
           panoramaOverlay={
             data.panorama
               ? {
+                  panorama: data.panorama,
                   tiles: data.panorama.tiles,
                   opacityPercent: panoramaOpacityPercent,
                   visible: panoramaVisible,
