@@ -542,6 +542,8 @@ they credibly risk layout or interaction regressions.
 - Preserve unrelated user changes and inspect the worktree before editing.
 - Keep implementation on a non-default branch unless a human explicitly directs
   otherwise. Use the `codex/` prefix for agent-created branches by default.
+- Commit and push completed work by default unless a human explicitly instructs
+  otherwise.
 - Create clear, concise, focused commits when the task includes committing or
   publishing work. Do not mix unrelated cleanup into a feature commit.
 - Never commit code that failed a required gate, contains secrets, or knowingly
