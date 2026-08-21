@@ -34,7 +34,10 @@ import {
   projectHorizontalDirection,
   type PlanetariumCamera,
 } from './planetariumProjection';
-import { createPlanetariumPanoramaMesh } from './planetariumPanoramaGeometry';
+import {
+  createPlanetariumPanoramaMesh,
+  projectPlanetariumPanoramaMesh,
+} from './planetariumPanoramaGeometry';
 import { createScreenCenteredFieldOfViewFrame } from './fieldOfViewGeometry';
 import {
   CARDINAL_LABEL_FONT_SIZE_PIXELS,
@@ -667,18 +670,27 @@ function PanoramaTileLayer({
     () => mesh.texturePointsPixels.map((point) => vec(point.x, point.y)),
     [mesh.texturePointsPixels],
   );
-  const vertices = useDerivedValue(() =>
-    mesh.directions.map((direction) => {
-      const point = projectHorizontalDirection(direction, camera.value, canvas);
-      return vec(point.xPixels, point.yPixels);
-    }),
-  );
+  const projectedMesh = useDerivedValue(() => {
+    const projection = projectPlanetariumPanoramaMesh(
+      mesh,
+      camera.value,
+      canvas,
+    );
+    return {
+      indices: projection.indices,
+      vertices: projection.vertices.map((point) =>
+        vec(point.xPixels, point.yPixels),
+      ),
+    };
+  });
+  const indices = useDerivedValue(() => projectedMesh.value.indices);
+  const vertices = useDerivedValue(() => projectedMesh.value.vertices);
   if (!image) return null;
   return (
     <Group opacity={opacity}>
       <ImageShader image={image} tx="decal" ty="decal" />
       <Vertices
-        indices={mesh.indices}
+        indices={indices}
         mode="triangles"
         textures={textures}
         vertices={vertices}

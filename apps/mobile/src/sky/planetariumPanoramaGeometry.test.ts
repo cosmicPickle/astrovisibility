@@ -1,6 +1,12 @@
 import type { ActivePanoramaTile } from '../storage/panoramaDraftRepository';
-import { angularSeparationDegrees } from './planetariumProjection';
-import { createPlanetariumPanoramaMesh } from './planetariumPanoramaGeometry';
+import {
+  angularSeparationDegrees,
+  createPlanetariumCamera,
+} from './planetariumProjection';
+import {
+  createPlanetariumPanoramaMesh,
+  projectPlanetariumPanoramaMesh,
+} from './planetariumPanoramaGeometry';
 
 const upwardTile: ActivePanoramaTile = {
   id: 'upward',
@@ -44,5 +50,53 @@ describe('planetarium panorama mesh', () => {
     expect(mesh.rowCount).toBeGreaterThanOrEqual(15);
     expect(mesh.columnCount).toBeLessThanOrEqual(33);
     expect(mesh.rowCount).toBeLessThanOrEqual(33);
+  });
+
+  it('omits a tile opposite the camera instead of stretching it across the canvas', () => {
+    const mesh = createPlanetariumPanoramaMesh({
+      ...upwardTile,
+      centerAltitudeDegrees: 30,
+      centerAzimuthDegrees: 180,
+    });
+    const projection = projectPlanetariumPanoramaMesh(
+      mesh,
+      createPlanetariumCamera({
+        centerAltitudeDegrees: 30,
+        centerAzimuthDegrees: 0,
+        fieldOfViewDegrees: 100,
+      }),
+      { widthPixels: 390, heightPixels: 420 },
+    );
+
+    expect(projection.indices).toEqual([]);
+    expect(projection.vertices).toEqual([]);
+  });
+
+  it('keeps visible tile vertices finite and bounded near the canvas', () => {
+    const mesh = createPlanetariumPanoramaMesh({
+      ...upwardTile,
+      centerAltitudeDegrees: 35,
+      centerAzimuthDegrees: 15,
+    });
+    const canvas = { widthPixels: 390, heightPixels: 420 };
+    const projection = projectPlanetariumPanoramaMesh(
+      mesh,
+      createPlanetariumCamera({
+        centerAltitudeDegrees: 35,
+        centerAzimuthDegrees: 0,
+        fieldOfViewDegrees: 100,
+      }),
+      canvas,
+    );
+
+    expect(projection.indices.length).toBeGreaterThan(0);
+    expect(projection.indices.length % 3).toBe(0);
+    expect(projection.vertices.length).toBe(mesh.directions.length);
+    for (const point of projection.vertices) {
+      expect(Number.isFinite(point.xPixels)).toBe(true);
+      expect(Number.isFinite(point.yPixels)).toBe(true);
+      expect(Math.abs(point.xPixels)).toBeLessThan(canvas.widthPixels * 3);
+      expect(Math.abs(point.yPixels)).toBeLessThan(canvas.heightPixels * 3);
+    }
   });
 });

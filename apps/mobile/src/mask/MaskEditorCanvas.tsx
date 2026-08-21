@@ -10,12 +10,14 @@ import Animated, {
 import Svg, { Circle, Image as SvgImage, Polyline } from 'react-native-svg';
 
 import { AppText } from '../components/ui/AppText';
-import { projectPanoramaTilesToViewport } from '../sky/panoramaOverlayGeometry';
+import {
+  createPanoramaEditorViewport,
+  projectPanoramaTilesToViewport,
+} from '../sky/panoramaOverlayGeometry';
 import {
   applySkyPan,
   applySkyZoom,
   constrainSkyViewport,
-  createSkyViewport,
   getVerticalSpanDegrees,
   type SkyViewport,
 } from '../sky/skyViewport';
@@ -23,12 +25,6 @@ import { colors } from '../theme/tokens';
 import type { MaskEditorCanvasProps } from './MaskEditorScreen';
 import { MaskOverlayLayer } from './MaskOverlayLayer';
 import type { AngularPointDegrees } from './visibilityMask';
-
-const initialViewport = createSkyViewport({
-  centerAltitudeDegrees: 45,
-  centerAzimuthDegrees: 180,
-  horizontalSpanDegrees: 360,
-});
 
 export function MaskEditorCanvas({
   activeTool,
@@ -40,7 +36,9 @@ export function MaskEditorCanvas({
   showMaskPreview,
 }: MaskEditorCanvasProps) {
   const [canvas, setCanvas] = useState({ widthPixels: 1, heightPixels: 1 });
-  const [viewport, setViewport] = useState<SkyViewport>(initialViewport);
+  const [viewport, setViewport] = useState<SkyViewport>(() =>
+    createPanoramaEditorViewport(panorama.tiles),
+  );
   const [draftPolygon, setDraftPolygon] = useState<AngularPointDegrees[]>([]);
   const strokePoints = useSharedValue<AngularPointDegrees[]>([]);
   const translationX = useSharedValue(0);
@@ -247,7 +245,7 @@ export function MaskEditorCanvas({
                 height={tile.heightPixels}
                 href={{ uri: tile.uri }}
                 key={tile.key}
-                opacity={0.65}
+                opacity={1}
                 preserveAspectRatio="xMidYMid slice"
                 transform={`rotate(${tile.rotationDegrees} ${tile.centerXPixels} ${tile.centerYPixels})`}
                 width={tile.widthPixels}

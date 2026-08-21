@@ -1,4 +1,5 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import type { Ref } from 'react';
 import { StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -11,11 +12,24 @@ import {
   type PanoramaCaptureServices,
 } from './PanoramaCaptureScreen';
 
-jest.mock('expo-camera', () => ({
-  Camera: {},
-  CameraView: 'CameraView',
-  useCameraPermissions: () => [{ granted: false }, jest.fn()],
-}));
+let mockAvailablePictureSizes = ['4000x3000', '1600x1200', '1280x960'];
+jest.mock('expo-camera', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    Camera: {},
+    CameraView: React.forwardRef(
+      (props: Record<string, unknown>, ref: Ref<unknown>) => {
+        React.useImperativeHandle(ref, () => ({
+          getAvailablePictureSizesAsync: jest
+            .fn()
+            .mockResolvedValue(mockAvailablePictureSizes),
+        }));
+        return React.createElement('CameraView', props);
+      },
+    ),
+    useCameraPermissions: () => [{ granted: false }, jest.fn()],
+  };
+});
 jest.mock('../sky/PlanetariumScene', () => ({
   PlanetariumScene: 'PlanetariumScene',
 }));
@@ -138,6 +152,7 @@ const services = (): PanoramaCaptureServices => ({
 
 describe('PanoramaCaptureScreen', () => {
   beforeEach(() => {
+    mockAvailablePictureSizes = ['4000x3000', '1600x1200', '1280x960'];
     mockCaptureAltitudeDegrees = 60;
     mockPoseReadiness = 'ready';
   });
@@ -247,6 +262,14 @@ describe('PanoramaCaptureScreen', () => {
       ratio: '4:3',
       zoom: 0,
     });
+    await act(async () => {
+      screen.getByLabelText('Rear camera preview at 1x').props.onCameraReady();
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByLabelText('Rear camera preview at 1x').props.pictureSize,
+      ).toBe('1600x1200'),
+    );
     await act(async () => fireEvent.press(screen.getByText('Capture')));
     await waitFor(() => expect(controller.addTile).toHaveBeenCalledTimes(1));
     expect(native.takePicture).toHaveBeenCalledTimes(1);
@@ -303,7 +326,7 @@ describe('PanoramaCaptureScreen', () => {
     },
   );
 
-  it('resumes a durable draft, applies reviewed correction, and atomically completes it', async () => {
+  it('resumes a durable draft and goes directly to mask editing', async () => {
     const onSaved = jest.fn();
     const controller: PanoramaCaptureController = {
       load: jest.fn().mockResolvedValue({
@@ -331,22 +354,13 @@ describe('PanoramaCaptureScreen', () => {
     };
     const screen = await renderScreen(controller, services(), onSaved);
     await waitFor(() => screen.getByText('Resume 1-tile draft'));
-    fireEvent.press(screen.getByText('Review draft'));
-    await waitFor(() => screen.getByText('Review tile alignment'));
-    expect(screen.queryByText('Az −5°')).toBeNull();
-    expect(screen.queryByText('Az +5°')).toBeNull();
-    await act(async () => fireEvent.press(screen.getByText('Alt +5°')));
-    await waitFor(() =>
-      expect(controller.updateTilePlacement).toHaveBeenCalledWith(
-        'draft-1',
-        'tile-1',
-        expect.objectContaining({ centerAltitudeDegrees: 35 }),
-      ),
-    );
-    await act(async () => fireEvent.press(screen.getByText('Save panorama')));
+    expect(screen.queryByText('Review draft')).toBeNull();
+    expect(screen.queryByText('Review tile alignment')).toBeNull();
+    await act(async () => fireEvent.press(screen.getByText('Draw mask')));
     await waitFor(() =>
       expect(controller.completeDraft).toHaveBeenCalledWith('draft-1'),
     );
+    expect(controller.updateTilePlacement).not.toHaveBeenCalled();
     expect(onSaved).toHaveBeenCalledTimes(1);
   });
 

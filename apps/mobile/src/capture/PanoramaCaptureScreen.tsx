@@ -41,6 +41,8 @@ import {
 import { PoseDrivenCaptureView } from './PoseDrivenCaptureView';
 import { useDevicePose } from './useDevicePose';
 
+const PANORAMA_ALIGNMENT_REVIEW_ENABLED = false;
+
 interface CaptureLoadResult {
   profile: ProfileRecord;
   profileName: string;
@@ -389,6 +391,13 @@ export const PanoramaCaptureScreen = ({
       setBusy(false);
     }
   };
+  const finishCapture = () => {
+    if (PANORAMA_ALIGNMENT_REVIEW_ENABLED) {
+      openReview();
+      return;
+    }
+    void complete();
+  };
 
   if (!loadResult) {
     return (
@@ -460,8 +469,8 @@ export const PanoramaCaptureScreen = ({
               />
               {draft.tiles.length > 0 ? (
                 <ActionButton
-                  label="Review draft"
-                  onPress={openReview}
+                  label="Draw mask"
+                  onPress={finishCapture}
                   variant="secondary"
                 />
               ) : null}
@@ -524,7 +533,7 @@ export const PanoramaCaptureScreen = ({
           fieldOfView={devicePose.fieldOfView}
           onCapture={() => void captureTile()}
           onOpenSettings={() => void native.openSettings()}
-          onReview={openReview}
+          onFinish={finishCapture}
           pose={devicePose.pose}
           poseError={devicePose.error ?? error}
           poseReadiness={devicePose.readiness}

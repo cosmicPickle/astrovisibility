@@ -1,6 +1,9 @@
 import type { ActivePanoramaTile } from '../storage/panoramaDraftRepository';
 import { createSkyViewport } from './skyViewport';
-import { projectPanoramaTilesToViewport } from './panoramaOverlayGeometry';
+import {
+  createPanoramaEditorViewport,
+  projectPanoramaTilesToViewport,
+} from './panoramaOverlayGeometry';
 
 const canvas = { widthPixels: 360, heightPixels: 180 };
 const tile: ActivePanoramaTile = {
@@ -21,6 +24,46 @@ const tile: ActivePanoramaTile = {
 };
 
 describe('panorama Sky View overlay projection', () => {
+  it('fits a partial panorama instead of opening at a thin full-sky scale', () => {
+    const viewport = createPanoramaEditorViewport([
+      tile,
+      { ...tile, id: 'tile-2', centerAzimuthDegrees: 55 },
+    ]);
+
+    expect(viewport.centerAzimuthDegrees).toBeCloseTo(27.5, 5);
+    expect(viewport.centerAltitudeDegrees).toBeCloseTo(45, 5);
+    expect(viewport.horizontalSpanDegrees).toBeGreaterThanOrEqual(80);
+    expect(viewport.horizontalSpanDegrees).toBeLessThan(180);
+  });
+
+  it('fits coverage crossing north around the seam', () => {
+    const viewport = createPanoramaEditorViewport([
+      { ...tile, centerAzimuthDegrees: 350 },
+      { ...tile, id: 'tile-2', centerAzimuthDegrees: 10 },
+    ]);
+
+    expect(
+      Math.min(
+        Math.abs(viewport.centerAzimuthDegrees),
+        Math.abs(viewport.centerAzimuthDegrees - 360),
+      ),
+    ).toBeLessThan(1);
+    expect(viewport.horizontalSpanDegrees).toBeLessThan(180);
+  });
+
+  it('keeps a full panorama at a usable drawing zoom', () => {
+    const viewport = createPanoramaEditorViewport(
+      Array.from({ length: 8 }, (_, index) => ({
+        ...tile,
+        id: `tile-${index}`,
+        centerAzimuthDegrees: index * 45,
+      })),
+    );
+
+    expect(viewport.centerAzimuthDegrees).toBe(0);
+    expect(viewport.horizontalSpanDegrees).toBe(120);
+  });
+
   it('renders seam-crossing copies at both sides of a full-sky viewport', () => {
     const projected = projectPanoramaTilesToViewport(
       [tile],

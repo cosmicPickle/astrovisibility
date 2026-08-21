@@ -20,6 +20,7 @@ import {
   type CaptureCameraFieldOfView,
   type DevicePoseSample,
 } from './devicePose';
+import { selectPanoramaPictureSize } from './panoramaPictureSize';
 import type { CapturePoseReadiness } from './poseReadiness';
 
 const CAPTURE_ATLAS_FIELD_OF_VIEW_DEGREES = 100;
@@ -82,7 +83,7 @@ export function PoseDrivenCaptureView({
   fieldOfView,
   onCapture,
   onOpenSettings,
-  onReview,
+  onFinish,
   pose,
   poseError,
   poseReadiness,
@@ -95,7 +96,7 @@ export function PoseDrivenCaptureView({
   fieldOfView: CaptureCameraFieldOfView;
   onCapture(): void;
   onOpenSettings(): void;
-  onReview(): void;
+  onFinish(): void;
   pose: DevicePoseSample | null;
   poseError: string | null;
   poseReadiness: CapturePoseReadiness;
@@ -106,6 +107,7 @@ export function PoseDrivenCaptureView({
     heightPixels: 1,
     widthPixels: 1,
   });
+  const [pictureSize, setPictureSize] = useState<string | null>(null);
   const camera = useSharedValue(
     createPlanetariumCamera({
       centerAltitudeDegrees: 45,
@@ -145,6 +147,16 @@ export function PoseDrivenCaptureView({
       setCanvas({ heightPixels: height, widthPixels: width });
     }
   };
+  const selectPictureSize = async () => {
+    try {
+      const availableSizes =
+        await cameraRef.current?.getAvailablePictureSizesAsync();
+      setPictureSize(selectPanoramaPictureSize(availableSizes ?? []));
+    } catch {
+      // Capture remains usable with Expo's platform-selected 4:3 size.
+      setPictureSize(null);
+    }
+  };
 
   return (
     <View style={styles.screen}>
@@ -153,6 +165,8 @@ export function PoseDrivenCaptureView({
           <CameraView
             accessibilityLabel="Rear camera preview at 1x"
             facing="back"
+            onCameraReady={() => void selectPictureSize()}
+            pictureSize={pictureSize ?? undefined}
             ratio="4:3"
             ref={cameraRef}
             style={StyleSheet.absoluteFill}
@@ -239,8 +253,8 @@ export function PoseDrivenCaptureView({
           />
           <ActionButton
             disabled={tiles.length === 0}
-            label="Review"
-            onPress={onReview}
+            label="Draw mask"
+            onPress={onFinish}
             variant="secondary"
           />
         </View>
