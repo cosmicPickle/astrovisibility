@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
   Pressable,
   StyleSheet,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -37,6 +38,10 @@ import {
   type RankedTarget,
   type RankedTargetProgress,
 } from './rankedTargetCalculation';
+import {
+  filterDiscoveredTargets,
+  type TargetCategory,
+} from './targetDiscoveryFilter';
 
 export type TargetListData = Readonly<{
   equipment: EquipmentRecord | null;
@@ -130,6 +135,15 @@ const emptyProgress: RankedTargetProgress = {
   totalCatalogueCount: 0,
 };
 
+const targetCategories: readonly Readonly<{
+  key: TargetCategory;
+  label: string;
+}>[] = [
+  { key: 'galaxies', label: 'Galaxies' },
+  { key: 'nebulae', label: 'Nebula' },
+  { key: 'starClusters', label: 'Star Clusters' },
+];
+
 export function TargetListScreen({
   calculateVisibility,
   controller = targetListController,
@@ -153,6 +167,10 @@ export function TargetListScreen({
   const [progress, setProgress] = useState<RankedTargetProgress>(emptyProgress);
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [calculationAttempt, setCalculationAttempt] = useState(0);
+  const [catalogueSearch, setCatalogueSearch] = useState('');
+  const [selectedCategories, setSelectedCategories] = useState<
+    TargetCategory[]
+  >(() => targetCategories.map(({ key }) => key));
   const activeCalculation = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -244,6 +262,22 @@ export function TargetListScreen({
     setCalculationStatus('calculating');
     setCalculationAttempt((attempt) => attempt + 1);
   }, [data]);
+  const filteredResults = useMemo(
+    () =>
+      filterDiscoveredTargets(
+        progress.results,
+        catalogueSearch,
+        selectedCategories,
+      ),
+    [catalogueSearch, progress.results, selectedCategories],
+  );
+  const toggleCategory = useCallback((category: TargetCategory) => {
+    setSelectedCategories((current) =>
+      current.includes(category)
+        ? current.filter((item) => item !== category)
+        : [...current, category],
+    );
+  }, []);
 
   if (loadStatus !== 'ready' || !data) {
     return (
@@ -279,17 +313,19 @@ export function TargetListScreen({
   }
 
   const emptyMessage =
-    calculationStatus === 'complete' && progress.results.length === 0
-      ? progress.eligibleTargetCount === 0
-        ? 'No catalogue targets fit the selected imaging setup.'
-        : 'No eligible catalogue targets rise during this observing window.'
+    calculationStatus === 'complete' && filteredResults.length === 0
+      ? progress.results.length > 0
+        ? 'No targets match the current search and categories.'
+        : progress.eligibleTargetCount === 0
+          ? 'No catalogue targets fit the selected imaging setup.'
+          : 'No eligible catalogue targets rise during this observing window.'
       : null;
 
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.screen}>
       <FlatList
         contentContainerStyle={styles.content}
-        data={progress.results}
+        data={filteredResults}
         initialNumToRender={8}
         keyExtractor={({ target }) => target.id}
         ListEmptyComponent={
@@ -303,11 +339,15 @@ export function TargetListScreen({
         ListHeaderComponent={
           <TargetListHeader
             calculationStatus={calculationStatus}
+            catalogueSearch={catalogueSearch}
             data={data}
             onBack={navigation.goBack}
             onCancel={cancelCalculation}
             onRetry={retryCalculation}
+            onSearchChange={setCatalogueSearch}
+            onToggleCategory={toggleCategory}
             progress={progress}
+            selectedCategories={selectedCategories}
           />
         }
         maxToRenderPerBatch={8}
@@ -335,19 +375,27 @@ export function TargetListScreen({
 
 function TargetListHeader({
   calculationStatus,
+  catalogueSearch,
   data,
   onBack,
   onCancel,
   onRetry,
+  onSearchChange,
+  onToggleCategory,
   progress,
+  selectedCategories,
 }: Readonly<{
   calculationStatus:
     'idle' | 'calculating' | 'complete' | 'cancelled' | 'error';
+  catalogueSearch: string;
   data: TargetListData;
   onBack: () => void;
   onCancel: () => void;
   onRetry: () => void;
+  onSearchChange: (value: string) => void;
+  onToggleCategory: (category: TargetCategory) => void;
   progress: RankedTargetProgress;
+  selectedCategories: readonly TargetCategory[];
 }>) {
   const percent =
     progress.eligibleTargetCount === 0
@@ -374,22 +422,54 @@ function TargetListHeader({
       <AppText tone="muted">
         {formatObservingWindowRange(data.window, data.profile.timeZoneId)}
       </AppText>
+      <TextInput
+        accessibilityLabel="Search by catalogue number"
+        autoCapitalize="characters"
+        autoCorrect={false}
+        onChangeText={onSearchChange}
+        placeholder="Search catalogue number"
+        placeholderTextColor={colors.mutedText}
+        style={styles.searchInput}
+        value={catalogueSearch}
+      />
+      <View accessibilityRole="toolbar" style={styles.categoryFilter}>
+        {targetCategories.map(({ key, label }, index) => {
+          const selected = selectedCategories.includes(key);
+          return (
+            <Pressable
+              accessibilityLabel={`Toggle ${label} filter`}
+              accessibilityRole="button"
+              accessibilityState={{ selected }}
+              key={key}
+              onPress={() => onToggleCategory(key)}
+              style={[
+                styles.categorySegment,
+                index === 0 && styles.categorySegmentLeft,
+                index === targetCategories.length - 1 &&
+                  styles.categorySegmentRight,
+                selected && styles.categorySegmentSelected,
+              ]}
+            >
+              <AppText
+                numberOfLines={1}
+                style={
+                  selected ? styles.categoryTextSelected : styles.categoryText
+                }
+              >
+                {label}
+              </AppText>
+            </Pressable>
+          );
+        })}
+      </View>
       <View style={styles.explanationCard}>
         <AppText style={styles.explanationTitle}>
           {data.equipment
             ? `Filtered for ${data.equipment.name}`
             : 'No imaging setup filter'}
         </AppText>
-        <AppText tone="muted">
-          {data.equipment
-            ? 'Known-size targets must fit within 90% of the frame and span at least 60 sensor pixels across their minor axis. Unknown sizes stay included and are labelled.'
-            : 'All targets that rise in this observing window remain eligible.'}
-        </AppText>
-        {progress.rejectedByEquipmentCount > 0 ? (
-          <AppText tone="muted">
-            {progress.rejectedByEquipmentCount.toLocaleString()} clearly
-            unsuitable targets filtered before visibility calculation.
-          </AppText>
+        {data.equipment ? (
+          <AppText tone="muted">min. minor axis: 60px</AppText>
         ) : null}
       </View>
       {!data.maskRevision ? (
@@ -479,8 +559,8 @@ function TargetRow({
       </View>
       <AppText style={styles.durationText}>
         {item.durationKind === 'visible'
-          ? `Total visible: ${formatDuration(item.totalDurationMilliseconds)}`
-          : `Above horizon: ${formatDuration(item.totalDurationMilliseconds)} · obstructions not assessed`}
+          ? `${formatDuration(item.totalDurationMilliseconds)} visible through local obstructions`
+          : `${formatDuration(item.totalDurationMilliseconds)} above horizon · obstructions not assessed`}
       </AppText>
       <AppText tone="muted">
         {intervalLabels.length > 0
@@ -509,6 +589,29 @@ const styles = StyleSheet.create({
     width: layout.minimumTouchTarget,
   },
   backGlyph: { fontSize: 34, lineHeight: 36 },
+  categoryFilter: { flexDirection: 'row' },
+  categorySegment: {
+    alignItems: 'center',
+    borderColor: colors.outline,
+    borderLeftWidth: 0,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: layout.minimumTouchTarget,
+    paddingHorizontal: 5,
+  },
+  categorySegmentLeft: {
+    borderBottomLeftRadius: layout.controlRadius,
+    borderLeftWidth: 1,
+    borderTopLeftRadius: layout.controlRadius,
+  },
+  categorySegmentRight: {
+    borderBottomRightRadius: layout.controlRadius,
+    borderTopRightRadius: layout.controlRadius,
+  },
+  categorySegmentSelected: { backgroundColor: colors.primaryPressed },
+  categoryText: { color: colors.mutedText, fontSize: 12, fontWeight: '700' },
+  categoryTextSelected: { color: colors.text, fontSize: 12, fontWeight: '800' },
   centered: {
     alignItems: 'center',
     backgroundColor: colors.background,
@@ -559,6 +662,15 @@ const styles = StyleSheet.create({
   },
   rowHeadingCopy: { flex: 1, gap: 2 },
   screen: { backgroundColor: colors.background, flex: 1 },
+  searchInput: {
+    backgroundColor: colors.surface,
+    borderColor: colors.outline,
+    borderRadius: layout.controlRadius,
+    borderWidth: 1,
+    color: colors.text,
+    minHeight: layout.minimumTouchTarget,
+    paddingHorizontal: 12,
+  },
   statusTitle: { fontWeight: '800' },
   suitabilityText: { color: colors.spaceViolet, fontSize: 13 },
   targetName: { fontSize: 18, fontWeight: '800' },

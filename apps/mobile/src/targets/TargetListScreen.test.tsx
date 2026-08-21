@@ -40,7 +40,7 @@ const target: CatalogueTarget = {
   rightAscensionJ2000Hours: 0.712,
   declinationJ2000Degrees: 41.269,
   constellation: 'And',
-  objectType: 'Galaxy',
+  objectType: 'G',
   majorAxisArcminutes: 190,
   minorAxisArcminutes: 60,
   magnitude: 3.4,
@@ -130,9 +130,11 @@ describe('TargetListScreen', () => {
     );
 
     await waitFor(() => screen.getByText('Andromeda Galaxy'));
-    expect(screen.getByText('Total visible: 5h 58m')).toBeTruthy();
+    expect(
+      screen.getByText('5h 39m visible through local obstructions'),
+    ).toBeTruthy();
     expect(screen.getByText(/22:14–01:10/)).toBeTruthy();
-    expect(screen.getByText(/02:10–05:12/)).toBeTruthy();
+    expect(screen.getByText(/02:10–04:52/)).toBeTruthy();
     await fireEvent.press(
       screen.getByLabelText('Inspect Andromeda Galaxy in Sky View'),
     );
@@ -160,7 +162,7 @@ describe('TargetListScreen', () => {
 
     await waitFor(() => screen.getByText('Andromeda Galaxy'));
     expect(
-      screen.getByText('Above horizon: 8h · obstructions not assessed'),
+      screen.getByText('6h 44m above horizon · obstructions not assessed'),
     ).toBeTruthy();
     expect(screen.queryByText(/Total visible/)).toBeNull();
   });
@@ -186,5 +188,50 @@ describe('TargetListScreen', () => {
     expect(receivedSignal?.aborted).toBe(true);
     expect(screen.getByText('Calculation cancelled')).toBeTruthy();
     expect(screen.getByText('Calculate again')).toBeTruthy();
+  });
+
+  it('searches catalogue numbers and applies the contiguous category filters', async () => {
+    const nebula = {
+      ...target,
+      id: 'IC0434',
+      preferredName: 'Horsehead Nebula',
+      objectType: 'Neb',
+      memberships: { messier: [], ngc: [], ic: ['IC 434'] },
+    };
+    const targetController: TargetListController = {
+      load: jest.fn().mockResolvedValue({
+        ...(await controller(true).load(profile.id, window)),
+        targets: [target, nebula],
+      }),
+    };
+    const screen = await renderWithSafeArea(
+      <TargetListScreen
+        calculateVisibility={async () => trajectory}
+        controller={targetController}
+        navigation={navigation()}
+        profileId={profile.id}
+        requestedWindow={window}
+      />,
+    );
+
+    await waitFor(() => screen.getByText('Horsehead Nebula'));
+    fireEvent.changeText(
+      screen.getByPlaceholderText('Search catalogue number'),
+      'ngc 224',
+    );
+    expect(screen.getByText('Andromeda Galaxy')).toBeTruthy();
+    await waitFor(() =>
+      expect(screen.queryByText('Horsehead Nebula')).toBeNull(),
+    );
+
+    fireEvent.changeText(
+      screen.getByPlaceholderText('Search catalogue number'),
+      '',
+    );
+    fireEvent.press(screen.getByLabelText('Toggle Nebula filter'));
+    expect(screen.getByText('Andromeda Galaxy')).toBeTruthy();
+    await waitFor(() =>
+      expect(screen.queryByText('Horsehead Nebula')).toBeNull(),
+    );
   });
 });

@@ -245,13 +245,17 @@ describe('progressive all-target calculation', () => {
     expect(emptyCache.set).toHaveBeenCalledTimes(1);
   });
 
-  it('applies equipment suitability before expensive visibility work while retaining unknown sizes', async () => {
+  it('keeps mosaic-sized and unknown targets while filtering targets below the minor-axis threshold', async () => {
     const visibilityCalls: string[] = [];
     const targets = [
       catalogueTarget('suitable', 'Suitable'),
       catalogueTarget('too-large', 'Too large', 2, {
         majorAxisArcminutes: 500,
         minorAxisArcminutes: 400,
+      }),
+      catalogueTarget('too-small', 'Too small', 2, {
+        majorAxisArcminutes: 0.1,
+        minorAxisArcminutes: 0.1,
       }),
       catalogueTarget('unknown', 'Unknown', 2, {}),
     ];
@@ -268,12 +272,13 @@ describe('progressive all-target calculation', () => {
       },
     );
 
-    expect(visibilityCalls).toEqual(['suitable', 'unknown']);
+    expect(visibilityCalls).toEqual(['suitable', 'too-large', 'unknown']);
     expect(results.map(({ target }) => target.id)).toEqual([
+      'too-large',
       'suitable',
       'unknown',
     ]);
-    expect(results[1]!.suitability?.reason).toBe('sizeUnknown');
+    expect(results[2]!.suitability?.reason).toBe('sizeUnknown');
   });
 
   it('cooperatively cancels before publishing work after the aborted batch', async () => {

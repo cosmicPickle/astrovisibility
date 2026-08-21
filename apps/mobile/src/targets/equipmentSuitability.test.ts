@@ -50,7 +50,7 @@ const minorAxisArcminutesForPixels = (pixels: number) =>
   (pixels * imageScaleArcsecondsPerPixel) / 60;
 
 describe('equipment suitability', () => {
-  it('accepts a known target that fits inside 90 percent of the frame and spans at least 60 pixels', () => {
+  it('accepts a known target that spans at least 60 pixels', () => {
     const result = evaluateEquipmentSuitability(
       target({ majorAxisArcminutes: 120, minorAxisArcminutes: 60 }),
       equipment,
@@ -59,20 +59,18 @@ describe('equipment suitability', () => {
     expect(result).toMatchObject({
       eligible: true,
       reason: 'suitable',
-      frameFillLimitPercent: 90,
     });
     expect(result.minorAxisPixels).toBeGreaterThan(60);
   });
 
-  it('rejects a target whose axes cannot fit the usable frame in either orientation', () => {
+  it('accepts a target larger than the frame because mosaics are supported', () => {
     const result = evaluateEquipmentSuitability(
       target({ majorAxisArcminutes: 400, minorAxisArcminutes: 300 }),
       equipment,
     );
 
-    expect(result.eligible).toBe(false);
-    expect(result.reason).toBe('tooLarge');
-    expect(result.explanation).toContain('90%');
+    expect(result.eligible).toBe(true);
+    expect(result.reason).toBe('suitable');
   });
 
   it.each([9, 59.9])(
