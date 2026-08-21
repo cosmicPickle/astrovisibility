@@ -1,13 +1,28 @@
+import { isTimestampInIntervals } from '../astronomy/astronomicalDarkness';
 import type {
   SelectedTargetTrajectory,
-  TrajectoryAssessment,
+  TrajectorySample,
+  VisibilityInterval,
 } from '../astronomy/trajectory';
 import type { HorizontalDirectionDegrees } from './projection';
 
 export interface ProjectedTrajectoryGroup {
-  assessment: Exclude<TrajectoryAssessment, 'belowHorizon'>;
+  kind: 'blocked' | 'astronomicalDarkness' | 'daytime';
   directions: HorizontalDirectionDegrees[];
 }
+
+const renderKindForSample = (
+  sample: TrajectorySample,
+  astronomicalDarknessIntervals: readonly VisibilityInterval[],
+): ProjectedTrajectoryGroup['kind'] => {
+  if (sample.assessment === 'blocked') return 'blocked';
+  return isTimestampInIntervals(
+    sample.timestampUtc,
+    astronomicalDarknessIntervals,
+  )
+    ? 'astronomicalDarkness'
+    : 'daytime';
+};
 
 const directionForSample = (sample: {
   azimuthDegreesClockwiseFromNorth: number;
@@ -19,6 +34,7 @@ const directionForSample = (sample: {
 
 export const createProjectedTrajectoryGroups = (
   trajectory: SelectedTargetTrajectory | null,
+  astronomicalDarknessIntervals: readonly VisibilityInterval[] = [],
 ): ProjectedTrajectoryGroup[] => {
   if (!trajectory) return [];
   const groups: ProjectedTrajectoryGroup[] = [];
@@ -29,14 +45,15 @@ export const createProjectedTrajectoryGroups = (
       continue;
     }
     const direction = directionForSample(sample);
+    const kind = renderKindForSample(sample, astronomicalDarknessIntervals);
     if (!current) {
-      current = { assessment: sample.assessment, directions: [direction] };
+      current = { kind, directions: [direction] };
       groups.push(current);
       continue;
     }
-    if (current.assessment !== sample.assessment) {
+    if (current.kind !== kind) {
       current.directions.push(direction);
-      current = { assessment: sample.assessment, directions: [direction] };
+      current = { kind, directions: [direction] };
       groups.push(current);
       continue;
     }

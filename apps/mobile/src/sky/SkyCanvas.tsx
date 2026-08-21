@@ -6,6 +6,7 @@ import { GestureDetector } from 'react-native-gesture-handler';
 import type {
   SelectedTargetTrajectory,
   TrajectoryMarker,
+  VisibilityInterval,
 } from '../astronomy/trajectory';
 import type { TargetDiurnalOrbit } from '../astronomy/diurnalTrajectory';
 import type { VisibilityMask } from '../mask/visibilityMask';
@@ -31,6 +32,7 @@ import { usePlanetariumNavigation } from './usePlanetariumNavigation';
 export const TRAJECTORY_MARKER_HIT_RADIUS_PIXELS = 22;
 
 export interface SkyCanvasProps {
+  astronomicalDarknessIntervals?: readonly VisibilityInterval[];
   celestialEquatorDirections: readonly {
     altitudeDegrees: number;
     azimuthDegrees: number;
@@ -56,6 +58,7 @@ export interface SkyCanvasProps {
 }
 
 export const SkyCanvas = ({
+  astronomicalDarknessIntervals = [],
   celestialEquatorDirections,
   diurnalOrbit,
   fieldOfViewEquipment,
@@ -222,6 +225,7 @@ export const SkyCanvas = ({
           style={styles.scene}
         >
           <PlanetariumScene
+            astronomicalDarknessIntervals={astronomicalDarknessIntervals}
             camera={navigation.camera}
             canvas={canvas}
             celestialEquatorDirections={celestialEquatorDirections}

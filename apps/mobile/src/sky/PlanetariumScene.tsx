@@ -55,6 +55,8 @@ import type {
   HorizontalDirectionDegrees,
 } from './projection';
 import { createProjectedTrajectoryGroups } from './planetariumTrajectory';
+import { isTimestampInIntervals } from '../astronomy/astronomicalDarkness';
+import type { VisibilityInterval } from '../astronomy/trajectory';
 
 const targetFont = matchFont({
   fontFamily: 'sans-serif',
@@ -513,19 +515,25 @@ function PlanetariumTarget({
 }
 
 function TrajectoryLayer({
+  astronomicalDarknessIntervals,
   camera,
   canvas,
   diurnalOrbit,
   trajectory,
 }: {
+  astronomicalDarknessIntervals: readonly VisibilityInterval[];
   camera: SharedValue<PlanetariumCamera>;
   canvas: CanvasSizePixels;
   diurnalOrbit: TargetDiurnalOrbit | null;
   trajectory: SelectedTargetTrajectory | null;
 }) {
   const groups = useMemo(
-    () => createProjectedTrajectoryGroups(trajectory),
-    [trajectory],
+    () =>
+      createProjectedTrajectoryGroups(
+        trajectory,
+        astronomicalDarknessIntervals,
+      ),
+    [astronomicalDarknessIntervals, trajectory],
   );
   const diurnalDirections = useMemo(
     () =>
@@ -553,17 +561,17 @@ function TrajectoryLayer({
           camera={camera}
           canvas={canvas}
           color={
-            group.assessment === 'visible'
-              ? colors.primary
-              : group.assessment === 'blocked'
-                ? colors.blocked
-                : colors.spaceViolet
+            group.kind === 'blocked'
+              ? colors.blocked
+              : group.kind === 'astronomicalDarkness'
+                ? colors.astronomicalDarkness
+                : colors.primary
           }
-          dash={group.assessment === 'visible' ? undefined : [7, 5]}
+          dash={group.kind === 'blocked' ? [7, 5] : undefined}
           directions={group.directions}
-          key={`${group.assessment}-${index}`}
-          strokeOpacity={group.assessment === 'blocked' ? 0.72 : 1}
-          strokeWidth={group.assessment === 'visible' ? 3 : 2.5}
+          key={`${group.kind}-${index}`}
+          strokeOpacity={group.kind === 'blocked' ? 0.72 : 1}
+          strokeWidth={group.kind === 'blocked' ? 2.5 : 3}
         />
       ))}
       {trajectory?.transitions.map((transition) => (
@@ -588,11 +596,14 @@ function TrajectoryLayer({
               camera={camera}
               canvas={canvas}
               color={
-                marker.assessment === 'visible'
-                  ? colors.primary
-                  : marker.assessment === 'blocked'
-                    ? colors.blocked
-                    : colors.spaceViolet
+                marker.assessment === 'blocked'
+                  ? colors.blocked
+                  : isTimestampInIntervals(
+                        marker.timestampUtc,
+                        astronomicalDarknessIntervals,
+                      )
+                    ? colors.astronomicalDarkness
+                    : colors.primary
               }
               direction={{
                 altitudeDegrees: marker.refractedAltitudeDegrees,
@@ -897,6 +908,7 @@ function FieldOfViewLayer({
 }
 
 export function PlanetariumScene({
+  astronomicalDarknessIntervals = [],
   camera,
   canvas,
   celestialEquatorDirections,
@@ -912,6 +924,7 @@ export function PlanetariumScene({
   targets,
   trajectory,
 }: {
+  astronomicalDarknessIntervals?: readonly VisibilityInterval[];
   camera: SharedValue<PlanetariumCamera>;
   canvas: CanvasSizePixels;
   celestialEquatorDirections: readonly HorizontalDirectionDegrees[];
@@ -970,6 +983,7 @@ export function PlanetariumScene({
         />
       ) : null}
       <TrajectoryLayer
+        astronomicalDarknessIntervals={astronomicalDarknessIntervals}
         camera={camera}
         canvas={canvas}
         diurnalOrbit={diurnalOrbit}

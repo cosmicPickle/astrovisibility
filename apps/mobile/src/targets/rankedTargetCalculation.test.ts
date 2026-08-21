@@ -103,23 +103,26 @@ const baseInput = {
 } as const;
 
 describe('ranked target ordering', () => {
-  it('sorts by duration, longest interval, prominence, name, then canonical id', () => {
+  it('puts unknown sizes last, then sorts known sizes by dark duration and angular area', () => {
     const results = [
-      ranked(catalogueTarget('z', 'Beta', 2), 50, 30),
-      ranked(catalogueTarget('y', 'Alpha', 2), 50, 30),
-      ranked(catalogueTarget('x', 'Alpha', 1), 50, 30),
-      ranked(catalogueTarget('w', 'Gamma', 4), 50, 40),
-      ranked(catalogueTarget('v', 'Delta', 1), 60, 10),
-      ranked(catalogueTarget('a', 'Alpha', 1), 50, 30),
+      ranked(catalogueTarget('small', 'Small', 2), 50, 30),
+      ranked(
+        catalogueTarget('large', 'Large', 2, {
+          majorAxisArcminutes: 120,
+          minorAxisArcminutes: 60,
+        }),
+        50,
+        20,
+      ),
+      ranked(catalogueTarget('long', 'Long', 2), 60, 10),
+      ranked(catalogueTarget('unknown', 'Unknown', 1, {}), 120, 120),
     ].sort(compareRankedTargets);
 
     expect(results.map(({ target }) => target.id)).toEqual([
-      'v',
-      'w',
-      'a',
-      'x',
-      'y',
-      'z',
+      'long',
+      'large',
+      'small',
+      'unknown',
     ]);
   });
 });
@@ -173,6 +176,35 @@ describe('progressive all-target calculation', () => {
     ]);
     expect(results[1]!.intervals).toEqual([interval(0, 20), interval(30, 60)]);
     expect(batches.at(-1)).toEqual(['target-b', 'target-a']);
+  });
+
+  it('ranks and reports only the astronomical-dark portion of local visibility', async () => {
+    const results = await calculateRankedTargetsProgressively(
+      {
+        ...baseInput,
+        maskRevision: {
+          id: 'mask-1',
+          profileId: 'profile-1',
+          panoramaRevisionId: 'panorama-1',
+          formatVersion: 1,
+          createdAtUtc: '2026-01-01T00:00:00.000Z',
+          coveragePolygons: [],
+          operations: [],
+        },
+        panoramaRevisionId: 'panorama-1',
+        targets: [catalogueTarget('target-a', 'A')],
+      },
+      {
+        astronomicalDarknessIntervals: [interval(15, 45)],
+        cache: new VisibilityCalculationCache(),
+        calculateVisibility: async () =>
+          trajectory([interval(0, 60)], [interval(0, 20), interval(30, 60)]),
+        yieldToEventLoop: async () => undefined,
+      },
+    );
+
+    expect(results[0]!.intervals).toEqual([interval(15, 20), interval(30, 45)]);
+    expect(results[0]!.totalDurationMilliseconds).toBe(20 * 60_000);
   });
 
   it('uses above-horizon duration and truthful unassessed semantics when no mask exists', async () => {

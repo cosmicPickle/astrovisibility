@@ -13,7 +13,7 @@
   `main`; final push to `origin/main`.
 - Checklist:
   - [x] Read product source of truth and create focused implementation spec.
-  - [ ] Implement/test astronomical darkness intervals, arc grouping, and dark
+  - [x] Implement/test astronomical darkness intervals, arc grouping, and dark
         visibility totals/ranking.
   - [ ] Implement/test revised equipment suitability and known-size ordering.
   - [ ] Implement/test Sky View icon menu, opacity sheets, and compact target
@@ -21,7 +21,7 @@
   - [ ] Implement/test target search and segmented category filter.
   - [ ] Run complete gates and exact-release Android visual/device QA.
   - [ ] Remove this active state, commit final report, and push `main`.
-- Current step: commit the focused specification, then implement darkness
-  calculations test-first.
+- Current step: revise equipment suitability, then consolidate Sky View
+  controls and selected-target information.
 - Blockers/open questions: none; category mapping and darkness threshold are
   resolved by the focused specification.

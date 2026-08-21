@@ -53,6 +53,22 @@ const trajectory: SelectedTargetTrajectory = {
 };
 
 describe('planetarium trajectory projection', () => {
+  it('splits clear trajectory segments into daytime and astronomical darkness while blocked stays gray-classified', () => {
+    const groups = createProjectedTrajectoryGroups(trajectory, [
+      {
+        startTimestampUtc: '2026-08-19T20:04:00.000Z',
+        endTimestampUtc: '2026-08-19T20:12:00.000Z',
+        durationMilliseconds: 8 * 60_000,
+      },
+    ]);
+
+    expect(groups.map(({ kind }) => kind)).toEqual([
+      'daytime',
+      'astronomicalDarkness',
+      'blocked',
+    ]);
+  });
+
   it('uses only exact time-evaluated directions and shares transition endpoints', () => {
     const groups = createProjectedTrajectoryGroups(trajectory);
 

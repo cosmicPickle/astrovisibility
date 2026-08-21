@@ -10,6 +10,7 @@ export const colors = {
   mutedText: '#A5B1C6',
   primary: '#5B9CFF',
   primaryPressed: '#397DE8',
+  astronomicalDarkness: '#245AA8',
   spaceViolet: '#8A7DFF',
   blocked: '#7B8497',
   warning: '#F5B942',

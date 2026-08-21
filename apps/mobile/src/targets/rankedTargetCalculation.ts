@@ -1,4 +1,8 @@
 import type { CatalogueTarget } from '../../scripts/catalogue/catalogueImporter';
+import {
+  createAstronomicalDarknessIntervals,
+  intersectTimeIntervals,
+} from '../astronomy/astronomicalDarkness';
 import { createWindowHorizontalProjectorAtMilliseconds } from '../astronomy/horizontalCoordinates';
 import {
   calculateObstructionAwareTrajectory,
@@ -56,6 +60,7 @@ type CalculateVisibility = (
 ) => Promise<SelectedTargetTrajectory>;
 
 export type RankedTargetCalculationOptions = Readonly<{
+  astronomicalDarknessIntervals?: readonly VisibilityInterval[];
   batchSize?: number;
   cache?: Pick<VisibilityCalculationCache, 'get' | 'set'> &
     Readonly<{ size?: number }>;
@@ -81,9 +86,20 @@ export function compareRankedTargets(
 ): number {
   const compareText = (leftText: string, rightText: string) =>
     leftText === rightText ? 0 : leftText < rightText ? -1 : 1;
+  const leftSize = left.target.majorAxisArcminutes;
+  const rightSize = right.target.majorAxisArcminutes;
+  const leftSizeKnown = leftSize !== undefined && leftSize > 0;
+  const rightSizeKnown = rightSize !== undefined && rightSize > 0;
+  if (leftSizeKnown !== rightSizeKnown) return leftSizeKnown ? -1 : 1;
+  const leftArea = leftSizeKnown
+    ? leftSize * (left.target.minorAxisArcminutes ?? leftSize)
+    : 0;
+  const rightArea = rightSizeKnown
+    ? rightSize * (right.target.minorAxisArcminutes ?? rightSize)
+    : 0;
   return (
     right.totalDurationMilliseconds - left.totalDurationMilliseconds ||
-    right.longestIntervalMilliseconds - left.longestIntervalMilliseconds ||
+    rightArea - leftArea ||
     left.target.prominenceTier - right.target.prominenceTier ||
     compareText(left.target.preferredName, right.target.preferredName) ||
     compareText(left.target.id, right.target.id)
@@ -105,11 +121,16 @@ function toRankedTarget(
   >,
   suitability: EquipmentSuitability | null,
   hasMask: boolean,
+  astronomicalDarknessIntervals: readonly VisibilityInterval[],
 ): RankedTarget | null {
   if (trajectory.totalAboveHorizonMilliseconds <= 0) return null;
-  const intervals = hasMask
+  const visibilityIntervals = hasMask
     ? trajectory.visibilityIntervals
     : trajectory.aboveHorizonIntervals;
+  const intervals = intersectTimeIntervals(
+    visibilityIntervals,
+    astronomicalDarknessIntervals,
+  );
   return {
     durationKind: hasMask ? 'visible' : 'aboveHorizonUnassessed',
     intervals,
@@ -119,9 +140,10 @@ function toRankedTarget(
     ),
     suitability,
     target,
-    totalDurationMilliseconds: hasMask
-      ? trajectory.totalVisibleMilliseconds
-      : trajectory.totalAboveHorizonMilliseconds,
+    totalDurationMilliseconds: intervals.reduce(
+      (total, interval) => total + interval.durationMilliseconds,
+      0,
+    ),
   };
 }
 
@@ -137,6 +159,9 @@ export async function calculateRankedTargetsProgressively(
     options.calculateVisibility ?? calculateObstructionAwareTrajectory;
   const cache = options.cache ?? selectedTrajectoryCache;
   const yieldToEventLoop = options.yieldToEventLoop ?? defaultYieldToEventLoop;
+  const astronomicalDarknessIntervals =
+    options.astronomicalDarknessIntervals ??
+    createAstronomicalDarknessIntervals(input.observer, input.window);
   const candidates = input.targets
     .map((target) => ({
       suitability: input.equipment
@@ -235,6 +260,7 @@ export async function calculateRankedTargetsProgressively(
       trajectory,
       suitability,
       input.maskRevision !== null,
+      astronomicalDarknessIntervals,
     );
     if (result) results.push(result);
     processedCount += 1;

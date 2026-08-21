@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createAstronomicalDarknessIntervals } from '../astronomy/astronomicalDarkness';
 import {
   Alert,
   ActivityIndicator,
@@ -92,6 +93,7 @@ export interface SkyViewNavigation {
 }
 
 export interface SkyRendererProps {
+  astronomicalDarknessIntervals?: readonly import('../astronomy/trajectory').VisibilityInterval[];
   celestialEquatorDirections: readonly {
     altitudeDegrees: number;
     azimuthDegrees: number;
@@ -339,6 +341,16 @@ export const SkyViewScreen = ({
         : null,
     [data, observingWindow, selectedTarget],
   );
+  const astronomicalDarknessIntervals = useMemo(
+    () =>
+      data && observingWindow
+        ? createAstronomicalDarknessIntervals(
+            observerForProfile(data.profile),
+            observingWindow,
+          )
+        : [],
+    [data, observingWindow],
+  );
   useEffect(() => {
     if (!data || !observingWindow || !selectedTarget) {
       return;
@@ -576,6 +588,7 @@ export const SkyViewScreen = ({
 
       <View style={styles.skyArea}>
         <SkyRenderer
+          astronomicalDarknessIntervals={astronomicalDarknessIntervals}
           celestialEquatorDirections={celestialEquatorDirections}
           diurnalOrbit={diurnalOrbit}
           fieldOfViewEquipment={selectedEquipment}
