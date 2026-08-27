@@ -668,8 +668,8 @@ export function calculateObstructionVisibilitySummary(
   };
 }
 
-export function createVisibilityCalculationCacheKey(
-  input: ObstructionVisibilityInput,
+export function createVisibilityCalculationContextKey(
+  input: Omit<ObstructionVisibilityInput, 'target'>,
 ): string {
   return `profile=${encodeURIComponent(input.profileId)};${JSON.stringify({
     astronomyAdapterVersion: ASTRONOMY_ADAPTER_VERSION,
@@ -685,15 +685,26 @@ export function createVisibilityCalculationCacheKey(
       startTimestampUtc: input.window.startTimestampUtc,
       endTimestampUtc: input.window.endTimestampUtc,
     },
-    target: {
-      id: input.target.id,
-      rightAscensionJ2000Hours: input.target.rightAscensionJ2000Hours,
-      declinationJ2000Degrees: input.target.declinationJ2000Degrees,
-    },
     panoramaRevisionId: input.panoramaRevisionId,
     maskRevisionId: input.maskRevision?.id ?? null,
     maskPanoramaRevisionId: input.maskRevision?.panoramaRevisionId ?? null,
   })}`;
+}
+
+export function createVisibilityCalculationTargetKey(
+  target: ObstructionVisibilityInput['target'],
+): string {
+  return JSON.stringify({
+    id: target.id,
+    rightAscensionJ2000Hours: target.rightAscensionJ2000Hours,
+    declinationJ2000Degrees: target.declinationJ2000Degrees,
+  });
+}
+
+export function createVisibilityCalculationCacheKey(
+  input: ObstructionVisibilityInput,
+): string {
+  return `${createVisibilityCalculationContextKey(input)};target=${createVisibilityCalculationTargetKey(input.target)}`;
 }
 
 export class VisibilityCalculationCache {

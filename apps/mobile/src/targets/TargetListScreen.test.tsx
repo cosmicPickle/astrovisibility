@@ -3,10 +3,14 @@ import type { ReactElement } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import type { CatalogueTarget } from '../../scripts/catalogue/catalogueImporter';
-import { selectedTrajectoryCache } from '../astronomy/obstructionVisibility';
+import {
+  createVisibilityCalculationTargetKey,
+  selectedTrajectoryCache,
+} from '../astronomy/obstructionVisibility';
 import type { ObservingWindow } from '../astronomy/localCivilTime';
 import type { SelectedTargetTrajectory } from '../astronomy/trajectory';
 import type { ProfileRecord } from '../storage/profileRepository';
+import type { VisibilityCalculationCacheRepository } from '../storage/visibilityCalculationCacheRepository';
 import {
   TargetListScreen,
   type TargetListController,
@@ -169,6 +173,46 @@ describe('TargetListScreen', () => {
       screen.getByText('6h 44m above horizon · obstructions not assessed'),
     ).toBeTruthy();
     expect(screen.queryByText(/Total visible/)).toBeNull();
+  });
+
+  it('loads persistent summaries before calculating catalogue misses', async () => {
+    const persistentCache = {
+      activateContext: jest.fn().mockResolvedValue(undefined),
+      getSummaries: jest.fn().mockResolvedValue(
+        new Map([
+          [
+            createVisibilityCalculationTargetKey({
+              id: target.id,
+              rightAscensionJ2000Hours: target.rightAscensionJ2000Hours,
+              declinationJ2000Degrees: target.declinationJ2000Degrees,
+            }),
+            trajectory,
+          ],
+        ]),
+      ),
+      putSummaries: jest.fn().mockResolvedValue(undefined),
+    } as unknown as VisibilityCalculationCacheRepository;
+    const cachedController: TargetListController = {
+      load: jest.fn().mockResolvedValue({
+        ...(await controller(true).load(profile.id, window)),
+        visibilityCache: persistentCache,
+      }),
+    };
+    const calculateVisibility = jest.fn().mockResolvedValue(trajectory);
+    const screen = await renderWithSafeArea(
+      <TargetListScreen
+        calculateVisibility={calculateVisibility}
+        controller={cachedController}
+        navigation={navigation()}
+        profileId={profile.id}
+        requestedWindow={window}
+      />,
+    );
+
+    await waitFor(() => screen.getByText('Andromeda Galaxy'));
+    expect(persistentCache.activateContext).toHaveBeenCalledTimes(1);
+    expect(persistentCache.getSummaries).toHaveBeenCalledTimes(1);
+    expect(calculateVisibility).not.toHaveBeenCalled();
   });
 
   it('cancels active local calculation without changing profile data', async () => {

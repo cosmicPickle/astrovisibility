@@ -20,6 +20,7 @@ import {
 } from './panoramaPersistence';
 import { ProfileRepository } from './profileRepository';
 import type { OwnedFileStore, SqlDatabase, SqlValue } from './types';
+import { VisibilityCalculationCacheRepository } from './visibilityCalculationCacheRepository';
 
 class NodeSqliteDatabase implements SqlDatabase {
   private readonly database: DatabaseSync;
@@ -145,7 +146,7 @@ describe('SQLite migrations and repositories', () => {
     const version = await database.getFirstAsync<{ user_version: number }>(
       'PRAGMA user_version',
     );
-    expect(version?.user_version).toBe(6);
+    expect(version?.user_version).toBe(7);
 
     const firstRepository = new ProfileRepository(database);
     await firstRepository.create(profile);
@@ -751,6 +752,77 @@ describe('coordinated panorama and mask persistence', () => {
       ),
     ).toEqual({ count: 1 });
     files.deleteOwnedFile = originalDelete;
+    native.close();
+  });
+
+  it('persists bounded visibility summaries and trajectories and drops stale contexts', async () => {
+    const { native, database } = createDatabase();
+    await migrateDatabase(database);
+    await new ProfileRepository(database).create(profile);
+    const repository = new VisibilityCalculationCacheRepository(database, {
+      summaryCapacity: 2,
+      trajectoryCapacity: 1,
+    });
+    const summary = {
+      aboveHorizonIntervals: [],
+      visibilityIntervals: [],
+      totalAboveHorizonMilliseconds: 1,
+      totalVisibleMilliseconds: 1,
+    };
+    const trajectory = {
+      ...summary,
+      blockedIntervals: [],
+      markers: [],
+      samples: [],
+      transitions: [],
+    };
+
+    await repository.putSummaries(profile.id, 'context-1', [
+      { summary, targetKey: 'target-1' },
+      { summary, targetKey: 'target-2' },
+      { summary, targetKey: 'target-3' },
+    ]);
+    expect([...(await repository.getSummaries('context-1')).keys()]).toEqual([
+      'target-2',
+      'target-3',
+    ]);
+
+    await repository.putTrajectory(
+      profile.id,
+      'context-1',
+      'target-2',
+      trajectory,
+    );
+    expect(await repository.getTrajectory('context-1', 'target-2')).toEqual(
+      trajectory,
+    );
+    await repository.putTrajectory(
+      profile.id,
+      'context-1',
+      'target-3',
+      trajectory,
+    );
+    expect(await repository.getTrajectory('context-1', 'target-2')).toBeNull();
+
+    await database.runAsync(
+      `INSERT OR REPLACE INTO visibility_calculation_cache (
+        profile_id, context_key, target_key, result_kind, result_json,
+        last_used_at_utc
+      ) VALUES (?, 'context-1', 'corrupt', 'summary', 'not-json', ?)`,
+      [profile.id, profile.createdAtUtc],
+    );
+    expect((await repository.getSummaries('context-1')).has('corrupt')).toBe(
+      false,
+    );
+
+    await repository.putSummaries(profile.id, 'context-2', [
+      { summary, targetKey: 'target-4' },
+    ]);
+    await repository.activateContext(profile.id, 'context-2');
+    expect((await repository.getSummaries('context-1')).size).toBe(0);
+    expect((await repository.getSummaries('context-2')).has('target-4')).toBe(
+      true,
+    );
     native.close();
   });
 });

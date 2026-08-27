@@ -1,5 +1,8 @@
 import type { CatalogueTarget } from '../../scripts/catalogue/catalogueImporter';
-import { VisibilityCalculationCache } from '../astronomy/obstructionVisibility';
+import {
+  createVisibilityCalculationTargetKey,
+  VisibilityCalculationCache,
+} from '../astronomy/obstructionVisibility';
 import type { SelectedTargetTrajectory } from '../astronomy/trajectory';
 import type { EquipmentRecord } from '../storage/equipmentRepository';
 import {
@@ -243,6 +246,47 @@ describe('progressive all-target calculation', () => {
 
     expect(emptyCache.get).not.toHaveBeenCalled();
     expect(emptyCache.set).toHaveBeenCalledTimes(1);
+  });
+
+  it('reuses persisted summaries and batches only newly calculated summaries', async () => {
+    const cachedTarget = catalogueTarget('cached', 'Cached');
+    const missedTarget = catalogueTarget('missed', 'Missed');
+    const cachedSummary = trajectory([interval(0, 20)], []);
+    const onSummaryBatch = jest.fn().mockResolvedValue(undefined);
+    const calculateVisibility = jest
+      .fn()
+      .mockResolvedValue(trajectory([interval(0, 30)], []));
+
+    const results = await calculateRankedTargetsProgressively(
+      { ...baseInput, targets: [cachedTarget, missedTarget] },
+      {
+        batchSize: 2,
+        cache: new VisibilityCalculationCache(),
+        calculateVisibility,
+        onSummaryBatch,
+        summaryCache: new Map([
+          [
+            createVisibilityCalculationTargetKey({
+              id: cachedTarget.id,
+              rightAscensionJ2000Hours: cachedTarget.rightAscensionJ2000Hours,
+              declinationJ2000Degrees: cachedTarget.declinationJ2000Degrees,
+            }),
+            cachedSummary,
+          ],
+        ]),
+        yieldToEventLoop: async () => undefined,
+      },
+    );
+
+    expect(calculateVisibility).toHaveBeenCalledTimes(1);
+    expect(calculateVisibility.mock.calls[0]?.[0].target.id).toBe('missed');
+    expect(results).toHaveLength(2);
+    expect(onSummaryBatch).toHaveBeenCalledTimes(1);
+    expect(onSummaryBatch.mock.calls[0]?.[0]).toEqual([
+      expect.objectContaining({
+        targetKey: expect.stringContaining('missed'),
+      }),
+    ]);
   });
 
   it('keeps mosaic-sized targets while filtering small and unknown-size targets', async () => {

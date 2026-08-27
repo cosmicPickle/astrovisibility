@@ -12,6 +12,7 @@ import { PanoramaDraftRepository } from './panoramaDraftRepository';
 import { removeOrphanedOwnedFiles } from './panoramaPersistence';
 import { ProfileRepository } from './profileRepository';
 import type { SqlDatabase } from './types';
+import { VisibilityCalculationCacheRepository } from './visibilityCalculationCacheRepository';
 
 const catalogue = catalogueArtifact as {
   dataVersion: string;
@@ -26,6 +27,7 @@ export interface AppStorage {
   masks: MaskRepository;
   panoramas: PanoramaDraftRepository;
   profiles: ProfileRepository;
+  visibilityCache: VisibilityCalculationCacheRepository;
 }
 
 let storagePromise: Promise<AppStorage> | null = null;
@@ -50,6 +52,7 @@ async function initializeStorage(): Promise<AppStorage> {
     masks: new MaskRepository(database, fileStore),
     panoramas: new PanoramaDraftRepository(database, fileStore),
     profiles: new ProfileRepository(database),
+    visibilityCache: new VisibilityCalculationCacheRepository(database),
   };
 }
 

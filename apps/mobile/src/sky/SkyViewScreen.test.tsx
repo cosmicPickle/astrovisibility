@@ -4,11 +4,15 @@ import { Alert, Pressable, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import type { CatalogueTarget } from '../../scripts/catalogue/catalogueImporter';
-import { VisibilityCalculationCache } from '../astronomy/obstructionVisibility';
+import {
+  selectedTrajectoryCache,
+  VisibilityCalculationCache,
+} from '../astronomy/obstructionVisibility';
 import type { SelectedTargetTrajectory } from '../astronomy/trajectory';
 import type { EquipmentRecord } from '../storage/equipmentRepository';
 import type { ActiveMaskRevision } from '../storage/maskRepository';
 import type { ProfileRecord } from '../storage/profileRepository';
+import type { VisibilityCalculationCacheRepository } from '../storage/visibilityCalculationCacheRepository';
 import {
   resetTargetDiscoveryStateForTests,
   setTargetDiscoverySearchText,
@@ -282,7 +286,10 @@ function navigation(): SkyViewNavigation {
 }
 
 describe('SkyViewScreen', () => {
-  beforeEach(() => resetTargetDiscoveryStateForTests());
+  beforeEach(() => {
+    resetTargetDiscoveryStateForTests();
+    selectedTrajectoryCache.clear();
+  });
 
   it('shows a deliberate loading failure and retries local data', async () => {
     const failedController: SkyViewController = {
@@ -554,6 +561,36 @@ describe('SkyViewScreen', () => {
       profile.id,
       selectedWindow.startTimestampUtc,
     );
+  });
+
+  it('restores a selected trajectory from persistent profile cache', async () => {
+    const persistentCache = {
+      activateContext: jest.fn().mockResolvedValue(undefined),
+      getTrajectory: jest.fn().mockResolvedValue(obstructionAwareTrajectory),
+      putTrajectory: jest.fn().mockResolvedValue(undefined),
+    } as unknown as VisibilityCalculationCacheRepository;
+    const calculateVisibility = jest
+      .fn()
+      .mockResolvedValue(obstructionAwareTrajectory);
+    const screen = await renderWithSafeArea(
+      <SkyViewScreen
+        calculateVisibility={calculateVisibility}
+        controller={controller({ visibilityCache: persistentCache })}
+        initialSelectedTargetId={catalogueTarget.id}
+        navigation={navigation()}
+        profileId={profile.id}
+        renderSky={rendererWithStageFourOverlays}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.getByTestId('trajectory-transition-count').props.children,
+      ).toBe(1),
+    );
+    expect(persistentCache.activateContext).toHaveBeenCalledTimes(1);
+    expect(persistentCache.getTrajectory).toHaveBeenCalledTimes(1);
+    expect(calculateVisibility).not.toHaveBeenCalled();
   });
 
   it('renders a saved panorama with independent visibility and adjustable opacity', async () => {
@@ -860,9 +897,13 @@ describe('SkyViewScreen', () => {
     await waitFor(() => screen.getByText(profile.name));
     await fireEvent.press(screen.getByLabelText('Sky time'));
     expect(screen.queryByText('Custom interval')).toBeNull();
-    await fireEvent(screen.getByLabelText('Time of day'), 'accessibilityAction', {
-      nativeEvent: { actionName: 'increment' },
-    });
+    await fireEvent(
+      screen.getByLabelText('Time of day'),
+      'accessibilityAction',
+      {
+        nativeEvent: { actionName: 'increment' },
+      },
+    );
 
     await waitFor(() => screen.getByText('23:15'));
     expect(skyController.load).toHaveBeenCalledTimes(1);

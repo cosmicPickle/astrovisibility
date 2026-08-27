@@ -9,9 +9,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { CatalogueTarget } from '../../scripts/catalogue/catalogueImporter';
-import type {
-  ObstructionVisibilityInput,
-  VisibilityCalculationOptions,
+import {
+  createVisibilityCalculationContextKey,
+  type ObstructionVisibilityInput,
+  type ObstructionVisibilitySummary,
+  type VisibilityCalculationOptions,
 } from '../astronomy/obstructionVisibility';
 import {
   localCivilDateTimeAtInstant,
@@ -30,6 +32,7 @@ import { bootstrapStorage } from '../storage/bootstrapStorage';
 import type { EquipmentRecord } from '../storage/equipmentRepository';
 import type { ActiveMaskRevision } from '../storage/maskRepository';
 import type { ProfileRecord } from '../storage/profileRepository';
+import type { VisibilityCalculationCacheRepository } from '../storage/visibilityCalculationCacheRepository';
 import { colors, layout } from '../theme/tokens';
 import { evaluateEquipmentSuitability } from './equipmentSuitability';
 import {
@@ -55,6 +58,7 @@ export type TargetListData = Readonly<{
   profile: ProfileRecord;
   targets: readonly CatalogueTarget[];
   window: ObservingWindow;
+  visibilityCache?: VisibilityCalculationCacheRepository;
 }>;
 
 export interface TargetListController {
@@ -114,6 +118,7 @@ export const targetListController: TargetListController = {
           observer: observerForProfile(profile),
           timeZoneId: profile.timeZoneId,
         }),
+      visibilityCache: storage.visibilityCache,
     };
   },
 };
@@ -214,27 +219,66 @@ export function TargetListScreen({
     activeCalculation.current?.abort();
     activeCalculation.current = abortController;
     let active = true;
-    void calculateRankedTargetsProgressively(
-      {
-        equipment: data.equipment,
-        maskRevision: data.maskRevision,
-        observer: observerForProfile(data.profile),
-        panoramaRevisionId: data.panoramaRevisionId,
-        profileId: data.profile.id,
-        targets: data.targets,
-        timeZoneId: data.profile.timeZoneId,
-        window: data.window,
-      },
-      {
+    const calculationInput = {
+      equipment: data.equipment,
+      maskRevision: data.maskRevision,
+      observer: observerForProfile(data.profile),
+      panoramaRevisionId: data.panoramaRevisionId,
+      profileId: data.profile.id,
+      targets: data.targets,
+      timeZoneId: data.profile.timeZoneId,
+      window: data.window,
+    };
+    const runCalculation = async () => {
+      const persistentCache = data.visibilityCache;
+      let contextKey: string | null = null;
+      let summaryCache:
+        ReadonlyMap<string, ObstructionVisibilitySummary> | undefined;
+      if (persistentCache) {
+        // Search, category, and equipment filters deliberately do not enter
+        // this context, so UI-only changes reuse the same sky calculations.
+        contextKey = createVisibilityCalculationContextKey({
+          maskRevision: data.maskRevision
+            ? {
+                id: data.maskRevision.id,
+                mask: data.maskRevision,
+                panoramaRevisionId: data.maskRevision.panoramaRevisionId,
+              }
+            : null,
+          observer: observerForProfile(data.profile),
+          panoramaRevisionId: data.panoramaRevisionId,
+          profileId: data.profile.id,
+          timeZoneId: data.profile.timeZoneId,
+          window: data.window,
+        });
+        try {
+          await persistentCache.activateContext(data.profile.id, contextKey);
+          summaryCache = await persistentCache.getSummaries(contextKey);
+        } catch {
+          summaryCache = undefined;
+        }
+      }
+      return calculateRankedTargetsProgressively(calculationInput, {
         calculateVisibility,
         onProgress: (nextProgress) => {
           if (active && !abortController.signal.aborted) {
             setProgress(nextProgress);
           }
         },
+        onSummaryBatch:
+          persistentCache && contextKey
+            ? (entries) =>
+                persistentCache.putSummaries(
+                  data.profile.id,
+                  contextKey,
+                  entries,
+                )
+            : undefined,
         signal: abortController.signal,
-      },
-    ).then(
+        summaryCache,
+      });
+    };
+    void runCalculation().then(
       () => {
         if (active && !abortController.signal.aborted) {
           setCalculationStatus('complete');

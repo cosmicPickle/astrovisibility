@@ -20,12 +20,12 @@
   - [x] Implement and test the shared debounced discovery state and controls.
   - [x] Implement and test search-only catalogue classification, name/alias
         search, optical filtering, atlas filtering, and counts.
-  - [ ] Add and test the persistent visibility cache and migration.
+  - [x] Add and test the persistent visibility cache and migration.
   - [ ] Run complete gates and exact-release Android visual/device QA.
   - [ ] Remove this active state, write the verification report, commit, and
         push `main`.
-- Current step: add the forward-only SQLite migration and persistent visibility
-  cache, then wire it into list summaries and selected-target trajectories.
+- Current step: run the complete quality gates, then perform exact-release
+  Android visual/device QA and stage the release APK.
 - Blockers/open questions: none. Direct human direction resolves catalogue
   discovery behavior and persistence scope; the spec records conservative
   decisions for selected-target exceptions and cache bounds.

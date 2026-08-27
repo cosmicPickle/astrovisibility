@@ -220,6 +220,25 @@ const migrations: Migration[] = [
       DELETE FROM panorama_revisions;
     `,
   },
+  {
+    version: 7,
+    sql: `
+      CREATE TABLE IF NOT EXISTS visibility_calculation_cache (
+        profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+        context_key TEXT NOT NULL,
+        target_key TEXT NOT NULL,
+        result_kind TEXT NOT NULL CHECK(result_kind IN ('summary', 'trajectory')),
+        result_json TEXT NOT NULL,
+        last_used_at_utc TEXT NOT NULL,
+        PRIMARY KEY(context_key, target_key, result_kind)
+      );
+
+      CREATE INDEX IF NOT EXISTS visibility_calculation_cache_profile_idx
+        ON visibility_calculation_cache(profile_id);
+      CREATE INDEX IF NOT EXISTS visibility_calculation_cache_lru_idx
+        ON visibility_calculation_cache(result_kind, last_used_at_utc);
+    `,
+  },
 ];
 
 async function ensureDirectionalImageColumns(database: SqlDatabase) {

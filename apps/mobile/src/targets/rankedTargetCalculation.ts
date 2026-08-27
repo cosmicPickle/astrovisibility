@@ -8,11 +8,13 @@ import {
   calculateObstructionAwareTrajectory,
   calculateObstructionVisibilitySummary,
   createVisibilityCalculationCacheKey,
+  createVisibilityCalculationTargetKey,
   selectedTrajectoryCache,
   VisibilityCalculationCancelledError,
   type ObstructionVisibilityInput,
   type VisibilityCalculationCache,
   type VisibilityCalculationOptions,
+  type ObstructionVisibilitySummary,
 } from '../astronomy/obstructionVisibility';
 import type {
   SelectedTargetTrajectory,
@@ -20,6 +22,7 @@ import type {
 } from '../astronomy/trajectory';
 import type { EquipmentRecord } from '../storage/equipmentRepository';
 import type { ActiveMaskRevision } from '../storage/maskRepository';
+import type { VisibilitySummaryCacheEntry } from '../storage/visibilityCalculationCacheRepository';
 import {
   evaluateEquipmentSuitability,
   type EquipmentSuitability,
@@ -67,7 +70,11 @@ export type RankedTargetCalculationOptions = Readonly<{
     Readonly<{ size?: number }>;
   calculateVisibility?: CalculateVisibility;
   onProgress?: (progress: RankedTargetProgress) => void;
+  onSummaryBatch?: (
+    entries: readonly VisibilitySummaryCacheEntry[],
+  ) => Promise<void>;
   signal?: AbortSignal;
+  summaryCache?: ReadonlyMap<string, ObstructionVisibilitySummary>;
   yieldToEventLoop?: () => Promise<void>;
 }>;
 
@@ -175,6 +182,7 @@ export async function calculateRankedTargetsProgressively(
   const rejectedByEquipmentCount =
     discoverableTargets.length - candidates.length;
   const results: RankedTarget[] = [];
+  let pendingSummaryEntries: VisibilitySummaryCacheEntry[] = [];
   let processedCount = 0;
 
   const publish = (complete: boolean) => {
@@ -186,6 +194,17 @@ export async function calculateRankedTargetsProgressively(
       results: [...results].sort(compareRankedTargets),
       totalCatalogueCount: discoverableTargets.length,
     });
+  };
+
+  const flushSummaryEntries = async () => {
+    if (pendingSummaryEntries.length === 0 || !options.onSummaryBatch) return;
+    const entries = pendingSummaryEntries;
+    pendingSummaryEntries = [];
+    try {
+      await options.onSummaryBatch(entries);
+    } catch {
+      // Cache writes are opportunistic and must never break target discovery.
+    }
   };
 
   for (const { suitability, target } of candidates) {
@@ -224,6 +243,10 @@ export async function calculateRankedTargetsProgressively(
       | 'totalAboveHorizonMilliseconds'
       | 'totalVisibleMilliseconds'
     > | null = cacheKey ? cache.get(cacheKey) : null;
+    const targetKey = createVisibilityCalculationTargetKey(
+      visibilityInput.target,
+    );
+    trajectory ??= options.summaryCache?.get(targetKey) ?? null;
     if (!trajectory) {
       try {
         const projectAtMilliseconds =
@@ -257,6 +280,7 @@ export async function calculateRankedTargetsProgressively(
         throw error;
       }
       throwIfCancelled(options.signal);
+      pendingSummaryEntries.push({ summary: trajectory, targetKey });
     }
     const result = toRankedTarget(
       target,
@@ -269,10 +293,12 @@ export async function calculateRankedTargetsProgressively(
     processedCount += 1;
     if (processedCount % batchSize === 0) {
       publish(false);
+      await flushSummaryEntries();
       await yieldToEventLoop();
       throwIfCancelled(options.signal);
     }
   }
+  await flushSummaryEntries();
   publish(true);
   return results.sort(compareRankedTargets);
 }

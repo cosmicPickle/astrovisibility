@@ -20,6 +20,8 @@ import {
 import {
   calculateObstructionAwareTrajectory,
   createVisibilityCalculationCacheKey,
+  createVisibilityCalculationContextKey,
+  createVisibilityCalculationTargetKey,
   selectedTrajectoryCache,
   VisibilityCalculationCancelledError,
   type ObstructionVisibilityInput,
@@ -60,6 +62,7 @@ import type { EquipmentRecord } from '../storage/equipmentRepository';
 import type { ActiveMaskRevision } from '../storage/maskRepository';
 import type { ActivePanorama } from '../storage/panoramaDraftRepository';
 import type { ProfileRecord } from '../storage/profileRepository';
+import type { VisibilityCalculationCacheRepository } from '../storage/visibilityCalculationCacheRepository';
 import { colors, layout } from '../theme/tokens';
 import { evaluateEquipmentSuitability } from '../targets/equipmentSuitability';
 import { filterCatalogueForDiscovery } from '../targets/targetDiscoveryFilter';
@@ -84,6 +87,7 @@ export interface SkyViewData {
   profile: ProfileRecord;
   selectedEquipmentId: string | null;
   timestampUtc: string;
+  visibilityCache?: VisibilityCalculationCacheRepository;
 }
 
 export interface SkyViewController {
@@ -151,6 +155,7 @@ export const skyViewController: SkyViewController = {
       profile,
       selectedEquipmentId: selectedEquipment?.id ?? null,
       timestampUtc,
+      visibilityCache: storage.visibilityCache,
     };
   },
   async selectEquipment(profileId, equipmentId) {
@@ -435,6 +440,8 @@ export const SkyViewScreen = ({
         : null,
     };
     const cacheKey = createVisibilityCalculationCacheKey(input);
+    const contextKey = createVisibilityCalculationContextKey(input);
+    const targetKey = createVisibilityCalculationTargetKey(input.target);
     const baseTrajectory = createSelectedTargetTrajectory({
       target: input.target,
       observer: input.observer,
@@ -453,7 +460,22 @@ export const SkyViewScreen = ({
       if (!active || abortController.signal.aborted) return;
       setTrajectory(baseTrajectory);
       setTrajectoryStatus('calculating');
-      const cached = visibilityCache.get(cacheKey);
+      let cached = visibilityCache.get(cacheKey);
+      if (!cached && data.visibilityCache) {
+        try {
+          await data.visibilityCache.activateContext(
+            data.profile.id,
+            contextKey,
+          );
+          cached = await data.visibilityCache.getTrajectory(
+            contextKey,
+            targetKey,
+          );
+          if (cached) visibilityCache.set(cacheKey, cached);
+        } catch {
+          cached = null;
+        }
+      }
       if (cached) {
         setTrajectory(mergeTrajectoryAssessment(baseTrajectory, cached));
         setTrajectoryStatus('ready');
@@ -465,6 +487,11 @@ export const SkyViewScreen = ({
         });
         if (!active || abortController.signal.aborted) return;
         visibilityCache.set(cacheKey, result);
+        if (data.visibilityCache) {
+          void data.visibilityCache
+            .putTrajectory(data.profile.id, contextKey, targetKey, result)
+            .catch(() => undefined);
+        }
         setTrajectory(mergeTrajectoryAssessment(baseTrajectory, result));
         setTrajectoryStatus('ready');
       } catch (calculationError: unknown) {
@@ -596,6 +623,9 @@ export const SkyViewScreen = ({
             void controller.deletePanoramaAndMask(data.profile.id).then(
               () => {
                 visibilityCache.invalidateProfile(data.profile.id);
+                void data.visibilityCache
+                  ?.invalidateProfile(data.profile.id)
+                  .catch(() => undefined);
                 setOpenSheet(null);
                 if (recreate) {
                   navigation.openPanoramaCapture(data.profile.id);
