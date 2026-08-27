@@ -189,8 +189,8 @@ export function atlasPixelToDirection(
 
 export function createDirectionalAtlasMesh(
   size: DirectionalAtlasSize,
-  ringCount = 24,
-  segmentCount = 72,
+  ringCount = 8,
+  segmentCount = 32,
 ): PlanetariumPanoramaMesh {
   const directions: HorizontalDirectionDegrees[] = [
     { altitudeDegrees: 90, azimuthDegrees: 0 },

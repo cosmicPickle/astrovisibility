@@ -48,13 +48,13 @@ describe('upper-hemisphere directional atlas', () => {
     expect(atlasPixelToDirection({ xPixels: 0, yPixels: 0 }, size)).toBeNull();
   });
 
-  it('uses a bounded five-degree mesh for interactive atlas overlays', () => {
+  it('uses a bounded low-poly mesh for interactive atlas overlays', () => {
     const mesh = createDirectionalAtlasMesh(size);
 
-    expect(mesh.directions).toHaveLength(1_753);
-    expect(mesh.indices).toHaveLength(10_152);
-    expect(mesh.rowCount).toBe(24);
-    expect(mesh.columnCount).toBe(73);
+    expect(mesh.directions).toHaveLength(265);
+    expect(mesh.indices).toHaveLength(1_440);
+    expect(mesh.rowCount).toBe(8);
+    expect(mesh.columnCount).toBe(33);
   });
 
   it('clips panorama triangles at the horizon instead of rejecting horizon-level captures', () => {

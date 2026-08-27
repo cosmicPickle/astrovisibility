@@ -16,10 +16,10 @@
   - [x] Write the focused implementation specification.
   - [x] Add failing density and overlay-work regression tests.
   - [x] Implement the smallest density and mesh hot-loop changes.
-  - [ ] Run complete quality gates.
-  - [ ] Perform Android overlay visual/performance QA.
+  - [x] Run complete quality gates for the initial implementation.
+  - [x] Perform Android overlay visual/performance QA and tune the display mesh.
   - [ ] Record verification, remove this state, commit, and push `main`.
-- Current step: commit the tested implementation, then run complete gates and
-  Android overlay QA.
+- Current step: rerun complete gates for the tuned mesh, rebuild the release APK,
+  record verification, and clean up QA processes and fixtures.
 - Blockers/open questions: none. The direct request selects the sparse-filter
   behavior; this spec fixes the deterministic boundary at 100 targets.

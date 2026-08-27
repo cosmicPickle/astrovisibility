@@ -38,10 +38,11 @@ is visible.
 
 1. Completed panorama and raster-mask overlays continue to use the authoritative
    azimuthal-equidistant directional image and spherical planetarium projection.
-2. Directional overlay tessellation uses cells no coarser than five angular
-   degrees. This matches the established capture-tile mesh tolerance while
-   reducing the default full-hemisphere mesh from 6,961 to 1,753 vertices and
-   from 13,680 to 3,384 triangles per enabled overlay.
+2. Directional overlay tessellation uses eight altitude rings and 32 azimuth
+   segments (at most 11.25 angular degrees per cell). This reduces the default
+   full-hemisphere display mesh from 6,961 to 265 vertices and from 13,680 to
+   480 triangles per enabled overlay. Synthetic directional-grid QA must show
+   coherent rings and spokes without slices, overlap, tearing, or horizon seams.
 3. The per-frame projection loop must avoid temporary arrays and repeated generic
    min/max scans per triangle.
 4. Triangle rejection around the stereographic singularity remains active so the
@@ -73,7 +74,10 @@ is visible.
 
 - The target relaxation is bounded by 100 normal candidates, below existing
   resident limits of 320 visible and 480 including overscan.
-- The overlay change reduces hot-loop work and allocation without weakening the
-  five-degree geometry tolerance used elsewhere.
+- The overlay change reduces hot-loop work and allocation without changing the
+  full-resolution persisted panorama/mask or the authoritative mask sampling.
+  The coarser display-only tessellation is accepted because measured combined
+  overlay median frame time falls from about 48 ms to 16 ms on the QA emulator,
+  while the directional-grid visual check remains coherent.
 - No permission, network, dependency, sensitive logging, or user-data format
   changes are introduced.
