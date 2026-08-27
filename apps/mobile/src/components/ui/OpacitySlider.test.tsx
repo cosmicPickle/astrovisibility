@@ -3,6 +3,62 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 import { OpacitySlider } from './OpacitySlider';
 
 describe('OpacitySlider', () => {
+  it('previews during a drag and commits once on release with a reliable zero snap', async () => {
+    const onChange = jest.fn();
+    const screen = await render(
+      <OpacitySlider label="Mask opacity" onChange={onChange} value={60} />,
+    );
+    const slider = screen.getByLabelText('Mask opacity');
+    await act(async () =>
+      fireEvent(slider, 'layout', {
+        nativeEvent: { layout: { height: 44, width: 100, x: 0, y: 0 } },
+      }),
+    );
+    await act(async () =>
+      fireEvent(slider, 'responderGrant', {
+        nativeEvent: { locationX: 50 },
+      }),
+    );
+    await act(async () =>
+      fireEvent(slider, 'responderMove', {
+        nativeEvent: { locationX: 1 },
+      }),
+    );
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByText('0%')).toBeTruthy();
+
+    await act(async () =>
+      fireEvent(slider, 'responderRelease', {
+        nativeEvent: { locationX: 1 },
+      }),
+    );
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith(0);
+  });
+
+  it('commits the preview when Android terminates the gesture', async () => {
+    const onChange = jest.fn();
+    const screen = await render(
+      <OpacitySlider label="Mask opacity" onChange={onChange} value={60} />,
+    );
+    const slider = screen.getByLabelText('Mask opacity');
+    await act(async () =>
+      fireEvent(slider, 'layout', {
+        nativeEvent: { layout: { height: 44, width: 100, x: 0, y: 0 } },
+      }),
+    );
+    await act(async () =>
+      fireEvent(slider, 'responderMove', {
+        nativeEvent: { locationX: 42 },
+      }),
+    );
+    await act(async () => fireEvent(slider, 'responderTerminate'));
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith(42);
+  });
+
   it('exposes bounded adjustable accessibility actions', async () => {
     const onChange = jest.fn();
     const screen = await render(
