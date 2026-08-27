@@ -8,8 +8,7 @@ describe('useDebouncedValue', () => {
 
   it('publishes only the last value after the delay', async () => {
     const hook = await renderHook(
-      ({ value }: Readonly<{ value: string }>) =>
-        useDebouncedValue(value, 250),
+      ({ value }: Readonly<{ value: string }>) => useDebouncedValue(value, 250),
       { initialProps: { value: '' } },
     );
 
