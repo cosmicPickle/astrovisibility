@@ -16,15 +16,16 @@
   - [x] Audit current catalogue, rendering, filtering, opacity, calculation, and
         persistence paths.
   - [x] Write the focused implementation specification.
-  - [ ] Implement and test deferred opacity commits and zero-disable behavior.
-  - [ ] Implement and test the shared debounced discovery state and controls.
-  - [ ] Implement and test search-only catalogue classification, name/alias
+  - [x] Implement and test deferred opacity commits and zero-disable behavior.
+  - [x] Implement and test the shared debounced discovery state and controls.
+  - [x] Implement and test search-only catalogue classification, name/alias
         search, optical filtering, atlas filtering, and counts.
   - [ ] Add and test the persistent visibility cache and migration.
   - [ ] Run complete gates and exact-release Android visual/device QA.
   - [ ] Remove this active state, write the verification report, commit, and
         push `main`.
-- Current step: implement opacity behavior test-first after committing the spec.
+- Current step: add the forward-only SQLite migration and persistent visibility
+  cache, then wire it into list summaries and selected-target trajectories.
 - Blockers/open questions: none. Direct human direction resolves catalogue
   discovery behavior and persistence scope; the spec records conservative
   decisions for selected-target exceptions and cache bounds.

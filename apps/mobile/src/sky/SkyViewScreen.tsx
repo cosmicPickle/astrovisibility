@@ -53,6 +53,7 @@ import { AppText } from '../components/ui/AppText';
 import { ModalSheet } from '../components/ui/ModalSheet';
 import { OpacitySlider } from '../components/ui/OpacitySlider';
 import { calculateAngularFieldOfView } from '../equipment/fieldOfView';
+import { createVisibilityMaskEvaluator } from '../mask/visibilityMask';
 import { observerForProfile } from '../profiles/profileObserver';
 import { bootstrapStorage } from '../storage/bootstrapStorage';
 import type { EquipmentRecord } from '../storage/equipmentRepository';
@@ -60,6 +61,11 @@ import type { ActiveMaskRevision } from '../storage/maskRepository';
 import type { ActivePanorama } from '../storage/panoramaDraftRepository';
 import type { ProfileRecord } from '../storage/profileRepository';
 import { colors, layout } from '../theme/tokens';
+import { evaluateEquipmentSuitability } from '../targets/equipmentSuitability';
+import { filterCatalogueForDiscovery } from '../targets/targetDiscoveryFilter';
+import { TargetDiscoveryControls } from '../targets/TargetDiscoveryControls';
+import { useTargetDiscoveryState } from '../targets/targetDiscoveryState';
+import { useDebouncedValue } from '../targets/useDebouncedValue';
 import { projectCatalogueAtInstant } from './catalogueProjection';
 import type { HorizontalCatalogueTarget } from './planetariumCatalogue';
 import {
@@ -76,7 +82,6 @@ export interface SkyViewData {
   mask: ActiveMaskRevision | null;
   panorama: ActivePanorama | null;
   profile: ProfileRecord;
-  projectedTargets: HorizontalCatalogueTarget[];
   selectedEquipmentId: string | null;
   timestampUtc: string;
 }
@@ -136,12 +141,7 @@ export const skyViewController: SkyViewController = {
         storage.panoramas.getActiveForProfile(profileId),
       ]);
     if (!profile) throw new Error(`Profile not found: ${profileId}`);
-    const observer = observerForProfile(profile);
     const timestampUtc = requestedTimestampUtc ?? nowTimestampUtc;
-    const projectedTargets = projectCatalogueAtInstant(catalogue, {
-      observer,
-      timestampUtc,
-    });
     return {
       catalogueTargets: catalogue,
       equipment,
@@ -149,7 +149,6 @@ export const skyViewController: SkyViewController = {
       mask,
       panorama,
       profile,
-      projectedTargets,
       selectedEquipmentId: selectedEquipment?.id ?? null,
       timestampUtc,
     };
@@ -247,6 +246,13 @@ export const SkyViewScreen = ({
     'idle' | 'calculating' | 'ready' | 'error'
   >('idle');
   const [calculationAttempt, setCalculationAttempt] = useState(0);
+  const {
+    searchText: targetSearchText,
+    selectedCategories,
+    setSearchText: setTargetSearchText,
+    toggleCategory: toggleTargetCategory,
+  } = useTargetDiscoveryState(profileId);
+  const debouncedTargetSearchText = useDebouncedValue(targetSearchText, 250);
 
   const load = useCallback(
     async (timestampUtc?: string) => {
@@ -306,16 +312,61 @@ export const SkyViewScreen = ({
       null,
     [data],
   );
+  const discoverableCatalogueTargets = useMemo(() => {
+    if (!data) return [];
+    return filterCatalogueForDiscovery(
+      data.catalogueTargets,
+      debouncedTargetSearchText,
+      selectedCategories,
+    ).filter(
+      (target) =>
+        !selectedEquipment ||
+        evaluateEquipmentSuitability(target, selectedEquipment).eligible,
+    );
+  }, [data, debouncedTargetSearchText, selectedCategories, selectedEquipment]);
+  const atlasCatalogueTargets = useMemo(() => {
+    if (
+      !selectedTarget ||
+      discoverableCatalogueTargets.some(({ id }) => id === selectedTarget.id)
+    ) {
+      return discoverableCatalogueTargets;
+    }
+    return [...discoverableCatalogueTargets, selectedTarget];
+  }, [discoverableCatalogueTargets, selectedTarget]);
   const projectedTargets = useMemo(
     () =>
       data && sceneTimestampUtc
-        ? projectCatalogueAtInstant(data.catalogueTargets, {
+        ? projectCatalogueAtInstant(atlasCatalogueTargets, {
             observer: observerForProfile(data.profile),
             timestampUtc: sceneTimestampUtc,
           })
         : [],
-    [data, sceneTimestampUtc],
+    [atlasCatalogueTargets, data, sceneTimestampUtc],
   );
+  const visibleSuitableTargetCount = useMemo(() => {
+    if (!data) return 0;
+    const discoverableTargetIds = new Set(
+      discoverableCatalogueTargets.map(({ id }) => id),
+    );
+    const maskEvaluator = data.mask
+      ? createVisibilityMaskEvaluator(data.mask)
+      : null;
+    return projectedTargets.filter((target) => {
+      if (
+        !discoverableTargetIds.has(target.target.id) ||
+        target.altitudeDegrees < 0
+      ) {
+        return false;
+      }
+      return (
+        !maskEvaluator ||
+        maskEvaluator.classify({
+          altitudeDegrees: target.altitudeDegrees,
+          azimuthDegrees: target.azimuthDegrees,
+        }) === 'visible'
+      );
+    }).length;
+  }, [data, discoverableCatalogueTargets, projectedTargets]);
   const celestialEquatorDirections = useMemo(
     () =>
       data && sceneTimestampUtc
@@ -602,10 +653,10 @@ export const SkyViewScreen = ({
             {data.profile.name}
           </AppText>
           <AppText numberOfLines={1} tone="muted">
-            {projectedTargets
-              .filter(({ altitudeDegrees }) => altitudeDegrees >= 0)
-              .length.toLocaleString()}{' '}
-            above horizon
+            {visibleSuitableTargetCount.toLocaleString()}{' '}
+            {data.mask
+              ? 'visible suitable targets'
+              : 'suitable above horizon · unassessed'}
           </AppText>
         </View>
         <Pressable
@@ -648,21 +699,21 @@ export const SkyViewScreen = ({
           targets={projectedTargets}
           trajectory={trajectory}
           panoramaOverlay={
-            data.panorama
+            data.panorama && panoramaOpacityPercent > 0
               ? {
                   panorama: data.panorama,
                   tiles: data.panorama.tiles,
                   opacityPercent: panoramaOpacityPercent,
-                  visible: panoramaOpacityPercent > 0,
+                  visible: true,
                 }
               : null
           }
           maskOverlay={
-            data.mask
+            data.mask && maskOpacityPercent > 0
               ? {
                   mask: data.mask,
                   opacityPercent: maskOpacityPercent,
-                  visible: maskOpacityPercent > 0,
+                  visible: true,
                 }
               : null
           }
@@ -821,6 +872,12 @@ export const SkyViewScreen = ({
         title="View options"
         visible={openSheet === 'viewOptions'}
       >
+        <TargetDiscoveryControls
+          onSearchTextChange={setTargetSearchText}
+          onToggleCategory={toggleTargetCategory}
+          searchText={targetSearchText}
+          selectedCategories={selectedCategories}
+        />
         <ActionButton
           label={`Imaging setup · ${selectedEquipment?.name ?? 'None'}`}
           onPress={() => setOpenSheet('equipment')}

@@ -9,7 +9,10 @@ import type { SelectedTargetTrajectory } from '../astronomy/trajectory';
 import type { EquipmentRecord } from '../storage/equipmentRepository';
 import type { ActiveMaskRevision } from '../storage/maskRepository';
 import type { ProfileRecord } from '../storage/profileRepository';
-import type { HorizontalCatalogueTarget } from './planetariumCatalogue';
+import {
+  resetTargetDiscoveryStateForTests,
+  setTargetDiscoverySearchText,
+} from '../targets/targetDiscoveryState';
 import {
   SkyViewScreen,
   type SkyRendererProps,
@@ -49,18 +52,12 @@ const catalogueTarget: CatalogueTarget = {
   rightAscensionJ2000Hours: 5.588,
   declinationJ2000Degrees: -5.391,
   constellation: 'Ori',
-  objectType: 'HII region',
+  objectType: 'HII',
   majorAxisArcminutes: 65,
   minorAxisArcminutes: 60,
   magnitude: 4,
   memberships: { messier: [42], ngc: ['NGC 1976'], ic: [] },
   prominenceTier: 1,
-};
-
-const horizontalTarget: HorizontalCatalogueTarget = {
-  altitudeDegrees: 40,
-  azimuthDegrees: 180,
-  target: catalogueTarget,
 };
 
 const panorama = {
@@ -228,6 +225,9 @@ const obstructionAwareTrajectory: SelectedTargetTrajectory = {
 
 const rendererWithPanorama = (props: SkyRendererProps) => (
   <View>
+    <Text testID="panorama-overlay-present">
+      {props.panoramaOverlay ? 'present' : 'absent'}
+    </Text>
     <Text testID="panorama-tile-count">
       {props.panoramaOverlay?.tiles.length ?? 0}
     </Text>
@@ -239,6 +239,9 @@ const rendererWithPanorama = (props: SkyRendererProps) => (
     </Text>
     <Text testID="mask-operation-count">
       {props.maskOverlay?.mask.operations.length ?? 0}
+    </Text>
+    <Text testID="mask-overlay-present">
+      {props.maskOverlay ? 'present' : 'absent'}
     </Text>
     <Text testID="mask-opacity">{props.maskOverlay?.opacityPercent ?? 0}</Text>
     <Text testID="mask-visible">
@@ -258,7 +261,6 @@ function controller(
       mask: null,
       panorama: null,
       profile,
-      projectedTargets: [horizontalTarget],
       selectedEquipmentId: null,
       timestampUtc: '2026-08-19T20:00:00.000Z',
       ...overrides,
@@ -280,6 +282,8 @@ function navigation(): SkyViewNavigation {
 }
 
 describe('SkyViewScreen', () => {
+  beforeEach(() => resetTargetDiscoveryStateForTests());
+
   it('shows a deliberate loading failure and retries local data', async () => {
     const failedController: SkyViewController = {
       load: jest
@@ -292,7 +296,6 @@ describe('SkyViewScreen', () => {
           mask: null,
           panorama: null,
           profile,
-          projectedTargets: [horizontalTarget],
           selectedEquipmentId: null,
           timestampUtc: '2026-08-19T20:00:00.000Z',
         }),
@@ -324,12 +327,109 @@ describe('SkyViewScreen', () => {
     );
     await waitFor(() => screen.getByText(profile.name));
     expect(screen.getByText('Local visibility not assessed')).toBeTruthy();
+    expect(
+      screen.getByText(/suitable above horizon · unassessed/),
+    ).toBeTruthy();
     expect(screen.queryByText('No imaging setup')).toBeNull();
     await fireEvent.press(screen.getByLabelText('View options'));
     expect(screen.getByText('Imaging setup · None')).toBeTruthy();
     await fireEvent.press(screen.getByLabelText('Close view options'));
     expect(screen.getByText('Orion Nebula')).toBeTruthy();
     expect(screen.queryByText(/visible until/i)).toBeNull();
+  });
+
+  it('shares debounced name search and category filters with target discovery', async () => {
+    const galaxy: CatalogueTarget = {
+      ...catalogueTarget,
+      id: 'NGC0224',
+      preferredName: 'Andromeda Galaxy',
+      aliases: ['M 31', 'Andromeda'],
+      objectType: 'G',
+      memberships: { messier: [31], ngc: ['NGC 224'], ic: [] },
+    };
+    setTargetDiscoverySearchText(profile.id, 'Andromeda');
+    const screen = await renderWithSafeArea(
+      <SkyViewScreen
+        controller={controller({
+          catalogueTargets: [catalogueTarget, galaxy],
+        })}
+        navigation={navigation()}
+        profileId={profile.id}
+        renderSky={renderer}
+      />,
+    );
+
+    await waitFor(() => screen.getByText('Andromeda Galaxy'));
+    expect(screen.queryByText('Orion Nebula')).toBeNull();
+    await fireEvent.press(screen.getByLabelText('View options'));
+    expect(screen.getByDisplayValue('Andromeda')).toBeTruthy();
+    await fireEvent.changeText(
+      screen.getByPlaceholderText('Search catalogue or name'),
+      '',
+    );
+    await waitFor(() => screen.getByText('Orion Nebula'));
+    await fireEvent.press(screen.getByLabelText('Toggle Nebula filter'));
+    await waitFor(() => expect(screen.queryByText('Orion Nebula')).toBeNull());
+    expect(screen.getByText('Andromeda Galaxy')).toBeTruthy();
+  });
+
+  it('does not project search-only objects unless selected and removes them on deselect', async () => {
+    const star: CatalogueTarget = {
+      ...catalogueTarget,
+      id: 'HD000358',
+      preferredName: 'Alpha Andromedae',
+      aliases: ['Sirrah', 'HD 358'],
+      objectType: '*',
+      majorAxisArcminutes: undefined,
+      minorAxisArcminutes: undefined,
+      memberships: { messier: [], ngc: [], ic: [] },
+    };
+    const screen = await renderWithSafeArea(
+      <SkyViewScreen
+        controller={controller({
+          catalogueTargets: [catalogueTarget, star],
+        })}
+        initialSelectedTargetId={star.id}
+        navigation={navigation()}
+        profileId={profile.id}
+        renderSky={renderer}
+      />,
+    );
+
+    await waitFor(() => screen.getByLabelText('Close selected target'));
+    await fireEvent.press(screen.getByLabelText('Close selected target'));
+    await waitFor(() =>
+      expect(screen.queryByText('Alpha Andromedae')).toBeNull(),
+    );
+    expect(screen.getByText('Orion Nebula')).toBeTruthy();
+  });
+
+  it('filters the atlas for the selected optics before rendering targets', async () => {
+    const tinyGalaxy: CatalogueTarget = {
+      ...catalogueTarget,
+      id: 'NGC9999',
+      preferredName: 'Tiny Galaxy',
+      aliases: ['NGC 9999'],
+      objectType: 'G',
+      majorAxisArcminutes: 0.05,
+      minorAxisArcminutes: 0.03,
+      memberships: { messier: [], ngc: ['NGC 9999'], ic: [] },
+    };
+    const screen = await renderWithSafeArea(
+      <SkyViewScreen
+        controller={controller({
+          catalogueTargets: [catalogueTarget, tinyGalaxy],
+          equipment: [equipment],
+          selectedEquipmentId: equipment.id,
+        })}
+        navigation={navigation()}
+        profileId={profile.id}
+        renderSky={renderer}
+      />,
+    );
+
+    await waitFor(() => screen.getByText('Orion Nebula'));
+    expect(screen.queryByText('Tiny Galaxy')).toBeNull();
   });
 
   it('selects one target and expands its available catalogue information', async () => {
@@ -476,7 +576,7 @@ describe('SkyViewScreen', () => {
     await fireEvent.press(screen.getByText('Panorama opacity · 55%'));
     expect(screen.getAllByText('Panorama opacity')).toHaveLength(2);
     expect(screen.queryByText('Hide panorama')).toBeNull();
-    fireEvent(
+    await fireEvent(
       screen.getByLabelText('Panorama opacity'),
       'accessibilityAction',
       {
@@ -487,6 +587,24 @@ describe('SkyViewScreen', () => {
       expect(
         screen.getByLabelText('Panorama opacity').props.accessibilityValue.now,
       ).toBe(60),
+    );
+    const slider = screen.getByLabelText('Panorama opacity');
+    await fireEvent(slider, 'layout', {
+      nativeEvent: { layout: { height: 44, width: 100, x: 0, y: 0 } },
+    });
+    await fireEvent(slider, 'responderGrant', {
+      nativeEvent: { locationX: 1 },
+    });
+    expect(screen.getByTestId('panorama-overlay-present').props.children).toBe(
+      'present',
+    );
+    await fireEvent(slider, 'responderRelease', {
+      nativeEvent: { locationX: 1 },
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByTestId('panorama-overlay-present').props.children,
+      ).toBe('absent'),
     );
     await fireEvent.press(
       screen.getByLabelText('Close panorama overlay controls'),
@@ -511,9 +629,13 @@ describe('SkyViewScreen', () => {
     await fireEvent.press(screen.getByLabelText('View options'));
     await fireEvent.press(screen.getByText('Mask opacity · 60%'));
     expect(screen.queryByText('Hide mask')).toBeNull();
-    fireEvent(screen.getByLabelText('Mask opacity'), 'accessibilityAction', {
-      nativeEvent: { actionName: 'decrement' },
-    });
+    await fireEvent(
+      screen.getByLabelText('Mask opacity'),
+      'accessibilityAction',
+      {
+        nativeEvent: { actionName: 'decrement' },
+      },
+    );
     await waitFor(() =>
       expect(screen.getByTestId('mask-opacity').props.children).toBe(55),
     );
@@ -682,7 +804,7 @@ describe('SkyViewScreen', () => {
 
     await fireEvent.press(screen.getByLabelText('View options'));
     await fireEvent.press(screen.getByText('Panorama opacity · 55%'));
-    fireEvent(
+    await fireEvent(
       screen.getByLabelText('Panorama opacity'),
       'accessibilityAction',
       {
@@ -738,7 +860,7 @@ describe('SkyViewScreen', () => {
     await waitFor(() => screen.getByText(profile.name));
     await fireEvent.press(screen.getByLabelText('Sky time'));
     expect(screen.queryByText('Custom interval')).toBeNull();
-    fireEvent(screen.getByLabelText('Time of day'), 'accessibilityAction', {
+    await fireEvent(screen.getByLabelText('Time of day'), 'accessibilityAction', {
       nativeEvent: { actionName: 'increment' },
     });
 
