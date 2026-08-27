@@ -24,6 +24,7 @@ import {
   evaluateEquipmentSuitability,
   type EquipmentSuitability,
 } from './equipmentSuitability';
+import { isDefaultDiscoverableTarget } from './targetDiscoveryFilter';
 
 export type RankedTarget = Readonly<{
   durationKind: 'visible' | 'aboveHorizonUnassessed';
@@ -162,7 +163,8 @@ export async function calculateRankedTargetsProgressively(
   const astronomicalDarknessIntervals =
     options.astronomicalDarknessIntervals ??
     createAstronomicalDarknessIntervals(input.observer, input.window);
-  const candidates = input.targets
+  const discoverableTargets = input.targets.filter(isDefaultDiscoverableTarget);
+  const candidates = discoverableTargets
     .map((target) => ({
       suitability: input.equipment
         ? evaluateEquipmentSuitability(target, input.equipment)
@@ -170,7 +172,8 @@ export async function calculateRankedTargetsProgressively(
       target,
     }))
     .filter(({ suitability }) => suitability?.eligible !== false);
-  const rejectedByEquipmentCount = input.targets.length - candidates.length;
+  const rejectedByEquipmentCount =
+    discoverableTargets.length - candidates.length;
   const results: RankedTarget[] = [];
   let processedCount = 0;
 
@@ -181,7 +184,7 @@ export async function calculateRankedTargetsProgressively(
       processedCount,
       rejectedByEquipmentCount,
       results: [...results].sort(compareRankedTargets),
-      totalCatalogueCount: input.targets.length,
+      totalCatalogueCount: discoverableTargets.length,
     });
   };
 

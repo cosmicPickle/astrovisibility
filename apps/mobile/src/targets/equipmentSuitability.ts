@@ -28,9 +28,9 @@ export function evaluateEquipmentSuitability(
 ): EquipmentSuitability {
   const fieldOfView = calculateAngularFieldOfView(equipment);
   const unknownResult = {
-    eligible: true,
+    eligible: false,
     explanation:
-      'Angular size is unavailable; included because optical fit cannot be assessed.',
+      'Angular size is unavailable; this target remains available through direct search.',
     ...fieldOfView,
     minorAxisPixels: null,
     reason: 'sizeUnknown' as const,

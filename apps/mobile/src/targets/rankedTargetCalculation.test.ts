@@ -245,7 +245,7 @@ describe('progressive all-target calculation', () => {
     expect(emptyCache.set).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps mosaic-sized and unknown targets while filtering targets below the minor-axis threshold', async () => {
+  it('keeps mosaic-sized targets while filtering small and unknown-size targets', async () => {
     const visibilityCalls: string[] = [];
     const targets = [
       catalogueTarget('suitable', 'Suitable'),
@@ -272,13 +272,40 @@ describe('progressive all-target calculation', () => {
       },
     );
 
-    expect(visibilityCalls).toEqual(['suitable', 'too-large', 'unknown']);
+    expect(visibilityCalls).toEqual(['suitable', 'too-large']);
     expect(results.map(({ target }) => target.id)).toEqual([
       'too-large',
       'suitable',
-      'unknown',
     ]);
-    expect(results[2]!.suitability?.reason).toBe('sizeUnknown');
+  });
+
+  it('does not calculate or count star-like, unclassified, or size-less rows', async () => {
+    const visibilityCalls: string[] = [];
+    const progress: number[] = [];
+    const targets = [
+      catalogueTarget('normal', 'Normal'),
+      { ...catalogueTarget('star', 'Star'), objectType: '*' },
+      { ...catalogueTarget('other', 'Other'), objectType: 'Other' },
+      catalogueTarget('unknown', 'Unknown', 2, {}),
+    ];
+
+    await calculateRankedTargetsProgressively(
+      { ...baseInput, targets },
+      {
+        batchSize: 1,
+        cache: new VisibilityCalculationCache(),
+        calculateVisibility: async (input) => {
+          visibilityCalls.push(input.target.id);
+          return trajectory([interval(0, 60)], []);
+        },
+        onProgress: ({ eligibleTargetCount }) =>
+          progress.push(eligibleTargetCount),
+        yieldToEventLoop: async () => undefined,
+      },
+    );
+
+    expect(visibilityCalls).toEqual(['normal']);
+    expect(progress).toEqual([1, 1]);
   });
 
   it('cooperatively cancels before publishing work after the aborted batch', async () => {

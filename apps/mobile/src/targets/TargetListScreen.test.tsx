@@ -12,6 +12,7 @@ import {
   type TargetListController,
   type TargetListNavigation,
 } from './TargetListScreen';
+import { resetTargetDiscoveryStateForTests } from './targetDiscoveryState';
 
 const profile: ProfileRecord = {
   id: 'profile-1',
@@ -115,7 +116,10 @@ const navigation = (): TargetListNavigation => ({
 });
 
 describe('TargetListScreen', () => {
-  beforeEach(() => selectedTrajectoryCache.clear());
+  beforeEach(() => {
+    selectedTrajectoryCache.clear();
+    resetTargetDiscoveryStateForTests();
+  });
 
   it('renders progressive ranked results with every visible interval and selects back to Sky View', async () => {
     const targetNavigation = navigation();
@@ -195,6 +199,7 @@ describe('TargetListScreen', () => {
       ...target,
       id: 'IC0434',
       preferredName: 'Horsehead Nebula',
+      aliases: ['IC 434'],
       objectType: 'Neb',
       memberships: { messier: [], ngc: [], ic: ['IC 434'] },
     };
@@ -215,8 +220,8 @@ describe('TargetListScreen', () => {
     );
 
     await waitFor(() => screen.getByText('Horsehead Nebula'));
-    fireEvent.changeText(
-      screen.getByPlaceholderText('Search catalogue number'),
+    await fireEvent.changeText(
+      screen.getByPlaceholderText('Search catalogue or name'),
       'ngc 224',
     );
     expect(screen.getByText('Andromeda Galaxy')).toBeTruthy();
@@ -224,14 +229,71 @@ describe('TargetListScreen', () => {
       expect(screen.queryByText('Horsehead Nebula')).toBeNull(),
     );
 
-    fireEvent.changeText(
-      screen.getByPlaceholderText('Search catalogue number'),
+    await fireEvent.changeText(
+      screen.getByPlaceholderText('Search catalogue or name'),
       '',
     );
-    fireEvent.press(screen.getByLabelText('Toggle Nebula filter'));
+    await fireEvent.press(screen.getByLabelText('Toggle Nebula filter'));
     expect(screen.getByText('Andromeda Galaxy')).toBeTruthy();
     await waitFor(() =>
       expect(screen.queryByText('Horsehead Nebula')).toBeNull(),
     );
+  });
+
+  it('searches popular names and exposes unknown-size stars only as direct results', async () => {
+    const star: CatalogueTarget = {
+      ...target,
+      id: 'HD000358',
+      preferredName: 'Alpha Andromedae',
+      aliases: ['Sirrah', 'HD 358'],
+      objectType: '*',
+      majorAxisArcminutes: undefined,
+      minorAxisArcminutes: undefined,
+      memberships: { messier: [], ngc: [], ic: [] },
+    };
+    const targetNavigation = navigation();
+    const targetController: TargetListController = {
+      load: jest.fn().mockResolvedValue({
+        ...(await controller(true).load(profile.id, window)),
+        targets: [target, star],
+      }),
+    };
+    const calculateVisibility = jest.fn().mockResolvedValue(trajectory);
+    const screen = await renderWithSafeArea(
+      <TargetListScreen
+        calculateVisibility={calculateVisibility}
+        controller={targetController}
+        navigation={targetNavigation}
+        profileId={profile.id}
+        requestedWindow={window}
+      />,
+    );
+
+    await waitFor(() => screen.getByText('Andromeda Galaxy'));
+    expect(screen.queryByText('Alpha Andromedae')).toBeNull();
+    expect(calculateVisibility).toHaveBeenCalledTimes(1);
+
+    await fireEvent.changeText(
+      screen.getByPlaceholderText('Search catalogue or name'),
+      'Sirrah',
+    );
+    await waitFor(() => screen.getByText('Alpha Andromedae'));
+    expect(screen.getByText('Direct search result')).toBeTruthy();
+    expect(calculateVisibility).toHaveBeenCalledTimes(1);
+
+    await fireEvent.press(
+      screen.getByLabelText('Inspect Alpha Andromedae in Sky View'),
+    );
+    expect(targetNavigation.selectTarget).toHaveBeenCalledWith(
+      profile.id,
+      star.id,
+      window,
+    );
+
+    await fireEvent.changeText(
+      screen.getByPlaceholderText('Search catalogue or name'),
+      'Andromeda',
+    );
+    await waitFor(() => screen.getByText('Andromeda Galaxy'));
   });
 });

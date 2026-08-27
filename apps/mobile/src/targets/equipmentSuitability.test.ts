@@ -120,14 +120,14 @@ describe('equipment suitability', () => {
     expect(result.explanation).toContain('about 9 pixels');
   });
 
-  it('includes unknown-size targets but states that optical fit is unassessed', () => {
+  it('rejects unknown-size targets from normal equipment discovery', () => {
     const result = evaluateEquipmentSuitability(target({}), equipment);
 
     expect(result).toMatchObject({
-      eligible: true,
+      eligible: false,
       reason: 'sizeUnknown',
       minorAxisPixels: null,
     });
-    expect(result.explanation).toContain('size is unavailable');
+    expect(result.explanation).toContain('direct search');
   });
 });

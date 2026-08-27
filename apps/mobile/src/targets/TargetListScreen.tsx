@@ -4,7 +4,6 @@ import {
   FlatList,
   Pressable,
   StyleSheet,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -32,6 +31,7 @@ import type { EquipmentRecord } from '../storage/equipmentRepository';
 import type { ActiveMaskRevision } from '../storage/maskRepository';
 import type { ProfileRecord } from '../storage/profileRepository';
 import { colors, layout } from '../theme/tokens';
+import { evaluateEquipmentSuitability } from './equipmentSuitability';
 import {
   calculateRankedTargetsProgressively,
   TargetListCalculationCancelledError,
@@ -40,8 +40,13 @@ import {
 } from './rankedTargetCalculation';
 import {
   filterDiscoveredTargets,
+  isDefaultDiscoverableTarget,
+  searchCatalogueTargets,
   type TargetCategory,
 } from './targetDiscoveryFilter';
+import { TargetDiscoveryControls } from './TargetDiscoveryControls';
+import { useTargetDiscoveryState } from './targetDiscoveryState';
+import { useDebouncedValue } from './useDebouncedValue';
 
 export type TargetListData = Readonly<{
   equipment: EquipmentRecord | null;
@@ -135,14 +140,13 @@ const emptyProgress: RankedTargetProgress = {
   totalCatalogueCount: 0,
 };
 
-const targetCategories: readonly Readonly<{
-  key: TargetCategory;
-  label: string;
-}>[] = [
-  { key: 'galaxies', label: 'Galaxies' },
-  { key: 'nebulae', label: 'Nebula' },
-  { key: 'starClusters', label: 'Star Clusters' },
-];
+type TargetListItem =
+  | Readonly<{
+      kind: 'ranked';
+      rankedTarget: RankedTarget;
+      target: CatalogueTarget;
+    }>
+  | Readonly<{ kind: 'directSearch'; target: CatalogueTarget }>;
 
 export function TargetListScreen({
   calculateVisibility,
@@ -167,10 +171,13 @@ export function TargetListScreen({
   const [progress, setProgress] = useState<RankedTargetProgress>(emptyProgress);
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [calculationAttempt, setCalculationAttempt] = useState(0);
-  const [catalogueSearch, setCatalogueSearch] = useState('');
-  const [selectedCategories, setSelectedCategories] = useState<
-    TargetCategory[]
-  >(() => targetCategories.map(({ key }) => key));
+  const {
+    searchText: catalogueSearch,
+    selectedCategories,
+    setSearchText: setCatalogueSearch,
+    toggleCategory,
+  } = useTargetDiscoveryState(profileId);
+  const debouncedCatalogueSearch = useDebouncedValue(catalogueSearch, 250);
   const activeCalculation = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -180,10 +187,13 @@ export function TargetListScreen({
         if (!active) return;
         setData(loaded);
         setLoadStatus('ready');
+        const defaultTargetCount = loaded.targets.filter(
+          isDefaultDiscoverableTarget,
+        ).length;
         setProgress({
           ...emptyProgress,
-          eligibleTargetCount: loaded.targets.length,
-          totalCatalogueCount: loaded.targets.length,
+          eligibleTargetCount: defaultTargetCount,
+          totalCatalogueCount: defaultTargetCount,
         });
         setCalculationStatus('calculating');
       },
@@ -254,10 +264,13 @@ export function TargetListScreen({
   }, []);
   const retryCalculation = useCallback(() => {
     if (!data) return;
+    const defaultTargetCount = data.targets.filter(
+      isDefaultDiscoverableTarget,
+    ).length;
     setProgress({
       ...emptyProgress,
-      eligibleTargetCount: data.targets.length,
-      totalCatalogueCount: data.targets.length,
+      eligibleTargetCount: defaultTargetCount,
+      totalCatalogueCount: defaultTargetCount,
     });
     setCalculationStatus('calculating');
     setCalculationAttempt((attempt) => attempt + 1);
@@ -266,18 +279,39 @@ export function TargetListScreen({
     () =>
       filterDiscoveredTargets(
         progress.results,
-        catalogueSearch,
+        debouncedCatalogueSearch,
         selectedCategories,
       ),
-    [catalogueSearch, progress.results, selectedCategories],
+    [debouncedCatalogueSearch, progress.results, selectedCategories],
   );
-  const toggleCategory = useCallback((category: TargetCategory) => {
-    setSelectedCategories((current) =>
-      current.includes(category)
-        ? current.filter((item) => item !== category)
-        : [...current, category],
+  const directSearchTargets = useMemo(() => {
+    if (!data || debouncedCatalogueSearch.trim().length === 0) return [];
+    const rankedIds = new Set(filteredResults.map(({ target }) => target.id));
+    return searchCatalogueTargets(
+      data.targets,
+      debouncedCatalogueSearch,
+    ).filter(
+      (target) =>
+        !rankedIds.has(target.id) &&
+        (!isDefaultDiscoverableTarget(target) ||
+          (data.equipment !== null &&
+            !evaluateEquipmentSuitability(target, data.equipment).eligible)),
     );
-  }, []);
+  }, [data, debouncedCatalogueSearch, filteredResults]);
+  const listItems = useMemo<TargetListItem[]>(
+    () => [
+      ...filteredResults.map((rankedTarget) => ({
+        kind: 'ranked' as const,
+        rankedTarget,
+        target: rankedTarget.target,
+      })),
+      ...directSearchTargets.map((target) => ({
+        kind: 'directSearch' as const,
+        target,
+      })),
+    ],
+    [directSearchTargets, filteredResults],
+  );
 
   if (loadStatus !== 'ready' || !data) {
     return (
@@ -313,7 +347,7 @@ export function TargetListScreen({
   }
 
   const emptyMessage =
-    calculationStatus === 'complete' && filteredResults.length === 0
+    calculationStatus === 'complete' && listItems.length === 0
       ? progress.results.length > 0
         ? 'No targets match the current search and categories.'
         : progress.eligibleTargetCount === 0
@@ -325,7 +359,7 @@ export function TargetListScreen({
     <SafeAreaView edges={['top', 'bottom']} style={styles.screen}>
       <FlatList
         contentContainerStyle={styles.content}
-        data={filteredResults}
+        data={listItems}
         initialNumToRender={8}
         keyExtractor={({ target }) => target.id}
         ListEmptyComponent={
@@ -351,19 +385,32 @@ export function TargetListScreen({
           />
         }
         maxToRenderPerBatch={8}
-        renderItem={({ item }) => (
-          <TargetRow
-            item={item}
-            onPress={() =>
-              navigation.selectTarget(
-                data.profile.id,
-                item.target.id,
-                data.window,
-              )
-            }
-            timeZoneId={data.profile.timeZoneId}
-          />
-        )}
+        renderItem={({ item }) =>
+          item.kind === 'ranked' ? (
+            <TargetRow
+              item={item.rankedTarget}
+              onPress={() =>
+                navigation.selectTarget(
+                  data.profile.id,
+                  item.target.id,
+                  data.window,
+                )
+              }
+              timeZoneId={data.profile.timeZoneId}
+            />
+          ) : (
+            <DirectSearchTargetRow
+              onPress={() =>
+                navigation.selectTarget(
+                  data.profile.id,
+                  item.target.id,
+                  data.window,
+                )
+              }
+              target={item.target}
+            />
+          )
+        }
         removeClippedSubviews
         showsVerticalScrollIndicator={false}
         testID="ranked-target-list"
@@ -422,46 +469,12 @@ function TargetListHeader({
       <AppText tone="muted">
         {formatObservingWindowRange(data.window, data.profile.timeZoneId)}
       </AppText>
-      <TextInput
-        accessibilityLabel="Search by catalogue number"
-        autoCapitalize="characters"
-        autoCorrect={false}
-        onChangeText={onSearchChange}
-        placeholder="Search catalogue number"
-        placeholderTextColor={colors.mutedText}
-        style={styles.searchInput}
-        value={catalogueSearch}
+      <TargetDiscoveryControls
+        onSearchTextChange={onSearchChange}
+        onToggleCategory={onToggleCategory}
+        searchText={catalogueSearch}
+        selectedCategories={selectedCategories}
       />
-      <View accessibilityRole="toolbar" style={styles.categoryFilter}>
-        {targetCategories.map(({ key, label }, index) => {
-          const selected = selectedCategories.includes(key);
-          return (
-            <Pressable
-              accessibilityLabel={`Toggle ${label} filter`}
-              accessibilityRole="button"
-              accessibilityState={{ selected }}
-              key={key}
-              onPress={() => onToggleCategory(key)}
-              style={[
-                styles.categorySegment,
-                index === 0 && styles.categorySegmentLeft,
-                index === targetCategories.length - 1 &&
-                  styles.categorySegmentRight,
-                selected && styles.categorySegmentSelected,
-              ]}
-            >
-              <AppText
-                numberOfLines={1}
-                style={
-                  selected ? styles.categoryTextSelected : styles.categoryText
-                }
-              >
-                {label}
-              </AppText>
-            </Pressable>
-          );
-        })}
-      </View>
       <View style={styles.explanationCard}>
         <AppText style={styles.explanationTitle}>
           {data.equipment
@@ -578,6 +591,34 @@ function TargetRow({
   );
 }
 
+function DirectSearchTargetRow({
+  onPress,
+  target,
+}: Readonly<{
+  onPress: () => void;
+  target: CatalogueTarget;
+}>) {
+  return (
+    <Pressable
+      accessibilityLabel={`Inspect ${target.preferredName} in Sky View`}
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [styles.targetRow, pressed && styles.pressed]}
+    >
+      <View style={styles.rowHeading}>
+        <View style={styles.rowHeadingCopy}>
+          <AppText style={styles.targetName}>{target.preferredName}</AppText>
+          <AppText numberOfLines={2} tone="muted">
+            {aliasesFor(target)}
+          </AppText>
+        </View>
+        <AppText style={styles.chevron}>›</AppText>
+      </View>
+      <AppText tone="muted">Direct search result</AppText>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   backButton: {
     alignItems: 'center',
@@ -589,29 +630,6 @@ const styles = StyleSheet.create({
     width: layout.minimumTouchTarget,
   },
   backGlyph: { fontSize: 34, lineHeight: 36 },
-  categoryFilter: { flexDirection: 'row' },
-  categorySegment: {
-    alignItems: 'center',
-    borderColor: colors.outline,
-    borderLeftWidth: 0,
-    borderWidth: 1,
-    flex: 1,
-    justifyContent: 'center',
-    minHeight: layout.minimumTouchTarget,
-    paddingHorizontal: 5,
-  },
-  categorySegmentLeft: {
-    borderBottomLeftRadius: layout.controlRadius,
-    borderLeftWidth: 1,
-    borderTopLeftRadius: layout.controlRadius,
-  },
-  categorySegmentRight: {
-    borderBottomRightRadius: layout.controlRadius,
-    borderTopRightRadius: layout.controlRadius,
-  },
-  categorySegmentSelected: { backgroundColor: colors.primaryPressed },
-  categoryText: { color: colors.mutedText, fontSize: 12, fontWeight: '700' },
-  categoryTextSelected: { color: colors.text, fontSize: 12, fontWeight: '800' },
   centered: {
     alignItems: 'center',
     backgroundColor: colors.background,
@@ -662,15 +680,6 @@ const styles = StyleSheet.create({
   },
   rowHeadingCopy: { flex: 1, gap: 2 },
   screen: { backgroundColor: colors.background, flex: 1 },
-  searchInput: {
-    backgroundColor: colors.surface,
-    borderColor: colors.outline,
-    borderRadius: layout.controlRadius,
-    borderWidth: 1,
-    color: colors.text,
-    minHeight: layout.minimumTouchTarget,
-    paddingHorizontal: 12,
-  },
   statusTitle: { fontWeight: '800' },
   suitabilityText: { color: colors.spaceViolet, fontSize: 13 },
   targetName: { fontSize: 18, fontWeight: '800' },
