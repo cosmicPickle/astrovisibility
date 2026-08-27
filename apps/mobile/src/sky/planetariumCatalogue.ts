@@ -267,7 +267,10 @@ export function selectPlanetariumResidentTargets(
   index: PlanetariumCatalogueIndex,
   camera: PlanetariumCamera,
   canvas: CanvasSizePixels,
-  options: { selectedTargetId?: string | null } = {},
+  options: {
+    densityCandidateCount?: number;
+    selectedTargetId?: string | null;
+  } = {},
 ): HorizontalCatalogueTarget[] {
   const center = getPlanetariumCameraCenter(camera);
   const residentRadiusDegrees = getResidentAngularRadiusDegrees(camera, canvas);
@@ -275,6 +278,8 @@ export function selectPlanetariumResidentTargets(
     camera.fieldOfViewDegrees,
   );
   const selectedTargetId = options.selectedTargetId ?? null;
+  const relaxDensityFiltering =
+    (options.densityCandidateCount ?? Number.POSITIVE_INFINITY) <= 100;
   const visibleGroups: HorizontalCatalogueTarget[][] = [];
   const guardGroups: HorizontalCatalogueTarget[][] = [];
 
@@ -294,6 +299,7 @@ export function selectPlanetariumResidentTargets(
       const selected = item.target.id === selectedTargetId;
       if (
         !selected &&
+        !relaxDensityFiltering &&
         (item.target.prominenceTier > prominenceTierLimit ||
           !isKnownTargetReadableAtZoom(item, camera, canvas))
       ) {

@@ -133,51 +133,55 @@ export const projectPlanetariumPanoramaMesh = (
   const maximumX = canvas.widthPixels + marginPixels;
   const minimumY = -marginPixels;
   const maximumY = canvas.heightPixels + marginPixels;
-  const projected = mesh.directions.map((direction) =>
-    projectHorizontalDirection(direction, camera, canvas),
-  );
-  const vertices = projected.map((point) => ({
-    xPixels: Math.max(minimumX, Math.min(maximumX, point.xPixels)),
-    yPixels: Math.max(minimumY, Math.min(maximumY, point.yPixels)),
-  }));
+  const projectedXPixels: number[] = [];
+  const projectedYPixels: number[] = [];
+  const vertices: { xPixels: number; yPixels: number }[] = [];
+  for (const direction of mesh.directions) {
+    const point = projectHorizontalDirection(direction, camera, canvas);
+    projectedXPixels.push(point.xPixels);
+    projectedYPixels.push(point.yPixels);
+    vertices.push({
+      xPixels: Math.max(minimumX, Math.min(maximumX, point.xPixels)),
+      yPixels: Math.max(minimumY, Math.min(maximumY, point.yPixels)),
+    });
+  }
   const indices: number[] = [];
   for (let index = 0; index < mesh.indices.length; index += 3) {
     const firstIndex = mesh.indices[index]!;
     const secondIndex = mesh.indices[index + 1]!;
     const thirdIndex = mesh.indices[index + 2]!;
-    const first = projected[firstIndex]!;
-    const second = projected[secondIndex]!;
-    const third = projected[thirdIndex]!;
-    const allWithinMargin = [first, second, third].every(
-      (point) =>
-        Number.isFinite(point.xPixels) &&
-        Number.isFinite(point.yPixels) &&
-        point.xPixels >= minimumX &&
-        point.xPixels <= maximumX &&
-        point.yPixels >= minimumY &&
-        point.yPixels <= maximumY,
-    );
-    if (!allWithinMargin) continue;
-    const minimumTriangleX = Math.min(
-      first.xPixels,
-      second.xPixels,
-      third.xPixels,
-    );
-    const maximumTriangleX = Math.max(
-      first.xPixels,
-      second.xPixels,
-      third.xPixels,
-    );
-    const minimumTriangleY = Math.min(
-      first.yPixels,
-      second.yPixels,
-      third.yPixels,
-    );
-    const maximumTriangleY = Math.max(
-      first.yPixels,
-      second.yPixels,
-      third.yPixels,
-    );
+    const firstX = projectedXPixels[firstIndex]!;
+    const firstY = projectedYPixels[firstIndex]!;
+    const secondX = projectedXPixels[secondIndex]!;
+    const secondY = projectedYPixels[secondIndex]!;
+    const thirdX = projectedXPixels[thirdIndex]!;
+    const thirdY = projectedYPixels[thirdIndex]!;
+    if (
+      !Number.isFinite(firstX) ||
+      !Number.isFinite(firstY) ||
+      !Number.isFinite(secondX) ||
+      !Number.isFinite(secondY) ||
+      !Number.isFinite(thirdX) ||
+      !Number.isFinite(thirdY) ||
+      firstX < minimumX ||
+      firstX > maximumX ||
+      firstY < minimumY ||
+      firstY > maximumY ||
+      secondX < minimumX ||
+      secondX > maximumX ||
+      secondY < minimumY ||
+      secondY > maximumY ||
+      thirdX < minimumX ||
+      thirdX > maximumX ||
+      thirdY < minimumY ||
+      thirdY > maximumY
+    ) {
+      continue;
+    }
+    const minimumTriangleX = Math.min(firstX, secondX, thirdX);
+    const maximumTriangleX = Math.max(firstX, secondX, thirdX);
+    const minimumTriangleY = Math.min(firstY, secondY, thirdY);
+    const maximumTriangleY = Math.max(firstY, secondY, thirdY);
     if (
       maximumTriangleX >= 0 &&
       minimumTriangleX <= canvas.widthPixels &&

@@ -102,6 +102,7 @@ const trajectory: SelectedTargetTrajectory = {
 
 const commonProps = {
   celestialEquatorDirections: [],
+  densityCandidateCount: 0,
   diurnalOrbit: null,
   fieldOfViewEquipment: null,
   maskOverlay: null,

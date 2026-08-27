@@ -37,6 +37,7 @@ export interface SkyCanvasProps {
     altitudeDegrees: number;
     azimuthDegrees: number;
   }[];
+  densityCandidateCount: number;
   diurnalOrbit: TargetDiurnalOrbit | null;
   fieldOfViewEquipment: EquipmentRecord | null;
   onInspectTrajectoryMarker: (marker: TrajectoryMarker) => void;
@@ -60,6 +61,7 @@ export interface SkyCanvasProps {
 export const SkyCanvas = ({
   astronomicalDarknessIntervals = [],
   celestialEquatorDirections,
+  densityCandidateCount,
   diurnalOrbit,
   fieldOfViewEquipment,
   onInspectTrajectoryMarker,
@@ -87,9 +89,15 @@ export const SkyCanvas = ({
         catalogueIndex,
         residentCameraState,
         canvas,
-        { selectedTargetId },
+        { densityCandidateCount, selectedTargetId },
       ),
-    [canvas, catalogueIndex, residentCameraState, selectedTargetId],
+    [
+      canvas,
+      catalogueIndex,
+      densityCandidateCount,
+      residentCameraState,
+      selectedTargetId,
+    ],
   );
 
   const visibleTargets = useMemo(

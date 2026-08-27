@@ -204,6 +204,27 @@ describe('planetarium resident catalogue', () => {
     ).toContain('small');
   });
 
+  it('reveals every on-screen filtered target when the candidate set is at most 100', () => {
+    const normallyCulled = target('normally-culled', 0, 35, {
+      majorAxisArcminutes: 0.2,
+      minorAxisArcminutes: 0.1,
+      prominenceTier: 4,
+    });
+    const index = buildPlanetariumCatalogueIndex([normallyCulled]);
+    const wideCamera = camera(0, 235);
+
+    expect(
+      selectPlanetariumResidentTargets(index, wideCamera, canvas, {
+        densityCandidateCount: 101,
+      }).map((item) => item.target.id),
+    ).not.toContain(normallyCulled.target.id);
+    expect(
+      selectPlanetariumResidentTargets(index, wideCamera, canvas, {
+        densityCandidateCount: 100,
+      }).map((item) => item.target.id),
+    ).toContain(normallyCulled.target.id);
+  });
+
   it('keeps marker membership separate from settled label collision layout', () => {
     const first = target('first', 0, 35, {
       majorAxisArcminutes: 90,

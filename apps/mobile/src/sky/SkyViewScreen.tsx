@@ -111,6 +111,7 @@ export interface SkyRendererProps {
     altitudeDegrees: number;
     azimuthDegrees: number;
   }[];
+  densityCandidateCount: number;
   fieldOfViewEquipment: EquipmentRecord | null;
   diurnalOrbit: TargetDiurnalOrbit | null;
   onInspectTrajectoryMarker: (marker: TrajectoryMarker) => void;
@@ -716,6 +717,7 @@ export const SkyViewScreen = ({
         <SkyRenderer
           astronomicalDarknessIntervals={astronomicalDarknessIntervals}
           celestialEquatorDirections={celestialEquatorDirections}
+          densityCandidateCount={discoverableCatalogueTargets.length}
           diurnalOrbit={diurnalOrbit}
           fieldOfViewEquipment={selectedEquipment}
           onInspectTrajectoryMarker={setInspectedMarker}
