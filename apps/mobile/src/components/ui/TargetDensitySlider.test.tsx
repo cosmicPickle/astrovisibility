@@ -64,5 +64,8 @@ describe('TargetDensitySlider', () => {
 
     expect(style.top).toBe('50%');
     expect(style.transform).toEqual([{ translateY: -9 }]);
+    expect(
+      screen.getByTestId('target-density-slider-track').props.pointerEvents,
+    ).toBe('none');
   });
 });

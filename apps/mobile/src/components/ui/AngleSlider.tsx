@@ -89,7 +89,11 @@ export const AngleSlider = ({
         onStartShouldSetResponder={() => true}
         style={styles.touchTrack}
       >
-        <View style={styles.track}>
+        <View
+          pointerEvents="none"
+          style={styles.track}
+          testID="angle-slider-track"
+        >
           <View style={[styles.fill, { width: `${percent}%` }]} />
           <View
             style={[styles.thumb, { left: `${percent}%` }]}

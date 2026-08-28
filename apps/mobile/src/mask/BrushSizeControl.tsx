@@ -87,7 +87,11 @@ export function BrushSizeControl({
         style={styles.touchTrack}
         {...responder.panHandlers}
       >
-        <View style={styles.track}>
+        <View
+          pointerEvents="none"
+          style={styles.track}
+          testID="brush-size-slider-track"
+        >
           <View style={[styles.fill, { width: `${percent}%` }]} />
           <View
             style={[styles.thumb, { left: `${percent}%` }]}

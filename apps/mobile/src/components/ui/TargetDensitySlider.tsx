@@ -96,7 +96,11 @@ export const TargetDensitySlider = ({
         onStartShouldSetResponder={() => true}
         style={styles.touchTrack}
       >
-        <View style={styles.track}>
+        <View
+          pointerEvents="none"
+          style={styles.track}
+          testID="target-density-slider-track"
+        >
           <View style={[styles.fill, { width: `${percent}%` }]} />
           <View
             style={[styles.thumb, { left: `${percent}%` }]}

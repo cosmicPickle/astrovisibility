@@ -88,7 +88,11 @@ export const OpacitySlider = ({
         onStartShouldSetResponder={() => true}
         style={styles.touchTrack}
       >
-        <View style={styles.track}>
+        <View
+          pointerEvents="none"
+          style={styles.track}
+          testID="opacity-slider-track"
+        >
           <View style={[styles.fill, { width: `${boundedValue}%` }]} />
           <View
             style={[styles.thumb, { left: `${boundedValue}%` }]}
