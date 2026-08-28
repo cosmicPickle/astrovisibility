@@ -355,8 +355,7 @@ export const DashboardScreen = ({
                 <View style={styles.metric}>
                   <AppText tone="label">Sensor</AppText>
                   <AppText style={styles.metricValue}>
-                    {item.sensorWidthMillimeters} ×{' '}
-                    {item.sensorHeightMillimeters} mm
+                    {item.sensorWidthPixels} × {item.sensorHeightPixels} px
                   </AppText>
                 </View>
               </View>

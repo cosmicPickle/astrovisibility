@@ -7,10 +7,9 @@ const equipment: EquipmentRecord = {
   name: 'Wide field',
   focalLengthMillimeters: 400,
   apertureMillimeters: 80,
-  sensorWidthMillimeters: 36,
-  sensorHeightMillimeters: 24,
+  sensorWidthPixels: 8571,
+  sensorHeightPixels: 5714,
   pixelSizeMicrometers: 4,
-  frameRotationDegrees: 0,
   createdAtUtc: '2026-01-01T00:00:00.000Z',
   updatedAtUtc: '2026-01-01T00:00:00.000Z',
 };
@@ -20,8 +19,8 @@ const dwarfThreeTelephoto: EquipmentRecord = {
   id: 'dwarf-3',
   name: 'Dwarf 3',
   focalLengthMillimeters: 150,
-  sensorWidthMillimeters: 7.68,
-  sensorHeightMillimeters: 4.32,
+  sensorWidthPixels: 3840,
+  sensorHeightPixels: 2160,
   pixelSizeMicrometers: 2,
 };
 

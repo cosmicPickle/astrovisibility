@@ -18,6 +18,8 @@ type FormFieldProps = Omit<
   containerStyle?: StyleProp<ViewStyle>;
   helperText?: string;
   label: string;
+  showLabel?: boolean;
+  unit?: string;
 };
 
 export const FormField = ({
@@ -25,20 +27,37 @@ export const FormField = ({
   error = false,
   helperText,
   label,
+  showLabel = true,
   style,
+  unit,
   ...props
 }: FormFieldProps) => (
   <View style={[styles.container, containerStyle]}>
-    <AppText style={error ? styles.errorText : undefined} tone="label">
-      {label}
-    </AppText>
-    <TextInput
-      accessibilityLabel={label}
-      placeholderTextColor={colors.mutedText}
-      selectionColor={colors.primary}
-      style={[styles.input, error && styles.errorInput, style]}
-      {...props}
-    />
+    {showLabel ? (
+      <AppText style={error ? styles.errorText : undefined} tone="label">
+        {label}
+      </AppText>
+    ) : null}
+    {unit ? (
+      <View style={[styles.unitField, error && styles.errorInput]}>
+        <TextInput
+          accessibilityLabel={label}
+          placeholderTextColor={colors.mutedText}
+          selectionColor={colors.primary}
+          style={[styles.unitInput, style]}
+          {...props}
+        />
+        <AppText style={styles.unit}>{unit}</AppText>
+      </View>
+    ) : (
+      <TextInput
+        accessibilityLabel={label}
+        placeholderTextColor={colors.mutedText}
+        selectionColor={colors.primary}
+        style={[styles.input, error && styles.errorInput, style]}
+        {...props}
+      />
+    )}
     {helperText ? (
       <AppText style={error ? styles.errorText : styles.helper}>
         {helperText}
@@ -69,6 +88,27 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 15,
     minHeight: 46,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  unit: {
+    color: colors.mutedText,
+    paddingRight: 12,
+  },
+  unitField: {
+    alignItems: 'center',
+    backgroundColor: colors.surfaceRaised,
+    borderColor: colors.outline,
+    borderRadius: layout.controlRadius,
+    borderWidth: 1,
+    flexDirection: 'row',
+    minHeight: 46,
+  },
+  unitInput: {
+    color: colors.text,
+    flex: 1,
+    fontSize: 15,
+    minHeight: 44,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },

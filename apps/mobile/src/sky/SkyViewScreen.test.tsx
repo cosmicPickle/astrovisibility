@@ -41,10 +41,9 @@ const equipment: EquipmentRecord = {
   name: 'Wide-field refractor',
   focalLengthMillimeters: 400,
   apertureMillimeters: 80,
-  sensorWidthMillimeters: 23.5,
-  sensorHeightMillimeters: 15.6,
+  sensorWidthPixels: 6250,
+  sensorHeightPixels: 4149,
   pixelSizeMicrometers: 3.76,
-  frameRotationDegrees: 0,
   createdAtUtc: '2026-08-19T12:00:00.000Z',
   updatedAtUtc: '2026-08-19T12:00:00.000Z',
 };

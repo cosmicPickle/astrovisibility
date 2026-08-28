@@ -126,10 +126,9 @@ const equipment = {
   name: 'Wide-field refractor',
   focalLengthMillimeters: 400,
   apertureMillimeters: 80,
-  sensorWidthMillimeters: 23.5,
-  sensorHeightMillimeters: 15.6,
+  sensorWidthPixels: 6250,
+  sensorHeightPixels: 4149,
   pixelSizeMicrometers: 3.76,
-  frameRotationDegrees: 0,
   createdAtUtc: '2026-08-19T12:00:00.000Z',
   updatedAtUtc: '2026-08-19T12:00:00.000Z',
 };
@@ -146,7 +145,7 @@ describe('SQLite migrations and repositories', () => {
     const version = await database.getFirstAsync<{ user_version: number }>(
       'PRAGMA user_version',
     );
-    expect(version?.user_version).toBe(7);
+    expect(version?.user_version).toBe(8);
 
     const firstRepository = new ProfileRepository(database);
     await firstRepository.create(profile);
@@ -277,24 +276,22 @@ describe('SQLite migrations and repositories', () => {
       name: 'Edited setup',
       focalLengthMillimeters: 420,
       apertureMillimeters: 82,
-      sensorWidthMillimeters: 36,
-      sensorHeightMillimeters: 24,
+      sensorWidthPixels: 8571,
+      sensorHeightPixels: 5714,
       pixelSizeMicrometers: 4.2,
-      frameRotationDegrees: 90,
       updatedAtUtc: '2026-08-19T13:00:00.000Z',
     });
 
     expect(await restartedRepository.getById(equipment.id)).toMatchObject({
       name: 'Edited setup',
       focalLengthMillimeters: 420,
-      sensorWidthMillimeters: 36,
-      frameRotationDegrees: 90,
+      sensorWidthPixels: 8571,
     });
     restartedNative.close();
     rmSync(directory, { recursive: true, force: true });
   });
 
-  it('repairs unmistakable pixel counts stored as sensor millimetres', async () => {
+  it('migrates legacy physical sensor dimensions to pixel resolution', async () => {
     const { native, database } = createDatabase();
     await migrateDatabase(database);
     await database.runAsync(
@@ -322,8 +319,8 @@ describe('SQLite migrations and repositories', () => {
 
     const repaired = await new EquipmentRepository(database).getById('dwarf-3');
     expect(repaired).toMatchObject({
-      sensorWidthMillimeters: 7.68,
-      sensorHeightMillimeters: 4.32,
+      sensorWidthPixels: 3840,
+      sensorHeightPixels: 2160,
       pixelSizeMicrometers: 2,
     });
     native.close();

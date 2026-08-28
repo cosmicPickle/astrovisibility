@@ -80,10 +80,9 @@ const equipment: EquipmentRecord = {
   name: 'Wide field',
   focalLengthMillimeters: 400,
   apertureMillimeters: 80,
-  sensorWidthMillimeters: 36,
-  sensorHeightMillimeters: 24,
+  sensorWidthPixels: 8571,
+  sensorHeightPixels: 5714,
   pixelSizeMicrometers: 4,
-  frameRotationDegrees: 0,
   createdAtUtc: '2026-01-01T00:00:00.000Z',
   updatedAtUtc: '2026-01-01T00:00:00.000Z',
 };

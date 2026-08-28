@@ -5,12 +5,11 @@ const equipment: EquipmentRecord = {
   apertureMillimeters: 80,
   createdAtUtc: '2026-08-20T00:00:00.000Z',
   focalLengthMillimeters: 400,
-  frameRotationDegrees: 0,
   id: 'wide-sensor',
   name: 'Wide sensor',
   pixelSizeMicrometers: 3.76,
-  sensorHeightMillimeters: 12,
-  sensorWidthMillimeters: 24,
+  sensorHeightPixels: 3191,
+  sensorWidthPixels: 6383,
   updatedAtUtc: '2026-08-20T00:00:00.000Z',
 };
 
@@ -25,8 +24,8 @@ describe('screen-centred field of view frame', () => {
         focalLengthMillimeters: 150,
         name: 'DWARF 3',
         pixelSizeMicrometers: 2,
-        sensorHeightMillimeters: 4.32,
-        sensorWidthMillimeters: 7.68,
+        sensorHeightPixels: 2160,
+        sensorWidthPixels: 3840,
       },
       rotationDegrees: 0,
     });

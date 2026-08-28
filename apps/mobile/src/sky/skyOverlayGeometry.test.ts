@@ -152,10 +152,11 @@ describe('skyOverlayGeometry', () => {
       { altitudeDegrees: 45, azimuthDegrees: 180 },
       {
         focalLengthMillimeters: 400,
-        sensorWidthMillimeters: 24,
-        sensorHeightMillimeters: 16,
-        frameRotationDegrees: 90,
+        sensorWidthPixels: 6000,
+        sensorHeightPixels: 4000,
+        pixelSizeMicrometers: 4,
       },
+      90,
       viewport,
       canvas,
     );

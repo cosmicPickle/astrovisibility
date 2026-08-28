@@ -5,10 +5,9 @@ export interface EquipmentFormValues {
   name: string;
   focalLengthMillimeters: string;
   apertureMillimeters: string;
-  sensorWidthMillimeters: string;
-  sensorHeightMillimeters: string;
+  sensorWidthPixels: string;
+  sensorHeightPixels: string;
   pixelSizeMicrometers: string;
-  frameRotationDegrees: string;
 }
 
 export type EquipmentFormData = Omit<
@@ -19,8 +18,6 @@ export type EquipmentFormData = Omit<
 export interface EquipmentPreview {
   horizontalFovDegrees: number;
   verticalFovDegrees: number;
-  pixelWidth: number;
-  pixelHeight: number;
 }
 
 export type EquipmentFormResult =
@@ -31,17 +28,16 @@ export type EquipmentFormResult =
       message: string;
     };
 
-export const MAXIMUM_SENSOR_DIMENSION_MILLIMETERS = 100;
+export const MAXIMUM_RESOLUTION_PIXELS = 100_000;
 
 export function createEquipmentFormDefaults(): EquipmentFormValues {
   return {
     name: '',
     focalLengthMillimeters: '',
     apertureMillimeters: '',
-    sensorWidthMillimeters: '',
-    sensorHeightMillimeters: '',
+    sensorWidthPixels: '',
+    sensorHeightPixels: '',
     pixelSizeMicrometers: '',
-    frameRotationDegrees: '0',
   };
 }
 
@@ -52,37 +48,51 @@ export function equipmentToFormValues(
     name: equipment.name,
     focalLengthMillimeters: String(equipment.focalLengthMillimeters),
     apertureMillimeters: String(equipment.apertureMillimeters),
-    sensorWidthMillimeters: String(equipment.sensorWidthMillimeters),
-    sensorHeightMillimeters: String(equipment.sensorHeightMillimeters),
+    sensorWidthPixels: String(equipment.sensorWidthPixels),
+    sensorHeightPixels: String(equipment.sensorHeightPixels),
     pixelSizeMicrometers: String(equipment.pixelSizeMicrometers),
-    frameRotationDegrees: String(equipment.frameRotationDegrees),
   };
 }
 
-const numericFields: ReadonlyArray<{
-  field: Exclude<keyof EquipmentFormValues, 'name'>;
+const positiveNumericFields: ReadonlyArray<{
+  field: Exclude<
+    keyof EquipmentFormValues,
+    'name' | 'sensorWidthPixels' | 'sensorHeightPixels'
+  >;
   label: string;
-  positive: boolean;
 }> = [
-  {
-    field: 'focalLengthMillimeters',
-    label: 'focal length',
-    positive: true,
-  },
-  { field: 'apertureMillimeters', label: 'aperture', positive: true },
-  { field: 'sensorWidthMillimeters', label: 'sensor width', positive: true },
-  {
-    field: 'sensorHeightMillimeters',
-    label: 'sensor height',
-    positive: true,
-  },
-  { field: 'pixelSizeMicrometers', label: 'pixel size', positive: true },
-  {
-    field: 'frameRotationDegrees',
-    label: 'frame rotation',
-    positive: false,
-  },
+  { field: 'focalLengthMillimeters', label: 'focal length' },
+  { field: 'apertureMillimeters', label: 'aperture' },
+  { field: 'pixelSizeMicrometers', label: 'pixel size' },
 ];
+
+const parseResolution = (
+  values: EquipmentFormValues,
+  field: 'sensorWidthPixels' | 'sensorHeightPixels',
+  label: string,
+): EquipmentFormResult | number => {
+  const rawValue = values[field].trim();
+  const numberValue = Number(rawValue);
+  if (rawValue === '' || !Number.isFinite(numberValue)) {
+    return {
+      success: false,
+      field,
+      message: `Enter a valid resolution ${label}.`,
+    };
+  }
+  if (
+    !Number.isInteger(numberValue) ||
+    numberValue <= 0 ||
+    numberValue > MAXIMUM_RESOLUTION_PIXELS
+  ) {
+    return {
+      success: false,
+      field,
+      message: `Resolution ${label} must be a positive whole number.`,
+    };
+  }
+  return numberValue;
+};
 
 export function parseEquipmentForm(
   values: EquipmentFormValues,
@@ -96,11 +106,11 @@ export function parseEquipmentForm(
     };
   }
 
-  const parsed = {} as Record<
-    Exclude<keyof EquipmentFormValues, 'name'>,
+  const parsedPositiveValues = {} as Record<
+    (typeof positiveNumericFields)[number]['field'],
     number
   >;
-  for (const definition of numericFields) {
+  for (const definition of positiveNumericFields) {
     const rawValue = values[definition.field].trim();
     const numberValue = Number(rawValue);
     if (rawValue === '' || !Number.isFinite(numberValue)) {
@@ -110,7 +120,7 @@ export function parseEquipmentForm(
         message: `Enter a valid ${definition.label}.`,
       };
     }
-    if (definition.positive && numberValue <= 0) {
+    if (numberValue <= 0) {
       const capitalized =
         definition.label[0]?.toUpperCase() + definition.label.slice(1);
       return {
@@ -119,47 +129,35 @@ export function parseEquipmentForm(
         message: `${capitalized} must be greater than 0.`,
       };
     }
-    parsed[definition.field] = numberValue;
+    parsedPositiveValues[definition.field] = numberValue;
   }
 
-  if (parsed.sensorWidthMillimeters > MAXIMUM_SENSOR_DIMENSION_MILLIMETERS) {
-    return {
-      success: false,
-      field: 'sensorWidthMillimeters',
-      message:
-        'Sensor width must be a physical dimension in millimetres, not pixel resolution.',
-    };
-  }
-  if (parsed.sensorHeightMillimeters > MAXIMUM_SENSOR_DIMENSION_MILLIMETERS) {
-    return {
-      success: false,
-      field: 'sensorHeightMillimeters',
-      message:
-        'Sensor height must be a physical dimension in millimetres, not pixel resolution.',
-    };
-  }
+  const sensorWidthPixels = parseResolution(
+    values,
+    'sensorWidthPixels',
+    'width',
+  );
+  if (typeof sensorWidthPixels !== 'number') return sensorWidthPixels;
+  const sensorHeightPixels = parseResolution(
+    values,
+    'sensorHeightPixels',
+    'height',
+  );
+  if (typeof sensorHeightPixels !== 'number') return sensorHeightPixels;
 
   return {
     success: true,
-    data: { name, ...parsed },
+    data: {
+      name,
+      ...parsedPositiveValues,
+      sensorWidthPixels,
+      sensorHeightPixels,
+    },
   };
 }
 
 export function calculateEquipmentPreview(
-  input: Pick<
-    EquipmentFormData,
-    | 'focalLengthMillimeters'
-    | 'sensorWidthMillimeters'
-    | 'sensorHeightMillimeters'
-    | 'pixelSizeMicrometers'
-  >,
+  input: EquipmentFormData,
 ): EquipmentPreview {
-  const fieldOfView = calculateAngularFieldOfView(input);
-  return {
-    ...fieldOfView,
-    pixelWidth:
-      (input.sensorWidthMillimeters * 1000) / input.pixelSizeMicrometers,
-    pixelHeight:
-      (input.sensorHeightMillimeters * 1000) / input.pixelSizeMicrometers,
-  };
+  return calculateAngularFieldOfView(input);
 }

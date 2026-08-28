@@ -1,7 +1,8 @@
 export interface FieldOfViewInput {
   focalLengthMillimeters: number;
-  sensorWidthMillimeters: number;
-  sensorHeightMillimeters: number;
+  sensorWidthPixels: number;
+  sensorHeightPixels: number;
+  pixelSizeMicrometers: number;
 }
 
 export interface AngularFieldOfView {
@@ -26,24 +27,22 @@ export const calculateAngularFieldOfView = (
 ): AngularFieldOfView => {
   'worklet';
   assertPositiveFinite(input.focalLengthMillimeters, 'focalLengthMillimeters');
-  assertPositiveFinite(input.sensorWidthMillimeters, 'sensorWidthMillimeters');
-  assertPositiveFinite(
-    input.sensorHeightMillimeters,
-    'sensorHeightMillimeters',
-  );
+  assertPositiveFinite(input.sensorWidthPixels, 'sensorWidthPixels');
+  assertPositiveFinite(input.sensorHeightPixels, 'sensorHeightPixels');
+  assertPositiveFinite(input.pixelSizeMicrometers, 'pixelSizeMicrometers');
+  const sensorWidthMillimeters =
+    (input.sensorWidthPixels * input.pixelSizeMicrometers) / 1000;
+  const sensorHeightMillimeters =
+    (input.sensorHeightPixels * input.pixelSizeMicrometers) / 1000;
   const radiansToDegrees = 180 / Math.PI;
   return {
     horizontalFovDegrees:
       2 *
-      Math.atan(
-        input.sensorWidthMillimeters / (2 * input.focalLengthMillimeters),
-      ) *
+      Math.atan(sensorWidthMillimeters / (2 * input.focalLengthMillimeters)) *
       radiansToDegrees,
     verticalFovDegrees:
       2 *
-      Math.atan(
-        input.sensorHeightMillimeters / (2 * input.focalLengthMillimeters),
-      ) *
+      Math.atan(sensorHeightMillimeters / (2 * input.focalLengthMillimeters)) *
       radiansToDegrees,
   };
 };
@@ -54,16 +53,17 @@ export const calculateAngularFieldOfView = (
  * increasing altitude. Positive rotation is counter-clockwise in that plane.
  */
 export const createRotatedFieldOfViewRectangle = (
-  input: FieldOfViewInput & { frameRotationDegrees: number },
+  input: FieldOfViewInput,
+  rotationDegreesInput: number,
 ): AngularFieldOfView & {
   rotationDegrees: number;
   corners: readonly FieldOfViewCorner[];
 } => {
-  if (!Number.isFinite(input.frameRotationDegrees)) {
-    throw new RangeError('frameRotationDegrees must be finite');
+  if (!Number.isFinite(rotationDegreesInput)) {
+    throw new RangeError('rotationDegrees must be finite');
   }
   const fieldOfView = calculateAngularFieldOfView(input);
-  const rotationDegrees = ((input.frameRotationDegrees % 360) + 360) % 360;
+  const rotationDegrees = ((rotationDegreesInput % 360) + 360) % 360;
   const rotationRadians = (rotationDegrees * Math.PI) / 180;
   const cosine = Math.cos(rotationRadians);
   const sine = Math.sin(rotationRadians);

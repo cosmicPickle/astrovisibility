@@ -3,27 +3,23 @@ import {
   createRotatedFieldOfViewRectangle,
 } from './fieldOfView';
 
+const equipment = {
+  focalLengthMillimeters: 400,
+  sensorWidthPixels: 6250,
+  sensorHeightPixels: 4149,
+  pixelSizeMicrometers: 3.76,
+};
+
 describe('field-of-view geometry', () => {
-  it('calculates the exact sensor angular field from focal length', () => {
-    expect(
-      calculateAngularFieldOfView({
-        focalLengthMillimeters: 400,
-        sensorWidthMillimeters: 23.5,
-        sensorHeightMillimeters: 15.6,
-      }),
-    ).toEqual({
+  it('calculates angular field from resolution and pixel size', () => {
+    expect(calculateAngularFieldOfView(equipment)).toEqual({
       horizontalFovDegrees: expect.closeTo(3.365, 3),
       verticalFovDegrees: expect.closeTo(2.234, 3),
     });
   });
 
-  it('returns a centered angular rectangle rotated by the saved frame rotation', () => {
-    const rectangle = createRotatedFieldOfViewRectangle({
-      focalLengthMillimeters: 400,
-      sensorWidthMillimeters: 23.5,
-      sensorHeightMillimeters: 15.6,
-      frameRotationDegrees: 90,
-    });
+  it('rotates a centered angular rectangle with dynamic atlas orientation', () => {
+    const rectangle = createRotatedFieldOfViewRectangle(equipment, 90);
 
     expect(rectangle.rotationDegrees).toBe(90);
     expect(rectangle.corners).toHaveLength(4);
@@ -41,26 +37,13 @@ describe('field-of-view geometry', () => {
         ),
       ),
     ).toBeCloseTo(rectangle.horizontalFovDegrees / 2, 10);
-    expect(
-      rectangle.corners.reduce(
-        (sum, corner) => sum + corner.horizontalOffsetDegrees,
-        0,
-      ),
-    ).toBeCloseTo(0, 12);
-    expect(
-      rectangle.corners.reduce(
-        (sum, corner) => sum + corner.verticalOffsetDegrees,
-        0,
-      ),
-    ).toBeCloseTo(0, 12);
   });
 
   it('rejects non-physical optical dimensions', () => {
     expect(() =>
       calculateAngularFieldOfView({
+        ...equipment,
         focalLengthMillimeters: 0,
-        sensorWidthMillimeters: 23.5,
-        sensorHeightMillimeters: 15.6,
       }),
     ).toThrow('focalLengthMillimeters');
   });

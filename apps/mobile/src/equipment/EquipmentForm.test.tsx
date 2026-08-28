@@ -4,7 +4,7 @@ import { EquipmentForm } from './equipment-form';
 import { createEquipmentFormDefaults } from './equipmentForm';
 
 describe('EquipmentForm', () => {
-  it('shows a live FOV preview and saves valid values', async () => {
+  it('uses compact unit fields, previews FOV, and saves pixel resolution', async () => {
     const onSave = jest.fn();
     const screen = await render(
       <EquipmentForm
@@ -20,21 +20,31 @@ describe('EquipmentForm', () => {
     );
     await fireEvent.changeText(screen.getByLabelText('Focal length'), '400');
     await fireEvent.changeText(screen.getByLabelText('Aperture'), '80');
-    await fireEvent.changeText(screen.getByLabelText('Sensor width'), '23.5');
-    await fireEvent.changeText(screen.getByLabelText('Sensor height'), '15.6');
+    await fireEvent.changeText(
+      screen.getByLabelText('Resolution width'),
+      '6250',
+    );
+    await fireEvent.changeText(
+      screen.getByLabelText('Resolution height'),
+      '4149',
+    );
     await fireEvent.changeText(screen.getByLabelText('Pixel size'), '3.76');
 
     expect(screen.getByText('3.37° × 2.23°')).toBeTruthy();
-    expect(screen.getByText('Approximately 6250 × 4149 pixels')).toBeTruthy();
+    expect(screen.getAllByText('mm')).toHaveLength(2);
+    expect(screen.getByText('px')).toBeTruthy();
+    expect(screen.queryByText('Frame rotation')).toBeNull();
+    expect(screen.queryAllByPlaceholderText(/.+/)).toHaveLength(0);
 
     await fireEvent.press(screen.getByText('Save setup'));
-    expect(onSave).toHaveBeenCalledWith(
-      expect.objectContaining({
-        name: 'Refractor',
-        focalLengthMillimeters: 400,
-        pixelSizeMicrometers: 3.76,
-      }),
-    );
+    expect(onSave).toHaveBeenCalledWith({
+      name: 'Refractor',
+      focalLengthMillimeters: 400,
+      apertureMillimeters: 80,
+      sensorWidthPixels: 6250,
+      sensorHeightPixels: 4149,
+      pixelSizeMicrometers: 3.76,
+    });
   });
 
   it('blocks physically invalid values with a focused message', async () => {
@@ -46,8 +56,8 @@ describe('EquipmentForm', () => {
           name: 'Broken setup',
           focalLengthMillimeters: '0',
           apertureMillimeters: '80',
-          sensorWidthMillimeters: '23.5',
-          sensorHeightMillimeters: '15.6',
+          sensorWidthPixels: '6250',
+          sensorHeightPixels: '4149',
           pixelSizeMicrometers: '3.76',
         }}
         onSave={onSave}
@@ -62,36 +72,6 @@ describe('EquipmentForm', () => {
         screen.getByText('Focal length must be greater than 0.'),
       ).toBeTruthy(),
     );
-    expect(onSave).not.toHaveBeenCalled();
-  });
-
-  it('explains physical sensor units and blocks a pixel resolution', async () => {
-    const onSave = jest.fn();
-    const screen = await render(
-      <EquipmentForm
-        initialValues={{
-          ...createEquipmentFormDefaults(),
-          name: 'DWARF 3',
-          focalLengthMillimeters: '150',
-          apertureMillimeters: '35',
-          sensorWidthMillimeters: '3840',
-          sensorHeightMillimeters: '2160',
-          pixelSizeMicrometers: '2',
-        }}
-        onSave={onSave}
-        title="New imaging setup"
-      />,
-    );
-
-    expect(
-      screen.getAllByText('Physical millimetres, not pixels'),
-    ).toHaveLength(2);
-    await fireEvent.press(screen.getByText('Save setup'));
-    expect(
-      screen.getByText(
-        'Sensor width must be a physical dimension in millimetres, not pixel resolution.',
-      ),
-    ).toBeTruthy();
     expect(onSave).not.toHaveBeenCalled();
   });
 });

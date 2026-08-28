@@ -239,7 +239,40 @@ const migrations: Migration[] = [
         ON visibility_calculation_cache(result_kind, last_used_at_utc);
     `,
   },
+  {
+    version: 8,
+    sql: `
+      UPDATE equipment_configurations
+      SET
+        sensor_width_pixels = MAX(
+          1,
+          ROUND(sensor_width_millimeters * 1000 / pixel_size_micrometers)
+        ),
+        sensor_height_pixels = MAX(
+          1,
+          ROUND(sensor_height_millimeters * 1000 / pixel_size_micrometers)
+        )
+      WHERE sensor_width_pixels IS NULL OR sensor_height_pixels IS NULL;
+    `,
+  },
 ];
+
+async function ensureEquipmentResolutionColumns(database: SqlDatabase) {
+  const columns = await database.getAllAsync<{ name: string }>(
+    'PRAGMA table_info(equipment_configurations)',
+  );
+  const columnNames = new Set(columns.map(({ name }) => name));
+  if (!columnNames.has('sensor_width_pixels')) {
+    await database.execAsync(
+      'ALTER TABLE equipment_configurations ADD COLUMN sensor_width_pixels INTEGER',
+    );
+  }
+  if (!columnNames.has('sensor_height_pixels')) {
+    await database.execAsync(
+      'ALTER TABLE equipment_configurations ADD COLUMN sensor_height_pixels INTEGER',
+    );
+  }
+}
 
 async function ensureDirectionalImageColumns(database: SqlDatabase) {
   const ensure = async (table: string, column: string, declaration: string) => {
@@ -292,6 +325,9 @@ export async function migrateDatabase(database: SqlDatabase): Promise<void> {
     await inImmediateTransaction(database, async () => {
       if (migration.version === 6) {
         await ensureDirectionalImageColumns(database);
+      }
+      if (migration.version === 8) {
+        await ensureEquipmentResolutionColumns(database);
       }
       await database.execAsync(migration.sql);
       await database.execAsync(`PRAGMA user_version = ${migration.version}`);

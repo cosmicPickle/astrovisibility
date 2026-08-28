@@ -87,102 +87,80 @@ export const EquipmentForm = ({
           helperText={fieldMessage('name')}
           label="Setup name"
           onChangeText={(value) => updateValue('name', value)}
-          placeholder="Wide-field refractor"
           value={values.name}
         />
         <View style={styles.fieldRow}>
           <FormField
             containerStyle={styles.fieldColumn}
             error={Boolean(fieldMessage('focalLengthMillimeters'))}
-            helperText={fieldMessage('focalLengthMillimeters') ?? 'Millimetres'}
+            helperText={fieldMessage('focalLengthMillimeters')}
             inputMode="decimal"
             keyboardType="decimal-pad"
             label="Focal length"
             onChangeText={(value) =>
               updateValue('focalLengthMillimeters', value)
             }
+            unit="mm"
             value={values.focalLengthMillimeters}
           />
           <FormField
             containerStyle={styles.fieldColumn}
             error={Boolean(fieldMessage('apertureMillimeters'))}
-            helperText={fieldMessage('apertureMillimeters') ?? 'Millimetres'}
+            helperText={fieldMessage('apertureMillimeters')}
             inputMode="decimal"
             keyboardType="decimal-pad"
             label="Aperture"
             onChangeText={(value) => updateValue('apertureMillimeters', value)}
+            unit="mm"
             value={values.apertureMillimeters}
           />
         </View>
-        <View style={styles.fieldRow}>
+        <AppText tone="label">Resolution</AppText>
+        <View style={styles.resolutionRow}>
           <FormField
             containerStyle={styles.fieldColumn}
-            error={Boolean(fieldMessage('sensorWidthMillimeters'))}
-            helperText={
-              fieldMessage('sensorWidthMillimeters') ??
-              'Physical millimetres, not pixels'
-            }
-            inputMode="decimal"
-            keyboardType="decimal-pad"
-            label="Sensor width"
-            onChangeText={(value) =>
-              updateValue('sensorWidthMillimeters', value)
-            }
-            value={values.sensorWidthMillimeters}
+            error={Boolean(fieldMessage('sensorWidthPixels'))}
+            helperText={fieldMessage('sensorWidthPixels')}
+            inputMode="numeric"
+            keyboardType="number-pad"
+            label="Resolution width"
+            onChangeText={(value) => updateValue('sensorWidthPixels', value)}
+            showLabel={false}
+            value={values.sensorWidthPixels}
           />
+          <AppText style={styles.resolutionSeparator}>×</AppText>
           <FormField
             containerStyle={styles.fieldColumn}
-            error={Boolean(fieldMessage('sensorHeightMillimeters'))}
-            helperText={
-              fieldMessage('sensorHeightMillimeters') ??
-              'Physical millimetres, not pixels'
-            }
-            inputMode="decimal"
-            keyboardType="decimal-pad"
-            label="Sensor height"
-            onChangeText={(value) =>
-              updateValue('sensorHeightMillimeters', value)
-            }
-            value={values.sensorHeightMillimeters}
+            error={Boolean(fieldMessage('sensorHeightPixels'))}
+            helperText={fieldMessage('sensorHeightPixels')}
+            inputMode="numeric"
+            keyboardType="number-pad"
+            label="Resolution height"
+            onChangeText={(value) => updateValue('sensorHeightPixels', value)}
+            showLabel={false}
+            unit="px"
+            value={values.sensorHeightPixels}
           />
         </View>
-        <View style={styles.fieldRow}>
-          <FormField
-            containerStyle={styles.fieldColumn}
-            error={Boolean(fieldMessage('pixelSizeMicrometers'))}
-            helperText={fieldMessage('pixelSizeMicrometers') ?? 'Micrometres'}
-            inputMode="decimal"
-            keyboardType="decimal-pad"
-            label="Pixel size"
-            onChangeText={(value) => updateValue('pixelSizeMicrometers', value)}
-            value={values.pixelSizeMicrometers}
-          />
-          <FormField
-            containerStyle={styles.fieldColumn}
-            error={Boolean(fieldMessage('frameRotationDegrees'))}
-            helperText={fieldMessage('frameRotationDegrees') ?? 'Degrees'}
-            inputMode="decimal"
-            keyboardType="numbers-and-punctuation"
-            label="Frame rotation"
-            onChangeText={(value) => updateValue('frameRotationDegrees', value)}
-            value={values.frameRotationDegrees}
-          />
-        </View>
+        <FormField
+          error={Boolean(fieldMessage('pixelSizeMicrometers'))}
+          helperText={fieldMessage('pixelSizeMicrometers')}
+          inputMode="decimal"
+          keyboardType="decimal-pad"
+          label="Pixel size"
+          onChangeText={(value) => updateValue('pixelSizeMicrometers', value)}
+          unit="µm"
+          value={values.pixelSizeMicrometers}
+        />
       </SectionCard>
 
       <SectionCard>
         <AppText tone="label">Derived frame</AppText>
         {preview ? (
-          <>
-            <AppText style={styles.previewMetric}>
-              {preview.horizontalFovDegrees.toFixed(2)}° ×{' '}
-              {preview.verticalFovDegrees.toFixed(2)}°
-            </AppText>
-            <AppText tone="muted">
-              Approximately {Math.round(preview.pixelWidth)} ×{' '}
-              {Math.round(preview.pixelHeight)} pixels
-            </AppText>
-          </>
+          <AppText style={styles.previewMetric}>
+            {preview.horizontalFovDegrees.toFixed(2)}° ×{' '}
+            {preview.verticalFovDegrees.toFixed(2)}°
+          </AppText>
         ) : (
           <AppText tone="muted">
             Complete the positive optical and sensor values to preview the field
@@ -222,5 +200,14 @@ const styles = StyleSheet.create({
   previewMetric: {
     fontSize: 22,
     fontWeight: '800',
+  },
+  resolutionRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  resolutionSeparator: {
+    color: colors.mutedText,
+    fontSize: 18,
   },
 });

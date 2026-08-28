@@ -241,13 +241,17 @@ export const buildClassifiedTrajectoryViewportSegments = (
 
 export const projectFieldOfViewToViewport = (
   center: { azimuthDegrees: number; altitudeDegrees: number },
-  equipment: FieldOfViewInput & { frameRotationDegrees: number },
+  equipment: FieldOfViewInput,
+  rotationDegrees: number,
   viewport: SkyViewport,
   canvas: CanvasSizePixels,
 ) => {
   const projectedCenter = projectDirectionToViewport(center, viewport, canvas);
   if (!projectedCenter) return null;
-  const rectangle = createRotatedFieldOfViewRectangle(equipment);
+  const rectangle = createRotatedFieldOfViewRectangle(
+    equipment,
+    rotationDegrees,
+  );
   const verticalSpanDegrees = getVerticalSpanDegrees(viewport, canvas);
   return {
     ...rectangle,
