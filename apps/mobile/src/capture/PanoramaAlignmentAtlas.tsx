@@ -112,6 +112,7 @@ export function PanoramaAlignmentAtlas({
             celestialEquatorDirections={[]}
             diurnalOrbit={null}
             equipment={null}
+            fieldOfViewRotationDegrees={0}
             mask={null}
             maskOpacity={0}
             panoramaOpacity={1}

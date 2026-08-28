@@ -16,6 +16,7 @@ import { SkyCanvas } from './SkyCanvas';
 
 const mockObservedCameras: PlanetariumCamera[] = [];
 const mockObservedSceneTargetIds: string[][] = [];
+const mockFocusDirection = jest.fn();
 let mockNavigationOptions:
   | {
       cameraState: PlanetariumCamera;
@@ -69,6 +70,7 @@ jest.mock('./usePlanetariumNavigation', () => ({
         set: jest.fn(),
         value: options.cameraState,
       },
+      focusDirection: mockFocusDirection,
       gesture: {},
     };
   },
@@ -105,6 +107,8 @@ const commonProps = {
   densityCandidateCount: 0,
   diurnalOrbit: null,
   fieldOfViewEquipment: null,
+  fieldOfViewRotationDegrees: 0,
+  focusRequest: null,
   maskOverlay: null,
   onInspectTrajectoryMarker: jest.fn(),
   onSelectTarget: jest.fn(),
@@ -141,6 +145,43 @@ describe('SkyCanvas selection camera stability', () => {
     mockObservedCameras.length = 0;
     mockObservedSceneTargetIds.length = 0;
     mockNavigationOptions = undefined;
+    mockFocusDirection.mockClear();
+  });
+
+  it('focuses a selected target once without refocusing on later renders', async () => {
+    const focusRequest = {
+      direction: { altitudeDegrees: 42, azimuthDegrees: 175 },
+      id: 1,
+    };
+    const view = await render(
+      <SkyCanvas
+        {...commonProps}
+        focusRequest={null}
+        selectedTargetId={null}
+        trajectory={null}
+      />,
+    );
+
+    await view.rerender(
+      <SkyCanvas
+        {...commonProps}
+        focusRequest={focusRequest}
+        selectedTargetId="M42"
+        trajectory={null}
+      />,
+    );
+    expect(mockFocusDirection).toHaveBeenCalledTimes(1);
+    expect(mockFocusDirection).toHaveBeenCalledWith(focusRequest.direction);
+
+    await view.rerender(
+      <SkyCanvas
+        {...commonProps}
+        focusRequest={focusRequest}
+        selectedTargetId="M42"
+        trajectory={trajectory}
+      />,
+    );
+    expect(mockFocusDirection).toHaveBeenCalledTimes(1);
   });
 
   it('never moves or zooms the camera when selection and trajectory state change', async () => {

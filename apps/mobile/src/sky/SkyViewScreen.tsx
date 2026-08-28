@@ -50,6 +50,7 @@ import {
   type TrajectoryMarker,
 } from '../astronomy/trajectory';
 import { ActionButton } from '../components/ui/ActionButton';
+import { AngleSlider } from '../components/ui/AngleSlider';
 import { AppIcon } from '../components/ui/AppIcon';
 import { AppText } from '../components/ui/AppText';
 import { ModalSheet } from '../components/ui/ModalSheet';
@@ -113,6 +114,11 @@ export interface SkyRendererProps {
   }[];
   densityCandidateCount: number;
   fieldOfViewEquipment: EquipmentRecord | null;
+  fieldOfViewRotationDegrees: number;
+  focusRequest: {
+    direction: { altitudeDegrees: number; azimuthDegrees: number };
+    id: number;
+  } | null;
   diurnalOrbit: TargetDiurnalOrbit | null;
   onInspectTrajectoryMarker: (marker: TrajectoryMarker) => void;
   onSelectTarget: (target: HorizontalCatalogueTarget) => void;
@@ -230,18 +236,23 @@ export const SkyViewScreen = ({
   const [selectedTarget, setSelectedTarget] = useState<CatalogueTarget | null>(
     null,
   );
+  const [targetFocusRequestId, setTargetFocusRequestId] = useState(0);
   const [inspectedMarker, setInspectedMarker] =
     useState<TrajectoryMarker | null>(null);
   const [openSheet, setOpenSheet] = useState<
-    | 'equipment'
     | 'info'
     | 'mask'
     | 'menu'
+    | 'optics'
+    | 'orientation'
     | 'panorama'
     | 'time'
     | 'viewOptions'
     | null
   >(null);
+  const [opticsDropdownOpen, setOpticsDropdownOpen] = useState(false);
+  const [fieldOfViewRotationDegrees, setFieldOfViewRotationDegrees] =
+    useState(0);
   const [mutationError, setMutationError] = useState<string | null>(null);
   const [panoramaOpacityPercent, setPanoramaOpacityPercent] = useState(55);
   const [maskOpacityPercent, setMaskOpacityPercent] = useState(60);
@@ -291,13 +302,15 @@ export const SkyViewScreen = ({
           setObservingWindow(
             initialObservingWindow ?? createDefaultObservingWindow(loadedData),
           );
-          setSelectedTarget(
-            initialSelectedTargetId
-              ? (loadedData.catalogueTargets.find(
-                  ({ id }) => id === initialSelectedTargetId,
-                ) ?? null)
-              : null,
-          );
+          const initialTarget = initialSelectedTargetId
+            ? (loadedData.catalogueTargets.find(
+                ({ id }) => id === initialSelectedTargetId,
+              ) ?? null)
+            : null;
+          setSelectedTarget(initialTarget);
+          if (initialTarget) {
+            setTargetFocusRequestId((current) => current + 1);
+          }
         },
         () => {
           if (!active) return;
@@ -580,6 +593,13 @@ export const SkyViewScreen = ({
       selectedEquipment ? calculateAngularFieldOfView(selectedEquipment) : null,
     [selectedEquipment],
   );
+  const focusRequest = useMemo(
+    () =>
+      selectedDirection && targetFocusRequestId > 0
+        ? { direction: selectedDirection, id: targetFocusRequestId }
+        : null,
+    [selectedDirection, targetFocusRequestId],
+  );
 
   const selectEquipment = async (equipmentId: string) => {
     if (!data) return;
@@ -587,7 +607,7 @@ export const SkyViewScreen = ({
     try {
       await controller.selectEquipment(data.profile.id, equipmentId);
       setData({ ...data, selectedEquipmentId: equipmentId });
-      setOpenSheet(null);
+      setOpticsDropdownOpen(false);
     } catch {
       setMutationError('The imaging setup could not be changed. Try again.');
     }
@@ -720,9 +740,12 @@ export const SkyViewScreen = ({
           densityCandidateCount={discoverableCatalogueTargets.length}
           diurnalOrbit={diurnalOrbit}
           fieldOfViewEquipment={selectedEquipment}
+          fieldOfViewRotationDegrees={fieldOfViewRotationDegrees}
+          focusRequest={focusRequest}
           onInspectTrajectoryMarker={setInspectedMarker}
           onSelectTarget={(target) => {
             setSelectedTarget(target.target);
+            setTargetFocusRequestId((current) => current + 1);
             setInspectedMarker(null);
             setTrajectory(null);
             setTrajectoryStatus('calculating');
@@ -760,18 +783,33 @@ export const SkyViewScreen = ({
             </AppText>
           </View>
         ) : null}
-        <Pressable
-          accessibilityLabel="View options"
-          accessibilityRole="button"
-          onPress={() => setOpenSheet('viewOptions')}
-          style={({ pressed }) => [
-            styles.overlayIconButton,
-            styles.viewOptionsControl,
-            pressed && styles.controlPressed,
-          ]}
-        >
-          <AppIcon name="eye" />
-        </Pressable>
+        <View style={styles.viewControls}>
+          <Pressable
+            accessibilityLabel="View options"
+            accessibilityRole="button"
+            onPress={() => setOpenSheet('viewOptions')}
+            style={({ pressed }) => [
+              styles.overlayIconButton,
+              pressed && styles.controlPressed,
+            ]}
+          >
+            <AppIcon name="eye" />
+          </Pressable>
+          <Pressable
+            accessibilityLabel="Optics"
+            accessibilityRole="button"
+            onPress={() => {
+              setOpticsDropdownOpen(false);
+              setOpenSheet('optics');
+            }}
+            style={({ pressed }) => [
+              styles.overlayIconButton,
+              pressed && styles.controlPressed,
+            ]}
+          >
+            <AppIcon name="telescope" />
+          </Pressable>
+        </View>
         <View style={styles.targetListControl}>
           <Pressable
             accessibilityLabel="View all targets"
@@ -910,11 +948,6 @@ export const SkyViewScreen = ({
           searchText={targetSearchText}
           selectedCategories={selectedCategories}
         />
-        <ActionButton
-          label={`Imaging setup · ${selectedEquipment?.name ?? 'None'}`}
-          onPress={() => setOpenSheet('equipment')}
-          variant="secondary"
-        />
         {data.panorama ? (
           <ActionButton
             label={`Panorama opacity · ${panoramaOpacityPercent}%`}
@@ -932,29 +965,65 @@ export const SkyViewScreen = ({
       </ModalSheet>
 
       <ModalSheet
-        closeAccessibilityLabel="Close equipment sheet"
+        closeAccessibilityLabel="Close optics menu"
         onClose={() => setOpenSheet(null)}
-        title="Imaging setup"
-        visible={openSheet === 'equipment'}
+        title="Optics"
+        visible={openSheet === 'optics'}
       >
-        {data.equipment.length === 0 ? (
-          <AppText tone="muted">
-            No saved setup. Sky browsing remains available without field-of-view
-            constraints.
-          </AppText>
-        ) : (
-          data.equipment.map((item) => (
-            <ActionButton
-              accessibilityLabel={`Use ${item.name} imaging setup`}
-              key={item.id}
-              label={`${item.id === data.selectedEquipmentId ? 'Selected · ' : ''}${item.name}`}
-              onPress={() => void selectEquipment(item.id)}
-              variant={
-                item.id === data.selectedEquipmentId ? 'primary' : 'secondary'
-              }
-            />
-          ))
-        )}
+        <View style={styles.selectField}>
+          <AppText tone="label">Current optics profile</AppText>
+          <Pressable
+            accessibilityLabel="Choose current optics profile"
+            accessibilityRole="button"
+            onPress={() => setOpticsDropdownOpen((current) => !current)}
+            style={({ pressed }) => [
+              styles.selectControl,
+              pressed && styles.controlPressed,
+            ]}
+          >
+            <AppText>{selectedEquipment?.name ?? 'None'}</AppText>
+            <AppText tone="muted">⌄</AppText>
+          </Pressable>
+          {opticsDropdownOpen ? (
+            <View style={styles.selectOptions}>
+              {data.equipment.length === 0 ? (
+                <AppText tone="muted">No saved optics profiles</AppText>
+              ) : (
+                data.equipment.map((item) => (
+                  <ActionButton
+                    accessibilityLabel={`Use ${item.name} imaging setup`}
+                    key={item.id}
+                    label={`${item.id === data.selectedEquipmentId ? 'Selected · ' : ''}${item.name}`}
+                    onPress={() => void selectEquipment(item.id)}
+                    variant={
+                      item.id === data.selectedEquipmentId
+                        ? 'primary'
+                        : 'secondary'
+                    }
+                  />
+                ))
+              )}
+            </View>
+          ) : null}
+        </View>
+        <ActionButton
+          label={`Orientation · ${fieldOfViewRotationDegrees}°`}
+          onPress={() => setOpenSheet('orientation')}
+          variant="secondary"
+        />
+      </ModalSheet>
+
+      <ModalSheet
+        closeAccessibilityLabel="Close field-of-view orientation"
+        onClose={() => setOpenSheet('optics')}
+        title="Orientation"
+        visible={openSheet === 'orientation'}
+      >
+        <AngleSlider
+          label="Field of view orientation"
+          onChange={setFieldOfViewRotationDegrees}
+          value={fieldOfViewRotationDegrees}
+        />
       </ModalSheet>
 
       <ModalSheet
@@ -1050,7 +1119,7 @@ export const SkyViewScreen = ({
               label="Selected imaging setup"
               value={
                 selectedEquipment && selectedFieldOfView
-                  ? `${selectedEquipment.name} · ${selectedFieldOfView.horizontalFovDegrees.toFixed(2)}° × ${selectedFieldOfView.verticalFovDegrees.toFixed(2)}° · ${selectedEquipment.frameRotationDegrees}° rotation`
+                  ? `${selectedEquipment.name} · ${selectedFieldOfView.horizontalFovDegrees.toFixed(2)}° × ${selectedFieldOfView.verticalFovDegrees.toFixed(2)}° · ${fieldOfViewRotationDegrees}° rotation`
                   : 'None; Sky View remains available'
               }
             />
@@ -1281,6 +1350,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     flex: 1,
   },
+  selectControl: {
+    alignItems: 'center',
+    backgroundColor: colors.surfaceRaised,
+    borderColor: colors.outline,
+    borderRadius: layout.controlRadius,
+    borderWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    minHeight: layout.minimumTouchTarget,
+    paddingHorizontal: 14,
+  },
+  selectField: { gap: 6 },
+  selectOptions: { gap: 8 },
   skyArea: {
     flex: 1,
   },
@@ -1344,8 +1426,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
   },
-  viewOptionsControl: {
+  viewControls: {
     bottom: 12,
+    flexDirection: 'row',
+    gap: 8,
     left: 12,
     position: 'absolute',
   },

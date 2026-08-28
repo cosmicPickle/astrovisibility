@@ -880,16 +880,19 @@ function FieldOfViewLayer({
   camera,
   canvas,
   equipment,
+  rotationDegrees,
 }: {
   camera: SharedValue<PlanetariumCamera>;
   canvas: CanvasSizePixels;
   equipment: EquipmentRecord;
+  rotationDegrees: number;
 }) {
   const path = useDerivedValue(() => {
     const frame = createScreenCenteredFieldOfViewFrame({
       cameraFieldOfViewDegrees: camera.value.fieldOfViewDegrees,
       canvas,
       equipment,
+      rotationDegrees,
     });
     const builder = Skia.PathBuilder.Make();
     frame.corners.forEach((corner, index) => {
@@ -914,6 +917,7 @@ export function PlanetariumScene({
   celestialEquatorDirections,
   diurnalOrbit,
   equipment,
+  fieldOfViewRotationDegrees,
   mask,
   maskOpacity,
   panoramaOpacity,
@@ -930,6 +934,7 @@ export function PlanetariumScene({
   celestialEquatorDirections: readonly HorizontalDirectionDegrees[];
   diurnalOrbit: TargetDiurnalOrbit | null;
   equipment: EquipmentRecord | null;
+  fieldOfViewRotationDegrees: number;
   mask: VisibilityMask | null;
   maskOpacity: number;
   panoramaOpacity: number;
@@ -1005,6 +1010,7 @@ export function PlanetariumScene({
           camera={camera}
           canvas={canvas}
           equipment={equipment}
+          rotationDegrees={fieldOfViewRotationDegrees}
         />
       ) : null}
     </Canvas>

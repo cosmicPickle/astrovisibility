@@ -126,8 +126,13 @@ const renderWithSafeArea = (element: ReactElement) =>
     </SafeAreaProvider>,
   );
 
-const renderer = ({ onSelectTarget, targets }: SkyRendererProps) => (
+const renderer = ({
+  fieldOfViewRotationDegrees,
+  onSelectTarget,
+  targets,
+}: SkyRendererProps) => (
   <View accessibilityLabel="Test sky renderer">
+    <Text testID="field-of-view-orientation">{fieldOfViewRotationDegrees}</Text>
     {targets.map((item) => (
       <Pressable
         accessibilityRole="button"
@@ -339,8 +344,11 @@ describe('SkyViewScreen', () => {
     ).toBeTruthy();
     expect(screen.queryByText('No imaging setup')).toBeNull();
     await fireEvent.press(screen.getByLabelText('View options'));
-    expect(screen.getByText('Imaging setup · None')).toBeTruthy();
+    expect(screen.queryByText('Imaging setup · None')).toBeNull();
     await fireEvent.press(screen.getByLabelText('Close view options'));
+    await fireEvent.press(screen.getByLabelText('Optics'));
+    expect(screen.getByText('None')).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('Close optics menu'));
     expect(screen.getByText('Orion Nebula')).toBeTruthy();
     expect(screen.queryByText(/visible until/i)).toBeNull();
   });
@@ -479,9 +487,10 @@ describe('SkyViewScreen', () => {
       />,
     );
     await waitFor(() => screen.getByText(profile.name));
-    await fireEvent.press(screen.getByLabelText('View options'));
+    await fireEvent.press(screen.getByLabelText('Optics'));
+    expect(screen.getByText('Current optics profile')).toBeTruthy();
     await fireEvent.press(
-      screen.getByText(`Imaging setup · ${equipment.name}`),
+      screen.getByLabelText('Choose current optics profile'),
     );
     await fireEvent.press(
       screen.getByLabelText(`Use ${secondEquipment.name} imaging setup`),
@@ -492,11 +501,16 @@ describe('SkyViewScreen', () => {
         secondEquipment.id,
       ),
     );
-    await fireEvent.press(screen.getByLabelText('View options'));
-    expect(
-      screen.getByText(`Imaging setup · ${secondEquipment.name}`),
-    ).toBeTruthy();
-    await fireEvent.press(screen.getByLabelText('Close view options'));
+    expect(screen.getByText(secondEquipment.name)).toBeTruthy();
+    await fireEvent.press(screen.getByText('Orientation · 0°'));
+    await fireEvent(
+      screen.getByLabelText('Field of view orientation'),
+      'accessibilityAction',
+      { nativeEvent: { actionName: 'increment' } },
+    );
+    expect(screen.getByTestId('field-of-view-orientation').props.children).toBe(
+      5,
+    );
   });
 
   it('wires the compact time, profile menu, and target-list affordances', async () => {

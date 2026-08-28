@@ -28,6 +28,7 @@ describe('screen-centred field of view frame', () => {
         sensorHeightMillimeters: 4.32,
         sensorWidthMillimeters: 7.68,
       },
+      rotationDegrees: 0,
     });
 
     expect(frame.horizontalFovDegrees).toBeCloseTo(2.933, 3);
@@ -42,6 +43,7 @@ describe('screen-centred field of view frame', () => {
       cameraFieldOfViewDegrees: 90,
       canvas: { widthPixels: 1080, heightPixels: 1600 },
       equipment,
+      rotationDegrees: 0,
     });
 
     expect(frame.center).toEqual({ xPixels: 540, yPixels: 800 });
@@ -70,11 +72,13 @@ describe('screen-centred field of view frame', () => {
       cameraFieldOfViewDegrees: 180,
       canvas: { widthPixels: 1080, heightPixels: 1600 },
       equipment,
+      rotationDegrees: 0,
     });
     const zoomed = createScreenCenteredFieldOfViewFrame({
       cameraFieldOfViewDegrees: 45,
       canvas: { widthPixels: 1080, heightPixels: 1600 },
       equipment,
+      rotationDegrees: 0,
     });
 
     expect(zoomed.widthPixels).toBeGreaterThan(wide.widthPixels * 4);
@@ -87,7 +91,8 @@ describe('screen-centred field of view frame', () => {
     const frame = createScreenCenteredFieldOfViewFrame({
       cameraFieldOfViewDegrees: 60,
       canvas: { widthPixels: 390, heightPixels: 700 },
-      equipment: { ...equipment, frameRotationDegrees: 90 },
+      equipment,
+      rotationDegrees: 90,
     });
 
     const [topLeft, topRight] = frame.corners;

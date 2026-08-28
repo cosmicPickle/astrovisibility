@@ -2,10 +2,14 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { Gesture } from 'react-native-gesture-handler';
 import { runOnJS, useSharedValue } from 'react-native-reanimated';
 
-import type { CanvasSizePixels } from './projection';
+import type {
+  CanvasSizePixels,
+  HorizontalDirectionDegrees,
+} from './projection';
 import {
   applyPlanetariumPan,
   applyPlanetariumZoom,
+  createPlanetariumCamera,
   type PlanetariumCamera,
 } from './planetariumProjection';
 
@@ -53,6 +57,19 @@ export function usePlanetariumNavigation({
       onTap(xPixels, yPixels, tapCamera);
     },
     [onTap],
+  );
+  const focusDirection = useCallback(
+    (direction: HorizontalDirectionDegrees) => {
+      const nextCamera = createPlanetariumCamera({
+        centerAltitudeDegrees: direction.altitudeDegrees,
+        centerAzimuthDegrees: direction.azimuthDegrees,
+        fieldOfViewDegrees: camera.get().fieldOfViewDegrees,
+      });
+      camera.set(nextCamera);
+      previewCamera(nextCamera);
+      commitCamera(nextCamera);
+    },
+    [camera, commitCamera, previewCamera],
   );
 
   const gesture = useMemo(() => {
@@ -175,5 +192,5 @@ export function usePlanetariumNavigation({
     previewUpdateCount,
   ]);
 
-  return { camera, gesture };
+  return { camera, focusDirection, gesture };
 }

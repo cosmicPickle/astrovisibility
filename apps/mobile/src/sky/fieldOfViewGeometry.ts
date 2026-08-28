@@ -47,10 +47,12 @@ export const createScreenCenteredFieldOfViewFrame = ({
   cameraFieldOfViewDegrees,
   canvas,
   equipment,
+  rotationDegrees,
 }: {
   cameraFieldOfViewDegrees: number;
   canvas: CanvasSizePixels;
   equipment: EquipmentRecord;
+  rotationDegrees: number;
 }): ScreenCenteredFieldOfViewFrame => {
   'worklet';
   if (
@@ -85,7 +87,7 @@ export const createScreenCenteredFieldOfViewFrame = ({
     xPixels: canvas.widthPixels / 2,
     yPixels: canvas.heightPixels / 2,
   };
-  const rotationRadians = equipment.frameRotationDegrees * DEGREES_TO_RADIANS;
+  const rotationRadians = rotationDegrees * DEGREES_TO_RADIANS;
   const offsets = [
     { xPixels: -widthPixels / 2, yPixels: -heightPixels / 2 },
     { xPixels: widthPixels / 2, yPixels: -heightPixels / 2 },

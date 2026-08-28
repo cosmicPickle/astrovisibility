@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { LayoutChangeEvent } from 'react-native';
 import { StyleSheet, View } from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
@@ -40,6 +40,11 @@ export interface SkyCanvasProps {
   densityCandidateCount: number;
   diurnalOrbit: TargetDiurnalOrbit | null;
   fieldOfViewEquipment: EquipmentRecord | null;
+  fieldOfViewRotationDegrees: number;
+  focusRequest: {
+    direction: { altitudeDegrees: number; azimuthDegrees: number };
+    id: number;
+  } | null;
   onInspectTrajectoryMarker: (marker: TrajectoryMarker) => void;
   onSelectTarget: (target: HorizontalCatalogueTarget) => void;
   selectedTargetId: string | null;
@@ -64,6 +69,8 @@ export const SkyCanvas = ({
   densityCandidateCount,
   diurnalOrbit,
   fieldOfViewEquipment,
+  fieldOfViewRotationDegrees,
+  focusRequest,
   onInspectTrajectoryMarker,
   onSelectTarget,
   selectedTargetId,
@@ -216,6 +223,17 @@ export const SkyCanvas = ({
     onCameraPreview: handleCameraPreview,
     onTap: handleTap,
   });
+  const lastAppliedFocusRequestId = useRef<number | null>(null);
+  useEffect(() => {
+    if (
+      !focusRequest ||
+      focusRequest.id === lastAppliedFocusRequestId.current
+    ) {
+      return;
+    }
+    lastAppliedFocusRequestId.current = focusRequest.id;
+    navigation.focusDirection(focusRequest.direction);
+  }, [focusRequest, navigation]);
 
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
@@ -239,6 +257,7 @@ export const SkyCanvas = ({
             celestialEquatorDirections={celestialEquatorDirections}
             diurnalOrbit={diurnalOrbit}
             equipment={fieldOfViewEquipment}
+            fieldOfViewRotationDegrees={fieldOfViewRotationDegrees}
             mask={maskOverlay?.visible ? maskOverlay.mask : null}
             maskOpacity={(maskOverlay?.opacityPercent ?? 0) / 100}
             panoramaOpacity={(panoramaOverlay?.opacityPercent ?? 0) / 100}
