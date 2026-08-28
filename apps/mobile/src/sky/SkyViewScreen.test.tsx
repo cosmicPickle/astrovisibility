@@ -158,6 +158,7 @@ const rendererWithStageFourOverlays = (props: SkyRendererProps) => (
     <Text testID="field-of-view-equipment">
       {props.fieldOfViewEquipment?.name ?? 'none'}
     </Text>
+    <Text testID="focus-request-id">{props.focusRequest?.id ?? 0}</Text>
     <Text testID="trajectory-assessments">
       {props.trajectory?.samples
         .map(({ assessment }) => assessment)
@@ -565,6 +566,9 @@ describe('SkyViewScreen', () => {
     );
 
     await waitFor(() => screen.getByText('M 42 · NGC 1976'));
+    expect(
+      Number(screen.getByTestId('focus-request-id').props.children),
+    ).toBeGreaterThan(0);
     await waitFor(() =>
       expect(
         Number(screen.getByTestId('trajectory-sample-count').props.children),
