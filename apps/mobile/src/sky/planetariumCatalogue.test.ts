@@ -192,6 +192,7 @@ describe('planetarium resident catalogue', () => {
       index,
       camera(0),
       canvas,
+      { minimumTargetCount: 0 },
     ).map((item) => item.target.id);
     expect(ordinary).toContain('unknown');
     expect(ordinary).toContain('readable');
@@ -204,7 +205,7 @@ describe('planetarium resident catalogue', () => {
     ).toContain('small');
   });
 
-  it('reveals every on-screen filtered target when the candidate set is at most 100', () => {
+  it('reveals every on-screen filtered target when the requested floor covers the pool', () => {
     const normallyCulled = target('normally-culled', 0, 35, {
       majorAxisArcminutes: 0.2,
       minorAxisArcminutes: 0.1,
@@ -215,14 +216,88 @@ describe('planetarium resident catalogue', () => {
 
     expect(
       selectPlanetariumResidentTargets(index, wideCamera, canvas, {
-        densityCandidateCount: 101,
+        minimumTargetCount: 0,
       }).map((item) => item.target.id),
     ).not.toContain(normallyCulled.target.id);
     expect(
       selectPlanetariumResidentTargets(index, wideCamera, canvas, {
-        densityCandidateCount: 100,
+        minimumTargetCount: 100,
       }).map((item) => item.target.id),
     ).toContain(normallyCulled.target.id);
+  });
+
+  it('backfills the default deterministic floor when normal wide-zoom rules admit fewer targets', () => {
+    const candidates = Array.from({ length: 120 }, (_, index) =>
+      target(`NGC${(index + 1).toString().padStart(4, '0')}`, 0, 35, {
+        majorAxisArcminutes: 0.2,
+        minorAxisArcminutes: 0.1,
+        prominenceTier: 4,
+      }),
+    );
+
+    const residents = selectPlanetariumResidentTargets(
+      buildPlanetariumCatalogueIndex(candidates),
+      camera(0, 235),
+      canvas,
+      { densityCandidateCount: candidates.length },
+    );
+
+    expect(residents).toHaveLength(100);
+  });
+
+  it('uses the requested floor and catalogue number as the final deterministic tie-breaker', () => {
+    const candidates = [
+      target('NGC10', 0, 35, {
+        majorAxisArcminutes: 0.2,
+        minorAxisArcminutes: 0.1,
+        prominenceTier: 4,
+      }),
+      target('NGC2', 0, 35, {
+        majorAxisArcminutes: 0.2,
+        minorAxisArcminutes: 0.1,
+        prominenceTier: 4,
+      }),
+    ];
+
+    const residents = selectPlanetariumResidentTargets(
+      buildPlanetariumCatalogueIndex(candidates),
+      camera(0, 235),
+      canvas,
+      { densityCandidateCount: candidates.length, minimumTargetCount: 1 },
+    );
+
+    expect(residents.map(({ target: item }) => item.id)).toEqual(['NGC2']);
+  });
+
+  it('keeps deterministic floor membership unchanged after a camera pan', () => {
+    const candidates = Array.from({ length: 20 }, (_, index) =>
+      target(`NGC${(index + 1).toString().padStart(4, '0')}`, index / 20, 35, {
+        majorAxisArcminutes: 0.2,
+        minorAxisArcminutes: 0.1,
+        prominenceTier: 4,
+      }),
+    );
+    const index = buildPlanetariumCatalogueIndex(candidates);
+    const options = {
+      densityCandidateCount: candidates.length,
+      minimumTargetCount: 10,
+    };
+
+    const beforePan = selectPlanetariumResidentTargets(
+      index,
+      camera(0, 235),
+      canvas,
+      options,
+    ).map(({ target: item }) => item.id);
+    const afterPan = selectPlanetariumResidentTargets(
+      index,
+      camera(2, 235),
+      canvas,
+      options,
+    ).map(({ target: item }) => item.id);
+
+    expect(beforePan).toHaveLength(10);
+    expect(afterPan).toEqual(beforePan);
   });
 
   it('keeps marker membership separate from settled label collision layout', () => {

@@ -110,6 +110,7 @@ const commonProps = {
   fieldOfViewRotationDegrees: 0,
   focusRequest: null,
   maskOverlay: null,
+  minimumTargetCount: 100,
   onInspectTrajectoryMarker: jest.fn(),
   onSelectTarget: jest.fn(),
   panoramaOverlay: null,

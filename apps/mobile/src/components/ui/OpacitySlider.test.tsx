@@ -1,4 +1,5 @@
 import { act, fireEvent, render } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 
 import { OpacitySlider } from './OpacitySlider';
 
@@ -84,5 +85,17 @@ describe('OpacitySlider', () => {
     );
     expect(onChange).toHaveBeenNthCalledWith(1, 60);
     expect(onChange).toHaveBeenNthCalledWith(2, 50);
+  });
+
+  it('centres its thumb vertically on the track', async () => {
+    const screen = await render(
+      <OpacitySlider label="Mask opacity" onChange={jest.fn()} value={60} />,
+    );
+    const style = StyleSheet.flatten(
+      screen.getByTestId('opacity-slider-thumb').props.style,
+    );
+
+    expect(style.top).toBe('50%');
+    expect(style.transform).toEqual([{ translateY: -9 }]);
   });
 });

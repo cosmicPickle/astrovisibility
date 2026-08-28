@@ -89,7 +89,10 @@ export function BrushSizeControl({
       >
         <View style={styles.track}>
           <View style={[styles.fill, { width: `${percent}%` }]} />
-          <View style={[styles.thumb, { left: `${percent}%` }]} />
+          <View
+            style={[styles.thumb, { left: `${percent}%` }]}
+            testID="brush-size-slider-thumb"
+          />
         </View>
       </View>
     </View>
@@ -111,8 +114,9 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     height: 18,
     marginLeft: -9,
-    marginTop: -11,
     position: 'absolute',
+    top: '50%',
+    transform: [{ translateY: -9 }],
     width: 18,
   },
   touchTrack: {

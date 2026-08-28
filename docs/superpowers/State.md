@@ -14,13 +14,14 @@
 - Checklist:
   - [x] Inspect the existing density, optics, and slider paths.
   - [x] Write the focused implementation specification.
-  - [ ] Add and confirm failing density, optics-refresh, slider-release, and
+  - [x] Add and confirm failing density, optics-refresh, slider-release, and
         geometry tests.
-  - [ ] Implement deterministic density selection and View Options control.
-  - [ ] Correct shared slider geometry.
+  - [x] Implement deterministic density selection and View Options control.
+  - [x] Correct shared slider geometry.
   - [ ] Run quality gates and Android visual QA.
   - [ ] Build and stage the release APK.
   - [ ] Record verification, clear this state, commit, and push `main`.
-- Current step: add failing regressions before production changes.
+- Current step: run complete quality gates, Android visual QA, and the release
+  build.
 - Blockers/open questions: none. The human selected a dynamic 10–200 setting
   defaulting to 100 and release-only updates.

@@ -1,4 +1,5 @@
 import { act, fireEvent, render } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 
 import { AngleSlider } from './AngleSlider';
 
@@ -50,5 +51,17 @@ describe('AngleSlider', () => {
       now: 175,
       text: '175 degrees',
     });
+  });
+
+  it('centres its thumb vertically on the track', async () => {
+    const screen = await render(
+      <AngleSlider label="Orientation" onChange={jest.fn()} value={90} />,
+    );
+    const style = StyleSheet.flatten(
+      screen.getByTestId('angle-slider-thumb').props.style,
+    );
+
+    expect(style.top).toBe('50%');
+    expect(style.transform).toEqual([{ translateY: -9 }]);
   });
 });

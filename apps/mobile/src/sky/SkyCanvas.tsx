@@ -16,6 +16,7 @@ import { colors } from '../theme/tokens';
 import {
   buildPlanetariumCatalogueIndex,
   layoutPlanetariumTargetLabels,
+  selectDeterministicAtlasFloorTargetIds,
   selectPlanetariumResidentTargets,
   shouldRefreshPlanetariumResidentCatalogue,
   type HorizontalCatalogueTarget,
@@ -61,6 +62,7 @@ export interface SkyCanvasProps {
     opacityPercent: number;
     visible: boolean;
   } | null;
+  minimumTargetCount: number;
 }
 
 export const SkyCanvas = ({
@@ -78,6 +80,7 @@ export const SkyCanvas = ({
   trajectory,
   panoramaOverlay,
   maskOverlay,
+  minimumTargetCount,
 }: SkyCanvasProps) => {
   const [canvas, setCanvas] = useState({ widthPixels: 1, heightPixels: 1 });
   const [initialCameraState] = useState<PlanetariumCamera>(() =>
@@ -90,18 +93,34 @@ export const SkyCanvas = ({
     () => buildPlanetariumCatalogueIndex(targets),
     [targets],
   );
+  const floorTargetIds = useMemo(
+    () =>
+      selectDeterministicAtlasFloorTargetIds(
+        catalogueIndex,
+        canvas,
+        minimumTargetCount,
+      ),
+    [canvas, catalogueIndex, minimumTargetCount],
+  );
   const residentTargets = useMemo(
     () =>
       selectPlanetariumResidentTargets(
         catalogueIndex,
         residentCameraState,
         canvas,
-        { densityCandidateCount, selectedTargetId },
+        {
+          densityCandidateCount,
+          floorTargetIds,
+          minimumTargetCount,
+          selectedTargetId,
+        },
       ),
     [
       canvas,
       catalogueIndex,
       densityCandidateCount,
+      floorTargetIds,
+      minimumTargetCount,
       residentCameraState,
       selectedTargetId,
     ],

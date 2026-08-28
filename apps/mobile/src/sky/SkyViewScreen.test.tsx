@@ -125,18 +125,17 @@ const renderWithSafeArea = (element: ReactElement) =>
     </SafeAreaProvider>,
   );
 
-const renderer = ({
-  fieldOfViewRotationDegrees,
-  onSelectTarget,
-  targets,
-}: SkyRendererProps) => (
+const renderer = (props: SkyRendererProps) => (
   <View accessibilityLabel="Test sky renderer">
-    <Text testID="field-of-view-orientation">{fieldOfViewRotationDegrees}</Text>
-    {targets.map((item) => (
+    <Text testID="field-of-view-orientation">
+      {props.fieldOfViewRotationDegrees}
+    </Text>
+    <Text testID="minimum-target-count">{props.minimumTargetCount}</Text>
+    {props.targets.map((item) => (
       <Pressable
         accessibilityRole="button"
         key={item.target.id}
-        onPress={() => onSelectTarget(item)}
+        onPress={() => props.onSelectTarget(item)}
       >
         <Text>{item.target.preferredName}</Text>
       </Pressable>
@@ -473,8 +472,20 @@ describe('SkyViewScreen', () => {
       ...equipment,
       id: 'equipment-2',
       name: 'Long-focus reflector',
+      focalLengthMillimeters: 800,
+    };
+    const compactGalaxy: CatalogueTarget = {
+      ...catalogueTarget,
+      aliases: ['NGC 9999'],
+      id: 'NGC9999',
+      majorAxisArcminutes: 1,
+      minorAxisArcminutes: 1,
+      memberships: { messier: [], ngc: ['NGC 9999'], ic: [] },
+      objectType: 'G',
+      preferredName: 'Compact Galaxy',
     };
     const skyController = controller({
+      catalogueTargets: [catalogueTarget, compactGalaxy],
       equipment: [equipment, secondEquipment],
       selectedEquipmentId: equipment.id,
     });
@@ -487,6 +498,7 @@ describe('SkyViewScreen', () => {
       />,
     );
     await waitFor(() => screen.getByText(profile.name));
+    expect(screen.queryByText(compactGalaxy.preferredName)).toBeNull();
     await fireEvent.press(screen.getByLabelText('Optics'));
     expect(screen.getByText('Current optics profile')).toBeTruthy();
     await fireEvent.press(
@@ -502,6 +514,7 @@ describe('SkyViewScreen', () => {
       ),
     );
     expect(screen.getByText(secondEquipment.name)).toBeTruthy();
+    expect(screen.getByText(compactGalaxy.preferredName)).toBeTruthy();
     await fireEvent.press(screen.getByText('Orientation · 0°'));
     await fireEvent(
       screen.getByLabelText('Field of view orientation'),
@@ -511,6 +524,35 @@ describe('SkyViewScreen', () => {
     expect(screen.getByTestId('field-of-view-orientation').props.children).toBe(
       5,
     );
+  });
+
+  it('commits the View Options target floor only when the slider is released', async () => {
+    const screen = await renderWithSafeArea(
+      <SkyViewScreen
+        controller={controller()}
+        navigation={navigation()}
+        profileId={profile.id}
+        renderSky={renderer}
+      />,
+    );
+    await waitFor(() => screen.getByText(profile.name));
+    expect(screen.getByTestId('minimum-target-count').props.children).toBe(100);
+
+    await fireEvent.press(screen.getByLabelText('View options'));
+    const slider = screen.getByLabelText('Minimum atlas targets');
+    await fireEvent(slider, 'layout', {
+      nativeEvent: { layout: { height: 44, width: 190, x: 0, y: 0 } },
+    });
+    await fireEvent(slider, 'responderMove', {
+      nativeEvent: { locationX: 190 },
+    });
+    expect(screen.getByText('200')).toBeTruthy();
+    expect(screen.getByTestId('minimum-target-count').props.children).toBe(100);
+
+    await fireEvent(slider, 'responderRelease', {
+      nativeEvent: { locationX: 190 },
+    });
+    expect(screen.getByTestId('minimum-target-count').props.children).toBe(200);
   });
 
   it('wires the compact time, profile menu, and target-list affordances', async () => {

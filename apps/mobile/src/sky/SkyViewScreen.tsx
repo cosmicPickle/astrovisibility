@@ -55,6 +55,7 @@ import { AppIcon } from '../components/ui/AppIcon';
 import { AppText } from '../components/ui/AppText';
 import { ModalSheet } from '../components/ui/ModalSheet';
 import { OpacitySlider } from '../components/ui/OpacitySlider';
+import { TargetDensitySlider } from '../components/ui/TargetDensitySlider';
 import { calculateAngularFieldOfView } from '../equipment/fieldOfView';
 import { createVisibilityMaskEvaluator } from '../mask/visibilityMask';
 import { observerForProfile } from '../profiles/profileObserver';
@@ -69,6 +70,7 @@ import { evaluateEquipmentSuitability } from '../targets/equipmentSuitability';
 import { filterCatalogueForDiscovery } from '../targets/targetDiscoveryFilter';
 import { TargetDiscoveryControls } from '../targets/TargetDiscoveryControls';
 import { useTargetDiscoveryState } from '../targets/targetDiscoveryState';
+import { DEFAULT_MINIMUM_ATLAS_TARGET_COUNT } from '../targets/atlasDensity';
 import { useDebouncedValue } from '../targets/useDebouncedValue';
 import { projectCatalogueAtInstant } from './catalogueProjection';
 import type { HorizontalCatalogueTarget } from './planetariumCatalogue';
@@ -136,6 +138,7 @@ export interface SkyRendererProps {
     opacityPercent: number;
     visible: boolean;
   } | null;
+  minimumTargetCount: number;
 }
 
 export const skyViewController: SkyViewController = {
@@ -256,6 +259,9 @@ export const SkyViewScreen = ({
   const [mutationError, setMutationError] = useState<string | null>(null);
   const [panoramaOpacityPercent, setPanoramaOpacityPercent] = useState(55);
   const [maskOpacityPercent, setMaskOpacityPercent] = useState(60);
+  const [minimumTargetCount, setMinimumTargetCount] = useState(
+    DEFAULT_MINIMUM_ATLAS_TARGET_COUNT,
+  );
   const [trajectory, setTrajectory] = useState<SelectedTargetTrajectory | null>(
     null,
   );
@@ -772,6 +778,7 @@ export const SkyViewScreen = ({
                 }
               : null
           }
+          minimumTargetCount={minimumTargetCount}
         />
         {!data.hasMask ? (
           <View style={styles.noMaskCallout}>
@@ -942,6 +949,10 @@ export const SkyViewScreen = ({
         title="View options"
         visible={openSheet === 'viewOptions'}
       >
+        <TargetDensitySlider
+          onChange={setMinimumTargetCount}
+          value={minimumTargetCount}
+        />
         <TargetDiscoveryControls
           onSearchTextChange={setTargetSearchText}
           onToggleCategory={toggleTargetCategory}

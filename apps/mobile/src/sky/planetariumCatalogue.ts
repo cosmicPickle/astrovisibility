@@ -4,6 +4,7 @@ import {
   angularSeparationDegrees,
   angularSizeDegreesToPixelsAtDirection,
   getPlanetariumCameraCenter,
+  MAXIMUM_PLANETARIUM_FIELD_OF_VIEW_DEGREES,
   projectHorizontalDirection,
   unprojectCanvasPoint,
   type PlanetariumCamera,
@@ -38,6 +39,7 @@ interface PlanetariumCatalogueBin {
 }
 
 export interface PlanetariumCatalogueIndex {
+  aboveHorizonTargets: readonly HorizontalCatalogueTarget[];
   bins: readonly PlanetariumCatalogueBin[];
   targetById: ReadonlyMap<string, HorizontalCatalogueTarget>;
   targetCount: number;
@@ -126,6 +128,7 @@ export const getSecondaryCatalogueLabel = (target: CatalogueTarget) => {
 export function buildPlanetariumCatalogueIndex(
   targets: readonly HorizontalCatalogueTarget[],
 ): PlanetariumCatalogueIndex {
+  const aboveHorizonTargets: HorizontalCatalogueTarget[] = [];
   const mutableBins = new Map<string, HorizontalCatalogueTarget[]>();
   const targetById = new Map<string, HorizontalCatalogueTarget>();
 
@@ -140,6 +143,7 @@ export function buildPlanetariumCatalogueIndex(
     }
     targetById.set(target.target.id, target);
     if (target.altitudeDegrees < 0) continue;
+    aboveHorizonTargets.push(target);
 
     const azimuthIndex = getAzimuthBin(target.azimuthDegrees);
     const altitudeIndex = getAltitudeBin(target.altitudeDegrees);
@@ -165,7 +169,12 @@ export function buildPlanetariumCatalogueIndex(
     })
     .sort((left, right) => left.key.localeCompare(right.key, 'en'));
 
-  return { bins, targetById, targetCount: targetById.size };
+  return {
+    aboveHorizonTargets,
+    bins,
+    targetById,
+    targetCount: targetById.size,
+  };
 }
 
 export function shouldRefreshPlanetariumResidentCatalogue(
@@ -244,6 +253,89 @@ const isKnownTargetReadableAtZoom = (
   return projectedMinorAxisPixels >= MINIMUM_ATLAS_MINOR_AXIS_PIXELS;
 };
 
+const maximumProminenceFieldOfViewDegrees = (
+  prominenceTier: CatalogueTarget['prominenceTier'],
+) => {
+  if (prominenceTier === 1) return MAXIMUM_PLANETARIUM_FIELD_OF_VIEW_DEGREES;
+  if (prominenceTier === 2) return 220;
+  if (prominenceTier === 3) return 100;
+  return 45;
+};
+
+const maximumReadableFieldOfViewDegrees = (
+  target: HorizontalCatalogueTarget,
+  canvas: CanvasSizePixels,
+) => {
+  const minorAxisArcminutes =
+    target.target.minorAxisArcminutes ?? target.target.majorAxisArcminutes;
+  if (minorAxisArcminutes === undefined || minorAxisArcminutes <= 0) {
+    return Number.NEGATIVE_INFINITY;
+  }
+  const diameterPixels = Math.min(canvas.widthPixels, canvas.heightPixels);
+  const angularSizeRadians = (minorAxisArcminutes / 60) * (Math.PI / 180);
+  const maximumFieldOfViewRadians =
+    4 *
+    Math.atan(
+      (angularSizeRadians * diameterPixels) /
+        (4 * MINIMUM_ATLAS_MINOR_AXIS_PIXELS),
+    );
+  return Math.min(
+    MAXIMUM_PLANETARIUM_FIELD_OF_VIEW_DEGREES,
+    maximumFieldOfViewRadians * (180 / Math.PI),
+  );
+};
+
+const revealFieldOfViewDegrees = (
+  target: HorizontalCatalogueTarget,
+  canvas: CanvasSizePixels,
+) =>
+  Math.min(
+    maximumProminenceFieldOfViewDegrees(target.target.prominenceTier),
+    maximumReadableFieldOfViewDegrees(target, canvas),
+  );
+
+const compareCanonicalCatalogueIds = (
+  left: CatalogueTarget,
+  right: CatalogueTarget,
+) => {
+  const leftMatch = left.id.match(/^([^0-9]*)([0-9]+)(.*)$/);
+  const rightMatch = right.id.match(/^([^0-9]*)([0-9]+)(.*)$/);
+  if (leftMatch && rightMatch && leftMatch[1] === rightMatch[1]) {
+    const numberDifference = Number(leftMatch[2]) - Number(rightMatch[2]);
+    if (numberDifference !== 0) return numberDifference;
+    const suffixDifference = leftMatch[3].localeCompare(rightMatch[3], 'en');
+    if (suffixDifference !== 0) return suffixDifference;
+  }
+  return left.id.localeCompare(right.id, 'en');
+};
+
+export const selectDeterministicAtlasFloorTargetIds = (
+  index: PlanetariumCatalogueIndex,
+  canvas: CanvasSizePixels,
+  minimumTargetCount: number,
+): ReadonlySet<string> => {
+  const boundedMinimum = Math.max(
+    0,
+    Math.min(MAXIMUM_VISIBLE_TARGETS, Math.round(minimumTargetCount)),
+  );
+  return new Set(
+    [...index.aboveHorizonTargets]
+      .filter(
+        (target) =>
+          target.target.majorAxisArcminutes !== undefined &&
+          target.target.majorAxisArcminutes > 0,
+      )
+      .sort(
+        (left, right) =>
+          revealFieldOfViewDegrees(right, canvas) -
+            revealFieldOfViewDegrees(left, canvas) ||
+          compareCanonicalCatalogueIds(left.target, right.target),
+      )
+      .slice(0, boundedMinimum)
+      .map(({ target }) => target.id),
+  );
+};
+
 const takeSpatiallyFair = (
   groups: readonly (readonly HorizontalCatalogueTarget[])[],
   limit: number,
@@ -269,6 +361,8 @@ export function selectPlanetariumResidentTargets(
   canvas: CanvasSizePixels,
   options: {
     densityCandidateCount?: number;
+    floorTargetIds?: ReadonlySet<string>;
+    minimumTargetCount?: number;
     selectedTargetId?: string | null;
   } = {},
 ): HorizontalCatalogueTarget[] {
@@ -278,8 +372,13 @@ export function selectPlanetariumResidentTargets(
     camera.fieldOfViewDegrees,
   );
   const selectedTargetId = options.selectedTargetId ?? null;
-  const relaxDensityFiltering =
-    (options.densityCandidateCount ?? Number.POSITIVE_INFINITY) <= 100;
+  const floorTargetIds =
+    options.floorTargetIds ??
+    selectDeterministicAtlasFloorTargetIds(
+      index,
+      canvas,
+      options.minimumTargetCount ?? 100,
+    );
   const visibleGroups: HorizontalCatalogueTarget[][] = [];
   const guardGroups: HorizontalCatalogueTarget[][] = [];
 
@@ -299,7 +398,7 @@ export function selectPlanetariumResidentTargets(
       const selected = item.target.id === selectedTargetId;
       if (
         !selected &&
-        !relaxDensityFiltering &&
+        !floorTargetIds.has(item.target.id) &&
         (item.target.prominenceTier > prominenceTierLimit ||
           !isKnownTargetReadableAtZoom(item, camera, canvas))
       ) {

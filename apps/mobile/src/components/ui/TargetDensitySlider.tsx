@@ -1,80 +1,87 @@
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 
+import {
+  ATLAS_TARGET_COUNT_STEP,
+  clampAtlasTargetCount,
+  MAXIMUM_ATLAS_TARGET_COUNT,
+  MINIMUM_ATLAS_TARGET_COUNT,
+} from '../../targets/atlasDensity';
 import { colors, layout } from '../../theme/tokens';
 import { AppText } from './AppText';
 
-const MINIMUM_ANGLE_DEGREES = 0;
-const MAXIMUM_ANGLE_DEGREES = 180;
-const clampAngle = (value: number) =>
-  Math.max(MINIMUM_ANGLE_DEGREES, Math.min(MAXIMUM_ANGLE_DEGREES, value));
-
-export const AngleSlider = ({
-  label,
+export const TargetDensitySlider = ({
   onChange,
   value,
 }: {
-  label: string;
   onChange(value: number): void;
   value: number;
 }) => {
   const [widthPixels, setWidthPixels] = useState(1);
-  const [previewDegrees, setPreviewDegrees] = useState(value);
-  const previewDegreesRef = useRef(value);
+  const [previewTargetCount, setPreviewTargetCount] = useState(value);
+  const previewTargetCountRef = useRef(value);
   const draggingRef = useRef(false);
+
   useEffect(() => {
     if (draggingRef.current) return;
-    const nextValue = clampAngle(value);
-    previewDegreesRef.current = nextValue;
-    setPreviewDegrees(nextValue);
+    const nextValue = clampAtlasTargetCount(value);
+    previewTargetCountRef.current = nextValue;
+    setPreviewTargetCount(nextValue);
   }, [value]);
+
   const previewFromLocation = (locationXPixels: number) => {
     draggingRef.current = true;
-    const nextValue = clampAngle(
-      Math.round((locationXPixels / widthPixels) * MAXIMUM_ANGLE_DEGREES),
+    const ratio = Math.max(0, Math.min(1, locationXPixels / widthPixels));
+    const nextValue = clampAtlasTargetCount(
+      MINIMUM_ATLAS_TARGET_COUNT +
+        ratio * (MAXIMUM_ATLAS_TARGET_COUNT - MINIMUM_ATLAS_TARGET_COUNT),
     );
-    previewDegreesRef.current = nextValue;
-    setPreviewDegrees(nextValue);
+    previewTargetCountRef.current = nextValue;
+    setPreviewTargetCount(nextValue);
   };
   const commitPreview = (locationXPixels?: number) => {
     if (locationXPixels !== undefined) previewFromLocation(locationXPixels);
     draggingRef.current = false;
-    const nextValue = previewDegreesRef.current;
-    if (nextValue !== clampAngle(value)) onChange(nextValue);
+    const nextValue = previewTargetCountRef.current;
+    if (nextValue !== clampAtlasTargetCount(value)) onChange(nextValue);
   };
-  const boundedValue = clampAngle(previewDegrees);
-  const percent = (boundedValue / MAXIMUM_ANGLE_DEGREES) * 100;
-  const handleLayout = (event: LayoutChangeEvent) =>
-    setWidthPixels(Math.max(1, event.nativeEvent.layout.width));
+  const boundedValue = clampAtlasTargetCount(previewTargetCount);
+  const percent =
+    ((boundedValue - MINIMUM_ATLAS_TARGET_COUNT) /
+      (MAXIMUM_ATLAS_TARGET_COUNT - MINIMUM_ATLAS_TARGET_COUNT)) *
+    100;
+
   return (
     <View style={styles.field}>
       <View style={styles.labelRow}>
-        <AppText tone="label">{label}</AppText>
-        <AppText tone="muted">{boundedValue}°</AppText>
+        <AppText tone="label">Minimum atlas targets</AppText>
+        <AppText tone="muted">{boundedValue}</AppText>
       </View>
       <View
         accessibilityActions={[
-          { name: 'decrement', label: 'Rotate counter-clockwise' },
-          { name: 'increment', label: 'Rotate clockwise' },
+          { name: 'decrement', label: 'Show fewer atlas targets' },
+          { name: 'increment', label: 'Show more atlas targets' },
         ]}
-        accessibilityLabel={label}
+        accessibilityLabel="Minimum atlas targets"
         accessibilityRole="adjustable"
         accessibilityValue={{
-          min: MINIMUM_ANGLE_DEGREES,
-          max: MAXIMUM_ANGLE_DEGREES,
+          min: MINIMUM_ATLAS_TARGET_COUNT,
+          max: MAXIMUM_ATLAS_TARGET_COUNT,
           now: boundedValue,
-          text: `${boundedValue} degrees`,
+          text: `${boundedValue} targets`,
         }}
         onAccessibilityAction={(event) => {
           const delta =
             event.nativeEvent.actionName === 'increment'
-              ? 5
+              ? ATLAS_TARGET_COUNT_STEP
               : event.nativeEvent.actionName === 'decrement'
-                ? -5
+                ? -ATLAS_TARGET_COUNT_STEP
                 : 0;
-          onChange(clampAngle(boundedValue + delta));
+          onChange(clampAtlasTargetCount(boundedValue + delta));
         }}
-        onLayout={handleLayout}
+        onLayout={(event: LayoutChangeEvent) =>
+          setWidthPixels(Math.max(1, event.nativeEvent.layout.width))
+        }
         onMoveShouldSetResponder={() => true}
         onResponderGrant={(event) =>
           previewFromLocation(event.nativeEvent.locationX)
@@ -93,7 +100,7 @@ export const AngleSlider = ({
           <View style={[styles.fill, { width: `${percent}%` }]} />
           <View
             style={[styles.thumb, { left: `${percent}%` }]}
-            testID="angle-slider-thumb"
+            testID="target-density-slider-thumb"
           />
         </View>
       </View>

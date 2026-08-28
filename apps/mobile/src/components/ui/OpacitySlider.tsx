@@ -90,7 +90,10 @@ export const OpacitySlider = ({
       >
         <View style={styles.track}>
           <View style={[styles.fill, { width: `${boundedValue}%` }]} />
-          <View style={[styles.thumb, { left: `${boundedValue}%` }]} />
+          <View
+            style={[styles.thumb, { left: `${boundedValue}%` }]}
+            testID="opacity-slider-thumb"
+          />
         </View>
       </View>
     </View>
@@ -117,8 +120,9 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     height: 18,
     marginLeft: -9,
-    marginTop: -11,
     position: 'absolute',
+    top: '50%',
+    transform: [{ translateY: -9 }],
     width: 18,
   },
   touchTrack: {
