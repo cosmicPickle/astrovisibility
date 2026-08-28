@@ -148,6 +148,14 @@ already approved camera/location capture flow; its native maintenance boundary
 is specified in
 `docs/superpowers/specs/mobile/2026-08-20-2256-pose-driven-planetarium-capture.md`.
 
+Astrovisibility adopts `@vvo/tzdb` 6.198.0 for its offline observing-profile
+timezone selector. The zero-runtime-dependency MIT package supplies grouped IANA
+timezone identifiers and aliases for a bounded local dropdown; platform `Intl`
+remains authoritative for validation and civil-time calculations. It adds no
+service, permission, analytics, or runtime network path. The adoption and bundle
+boundary are specified in
+`docs/superpowers/specs/mobile/2026-08-28-0954-atlas-focus-profile-optics-controls.md`.
+
 ## Pre-Approved Astronomy Libraries and Data
 
 The product-owner domain approval covers additional popular, maintained
