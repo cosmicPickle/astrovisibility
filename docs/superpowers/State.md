@@ -30,10 +30,8 @@ open, free-commercial-use, established, safe, and attributed boundary.
 - [x] Integrate Gaia, stars, constellations, and selected DSO imagery into Skia
       in the approved render order.
 - [x] Extend About and licences plus the technology/data registry.
-- [ ] Run the mandatory automated quality gates in final-state order. Typecheck,
-      lint, all 353 tests, asset validation, and build pass; the repository-wide
-      format check remains blocked by 16 unrelated pre-existing files while all
-      task files pass Prettier.
+- [x] Run the mandatory automated quality gates in final-state order. Format,
+      typecheck, lint, all 353 tests, asset validation, and build pass.
 - [x] Perform representative and constrained Android visual QA.
 - [x] Build and inspect the 187,219,713-byte release APK and record emulator
       diagnostics.
@@ -51,6 +49,4 @@ zoom, selection, and overlay performance acceptance pass.
 - Physical-device performance evidence depends on a suitable connected device;
   only the headless emulator was available. Its software-rendered frame timing is
   diagnostic and does not substitute for the required physical-device result.
-- `pnpm format` reports 16 pre-existing unrelated files. Every file changed by
-  this task passes Prettier; typecheck, lint, tests, asset checks, and build pass.
 - Pan-STARRS coverage gaps intentionally fall back to existing vector targets.
