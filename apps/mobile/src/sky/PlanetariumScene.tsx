@@ -41,6 +41,7 @@ import {
 import {
   createPlanetariumPanoramaMesh,
   projectPlanetariumPanoramaMesh,
+  type PlanetariumPanoramaMesh,
 } from './planetariumPanoramaGeometry';
 import { createScreenCenteredFieldOfViewFrame } from './fieldOfViewGeometry';
 import {
@@ -57,6 +58,13 @@ import type {
 import { createProjectedTrajectoryGroups } from './planetariumTrajectory';
 import { isTimestampInIntervals } from '../astronomy/astronomicalDarkness';
 import type { VisibilityInterval } from '../astronomy/trajectory';
+import { gaiaAtlasImage } from './registeredSkyAssets';
+import {
+  getSelectedDsoImageOpacity,
+  type HorizontalRegisteredConstellation,
+  type RegisteredSkyProjection,
+  type RegisteredStarBatch,
+} from './registeredSkyProjection';
 
 const targetFont = matchFont({
   fontFamily: 'sans-serif',
@@ -464,15 +472,22 @@ function PlanetariumTarget({
       height,
     };
   });
-  const labelWidthPixels = Math.max(
-    targetFont.measureText(item.label).width,
-    item.secondaryLabel
-      ? secondaryFont.measureText(item.secondaryLabel).width
-      : 0,
-  );
+  const labelWidthPixels =
+    Math.max(
+      targetFont.measureText(item.label).width,
+      item.secondaryLabel
+        ? secondaryFont.measureText(item.secondaryLabel).width
+        : 0,
+    ) *
+      1.25 +
+    8;
   const labelOpacity = useDerivedValue(() =>
     item.labelVisible &&
-    isPlanetariumLabelFullyInsideCanvas(point.value, labelWidthPixels, canvas)
+    isPlanetariumLabelFullyInsideCanvas(
+      point.value,
+      Math.max(labelWidthPixels, 96),
+      canvas,
+    )
       ? 1
       : 0,
   );
@@ -771,6 +786,179 @@ function DirectionalAtlasLayer({
   );
 }
 
+function ProjectedImageMesh({
+  camera,
+  canvas,
+  mesh,
+}: {
+  camera: SharedValue<PlanetariumCamera>;
+  canvas: CanvasSizePixels;
+  mesh: PlanetariumPanoramaMesh;
+}) {
+  const textures = useMemo(
+    () => mesh.texturePointsPixels.map((point) => vec(point.x, point.y)),
+    [mesh.texturePointsPixels],
+  );
+  const projectedMesh = useDerivedValue(() => {
+    const projection = projectPlanetariumPanoramaMesh(
+      mesh,
+      camera.value,
+      canvas,
+    );
+    return {
+      indices: projection.indices,
+      vertices: projection.vertices.map((point) =>
+        vec(point.xPixels, point.yPixels),
+      ),
+    };
+  });
+  const indices = useDerivedValue(() => projectedMesh.value.indices);
+  const vertices = useDerivedValue(() => projectedMesh.value.vertices);
+  return (
+    <Vertices
+      indices={indices}
+      mode="triangles"
+      textures={textures}
+      vertices={vertices}
+    />
+  );
+}
+
+function GaiaAtlasLayer({
+  camera,
+  canvas,
+  meshes,
+}: {
+  camera: SharedValue<PlanetariumCamera>;
+  canvas: CanvasSizePixels;
+  meshes: readonly PlanetariumPanoramaMesh[];
+}) {
+  const image = useImage(gaiaAtlasImage);
+  const opacity = useDerivedValue(() =>
+    Math.max(
+      0,
+      Math.min(0.28, ((camera.value.fieldOfViewDegrees - 5) / 25) * 0.28),
+    ),
+  );
+  if (!image) return null;
+  return (
+    <Group opacity={opacity}>
+      <ImageShader image={image} tx="decal" ty="decal" />
+      {meshes.map((mesh, index) => (
+        <ProjectedImageMesh
+          camera={camera}
+          canvas={canvas}
+          key={index}
+          mesh={mesh}
+        />
+      ))}
+    </Group>
+  );
+}
+
+function RegisteredStarLayer({
+  batches,
+  camera,
+  canvas,
+}: {
+  batches: readonly RegisteredStarBatch[];
+  camera: SharedValue<PlanetariumCamera>;
+  canvas: CanvasSizePixels;
+}) {
+  return batches.map((batch) => (
+    <RegisteredStarBatchLayer
+      batch={batch}
+      camera={camera}
+      canvas={canvas}
+      key={batch.key}
+    />
+  ));
+}
+
+function RegisteredStarBatchLayer({
+  batch,
+  camera,
+  canvas,
+}: {
+  batch: RegisteredStarBatch;
+  camera: SharedValue<PlanetariumCamera>;
+  canvas: CanvasSizePixels;
+}) {
+  const path = useDerivedValue(() => {
+    const builder = Skia.PathBuilder.Make();
+    for (const direction of batch.directions) {
+      const point = projectHorizontalDirection(direction, camera.value, canvas);
+      if (point.visible) {
+        builder.addCircle(point.xPixels, point.yPixels, batch.radiusPixels);
+      }
+    }
+    return builder.build();
+  });
+  return <Path color={batch.color} opacity={0.9} path={path} style="fill" />;
+}
+
+function RegisteredConstellationLayer({
+  camera,
+  canvas,
+  constellations,
+  labels,
+}: {
+  camera: SharedValue<PlanetariumCamera>;
+  canvas: CanvasSizePixels;
+  constellations: readonly HorizontalRegisteredConstellation[];
+  labels: readonly HorizontalRegisteredConstellation[];
+}) {
+  return (
+    <>
+      <ProjectedMultiPath
+        camera={camera}
+        canvas={canvas}
+        color="#8093b2"
+        lines={constellations.flatMap(({ lines }) => lines)}
+        strokeOpacity={0.42}
+      />
+      {labels.map((constellation) => (
+        <ProjectedText
+          camera={camera}
+          canvas={canvas}
+          color="#9aabc4"
+          direction={constellation.label}
+          font={secondaryFont}
+          key={constellation.id}
+          text={constellation.name}
+        />
+      ))}
+    </>
+  );
+}
+
+function SelectedDsoImageLayer({
+  camera,
+  canvas,
+  mesh,
+  source,
+}: {
+  camera: SharedValue<PlanetariumCamera>;
+  canvas: CanvasSizePixels;
+  mesh: PlanetariumPanoramaMesh;
+  source: number;
+}) {
+  const image = useImage(source);
+  const opacity = useDerivedValue(() =>
+    getSelectedDsoImageOpacity(
+      mesh.angularRadiusDegrees,
+      camera.value.fieldOfViewDegrees,
+    ),
+  );
+  if (!image) return null;
+  return (
+    <Group opacity={opacity}>
+      <ImageShader image={image} tx="decal" ty="decal" />
+      <ProjectedImageMesh camera={camera} canvas={canvas} mesh={mesh} />
+    </Group>
+  );
+}
+
 function MaskLayer({
   camera,
   canvas,
@@ -923,6 +1111,10 @@ export function PlanetariumScene({
   panoramaOpacity,
   panoramaImage,
   panoramaTiles,
+  registeredSky = { atlasMeshes: [], constellations: [], stars: [] },
+  registeredStarBatches = [],
+  constellationLabels = [],
+  selectedDsoImage = null,
   selectedPanoramaTileId,
   selectedTargetId,
   targets,
@@ -940,6 +1132,13 @@ export function PlanetariumScene({
   panoramaOpacity: number;
   panoramaImage?: ActivePanorama | null;
   panoramaTiles: readonly ActivePanoramaTile[];
+  registeredSky?: RegisteredSkyProjection;
+  registeredStarBatches?: readonly RegisteredStarBatch[];
+  constellationLabels?: readonly HorizontalRegisteredConstellation[];
+  selectedDsoImage?: {
+    mesh: PlanetariumPanoramaMesh;
+    source: number;
+  } | null;
   selectedPanoramaTileId?: string | null;
   selectedTargetId: string | null;
   targets: readonly RenderedPlanetariumTarget[];
@@ -948,11 +1147,35 @@ export function PlanetariumScene({
   return (
     <Canvas style={{ flex: 1 }}>
       <Fill color={colors.backdrop} />
+      <GaiaAtlasLayer
+        camera={camera}
+        canvas={canvas}
+        meshes={registeredSky.atlasMeshes}
+      />
+      <RegisteredStarLayer
+        batches={registeredStarBatches}
+        camera={camera}
+        canvas={canvas}
+      />
+      <RegisteredConstellationLayer
+        camera={camera}
+        canvas={canvas}
+        constellations={registeredSky.constellations}
+        labels={constellationLabels}
+      />
       <PlanetariumGrid
         camera={camera}
         canvas={canvas}
         celestialEquatorDirections={celestialEquatorDirections}
       />
+      {selectedDsoImage ? (
+        <SelectedDsoImageLayer
+          camera={camera}
+          canvas={canvas}
+          mesh={selectedDsoImage.mesh}
+          source={selectedDsoImage.source}
+        />
+      ) : null}
       {panoramaImage?.uri &&
       panoramaImage.widthPixels &&
       panoramaImage.heightPixels ? (

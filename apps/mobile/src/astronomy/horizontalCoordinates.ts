@@ -127,6 +127,140 @@ export const equatorialJ2000ToHorizontal = (
   };
 };
 
+/**
+ * Reuses the date rotation and observer for a registered sky projected at one
+ * scene instant. This keeps the exact authoritative coordinate path while
+ * avoiding one precession-matrix construction per catalogue point.
+ */
+export const createInstantHorizontalVectorProjector = (input: {
+  observer: ObserverLocation;
+  timestampUtc: string;
+}): ((coordinate: {
+  j2000UnitVectorX: number;
+  j2000UnitVectorY: number;
+  j2000UnitVectorZ: number;
+}) => HorizontalCoordinates) => {
+  const date = parseUtcInstant(input.timestampUtc);
+  assertFiniteRange(
+    input.observer.latitudeDegreesNorth,
+    'latitudeDegreesNorth',
+    -90,
+    90,
+  );
+  assertFiniteRange(
+    input.observer.longitudeDegreesEast,
+    'longitudeDegreesEast',
+    -180,
+    180,
+  );
+  if (!Number.isFinite(input.observer.elevationMetersAboveMeanSeaLevel)) {
+    throw new RangeError('elevationMetersAboveMeanSeaLevel must be finite');
+  }
+  const rotation = Rotation_EQJ_EQD(date).rot;
+  const localSiderealHours =
+    SiderealTime(date) + input.observer.longitudeDegreesEast / 15;
+  const degreesToRadians = Math.PI / 180;
+  const radiansToDegrees = 180 / Math.PI;
+  const latitudeRadians =
+    input.observer.latitudeDegreesNorth * degreesToRadians;
+  const sinLatitude = Math.sin(latitudeRadians);
+  const cosLatitude = Math.cos(latitudeRadians);
+  return (coordinate) => {
+    const j2000X = coordinate.j2000UnitVectorX;
+    const j2000Y = coordinate.j2000UnitVectorY;
+    const j2000Z = coordinate.j2000UnitVectorZ;
+    if (
+      !Number.isFinite(j2000X) ||
+      !Number.isFinite(j2000Y) ||
+      !Number.isFinite(j2000Z) ||
+      Math.hypot(j2000X, j2000Y, j2000Z) < 0.5
+    ) {
+      throw new RangeError('J2000 unit vector must be finite and non-zero');
+    }
+    const equatorialOfDateX =
+      rotation[0]![0]! * j2000X +
+      rotation[1]![0]! * j2000Y +
+      rotation[2]![0]! * j2000Z;
+    const equatorialOfDateY =
+      rotation[0]![1]! * j2000X +
+      rotation[1]![1]! * j2000Y +
+      rotation[2]![1]! * j2000Z;
+    const equatorialOfDateZ =
+      rotation[0]![2]! * j2000X +
+      rotation[1]![2]! * j2000Y +
+      rotation[2]![2]! * j2000Z;
+    const equatorialRadius = Math.hypot(equatorialOfDateX, equatorialOfDateY);
+    const equatorialOfDateRightAscensionHours =
+      Math.atan2(equatorialOfDateY, equatorialOfDateX) / degreesToRadians / 15;
+    const equatorialOfDateDeclinationRadians = Math.atan2(
+      equatorialOfDateZ,
+      equatorialRadius,
+    );
+    const hourAngleRadians =
+      (localSiderealHours - equatorialOfDateRightAscensionHours) *
+      15 *
+      degreesToRadians;
+    const sinDeclination = Math.sin(equatorialOfDateDeclinationRadians);
+    const cosDeclination = Math.cos(equatorialOfDateDeclinationRadians);
+    const sinAltitude =
+      sinLatitude * sinDeclination +
+      cosLatitude * cosDeclination * Math.cos(hourAngleRadians);
+    const geometricAltitudeDegrees =
+      Math.asin(Math.max(-1, Math.min(1, sinAltitude))) * radiansToDegrees;
+    const azimuthDegrees =
+      Math.atan2(
+        Math.sin(hourAngleRadians),
+        Math.cos(hourAngleRadians) * sinLatitude -
+          Math.tan(equatorialOfDateDeclinationRadians) * cosLatitude,
+      ) *
+        radiansToDegrees +
+      180;
+    return {
+      azimuthDegreesClockwiseFromNorth: ((azimuthDegrees % 360) + 360) % 360,
+      refractedAltitudeDegrees:
+        geometricAltitudeDegrees +
+        Refraction('normal', geometricAltitudeDegrees),
+    };
+  };
+};
+
+export const createInstantHorizontalProjector = (input: {
+  observer: ObserverLocation;
+  timestampUtc: string;
+}): ((
+  coordinate: Pick<
+    EquatorialJ2000Input,
+    'rightAscensionJ2000Hours' | 'declinationJ2000Degrees'
+  >,
+) => HorizontalCoordinates) => {
+  const projectVector = createInstantHorizontalVectorProjector(input);
+  return (coordinate) => {
+    assertFiniteRange(
+      coordinate.rightAscensionJ2000Hours,
+      'rightAscensionJ2000Hours',
+      0,
+      24,
+      false,
+    );
+    assertFiniteRange(
+      coordinate.declinationJ2000Degrees,
+      'declinationJ2000Degrees',
+      -90,
+      90,
+    );
+    const rightAscensionRadians =
+      coordinate.rightAscensionJ2000Hours * 15 * (Math.PI / 180);
+    const declinationRadians =
+      coordinate.declinationJ2000Degrees * (Math.PI / 180);
+    const cosDeclination = Math.cos(declinationRadians);
+    return projectVector({
+      j2000UnitVectorX: cosDeclination * Math.cos(rightAscensionRadians),
+      j2000UnitVectorY: cosDeclination * Math.sin(rightAscensionRadians),
+      j2000UnitVectorZ: Math.sin(declinationRadians),
+    });
+  };
+};
+
 const SIDEREAL_HOURS_PER_UTC_DAY = 24.06570982441908;
 
 /**

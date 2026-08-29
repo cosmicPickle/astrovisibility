@@ -10,12 +10,15 @@
     "android:prebuild": "expo prebuild --platform android --no-install && node scripts/applyAndroidBuildFix.ts",
     "catalogue:check": "node scripts/catalogue/checkCatalogue.ts",
     "catalogue:generate": "node scripts/catalogue/generateCatalogue.ts",
+    "sky-assets:check": "node scripts/sky-assets/checkSkyAssets.ts",
+    "sky-assets:download": "node scripts/sky-assets/downloadSkyImagery.ts",
+    "sky-assets:generate": "node scripts/sky-assets/generateSkyAssets.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
     "test": "jest --runInBand",
     "test:watch": "jest --watch",
     "test:e2e:android": "maestro test e2e/maestro",
-    "build": "node scripts/catalogue/checkCatalogue.ts && expo export --platform android --output-dir dist"
+    "build": "node scripts/catalogue/checkCatalogue.ts && node scripts/sky-assets/checkSkyAssets.ts && expo export --platform android --output-dir dist"
   },
   "dependencies": {
     "@gluestack-ui/core": "5.0.15",

@@ -114,6 +114,8 @@ const commonProps = {
   onInspectTrajectoryMarker: jest.fn(),
   onSelectTarget: jest.fn(),
   panoramaOverlay: null,
+  registeredSky: { atlasMeshes: [], constellations: [], stars: [] },
+  selectedDsoImage: null,
   targets: [],
 };
 

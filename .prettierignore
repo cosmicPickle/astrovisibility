@@ -10,6 +10,8 @@ tmp/**
 .expo/
 **/.cxx/
 apps/mobile/src/catalogue/generated/
+apps/mobile/src/sky/generated/
+apps/mobile/scripts/sky-assets/source/
 apps/mobile/expo-env.d.ts
 *.lock
 *.apk

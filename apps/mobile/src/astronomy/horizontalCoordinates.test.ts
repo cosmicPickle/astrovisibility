@@ -1,5 +1,6 @@
 import referenceFixtures from './__fixtures__/horizontal-reference.json';
 import {
+  createInstantHorizontalProjector,
   createWindowHorizontalProjector,
   equatorialJ2000ToHorizontal,
 } from './horizontalCoordinates';
@@ -8,6 +9,40 @@ const circularDifferenceDegrees = (left: number, right: number) =>
   Math.abs(((left - right + 540) % 360) - 180);
 
 describe('equatorialJ2000ToHorizontal', () => {
+  it('matches the authoritative adapter when projecting a fixed sky in batch', () => {
+    const timestampUtc = '2026-08-29T21:15:00.000Z';
+    const observer = {
+      elevationMetersAboveMeanSeaLevel: 540,
+      latitudeDegreesNorth: 42.6977,
+      longitudeDegreesEast: 23.3219,
+    };
+    const project = createInstantHorizontalProjector({
+      observer,
+      timestampUtc,
+    });
+
+    for (const coordinate of [
+      { rightAscensionJ2000Hours: 0.001, declinationJ2000Degrees: 89.9 },
+      { rightAscensionJ2000Hours: 6.7525, declinationJ2000Degrees: -16.7161 },
+      { rightAscensionJ2000Hours: 23.999, declinationJ2000Degrees: -45 },
+    ]) {
+      const expected = equatorialJ2000ToHorizontal({
+        ...coordinate,
+        observer,
+        timestampUtc,
+      });
+      const actual = project(coordinate);
+      expect(actual.azimuthDegreesClockwiseFromNorth).toBeCloseTo(
+        expected.azimuthDegreesClockwiseFromNorth,
+        7,
+      );
+      expect(actual.refractedAltitudeDegrees).toBeCloseTo(
+        expected.refractedAltitudeDegrees,
+        7,
+      );
+    }
+  });
+
   it.each(referenceFixtures)(
     'matches the independent $id reference',
     (fixture) => {

@@ -1,0 +1,104 @@
+{
+  "generatedFromPinnedInputsOn": "2026-08-29",
+  "limitingMagnitude": 7,
+  "sources": [
+    {
+      "bytes": 13636362,
+      "commit": "53e3df311869e813ace5f1ad2ec4ce909f13256c",
+      "license": "CC BY-SA 4.0",
+      "name": "HYG Database v4.4",
+      "sha256": "00b349893b9a53106dd488d8371e8d2fa586043e500bb3cdb8bff3931682197d",
+      "url": "https://codeberg.org/astronexus/hyg"
+    },
+    {
+      "commit": "7e720a3de062059d4c5400a379146a601d9010e0",
+      "license": "BSD-3-Clause",
+      "name": "d3-celestial Western constellation lines",
+      "sha256": "294f66bef5d5cf50b1e17f16d2efa1d97a15131612c68dd935adef6e7373e13c",
+      "url": "https://github.com/ofrohn/d3-celestial"
+    },
+    {
+      "dataset": "CDS/P/DM/flux-color-Rp-G-Bp/I/355/gaiadr3",
+      "license": "CC BY-SA 3.0 IGO",
+      "name": "Gaia DR3 colour flux map",
+      "url": "https://www.cosmos.esa.int/web/gaia-users/archive"
+    },
+    {
+      "dataset": "CDS/P/PanSTARRS/DR1/color-i-r-g",
+      "license": "Public survey data; attribution required",
+      "name": "Pan-STARRS1 DR1 colour imagery",
+      "url": "https://outerspace.stsci.edu/spaces/PANSTARRS/"
+    }
+  ],
+  "generated": {
+    "constellationCount": 88,
+    "constellationsSha256": "64e3cefc8873e5ada721198186ba60f2efd4222d91935996055452d6bf25a65a",
+    "dsoImageCount": 13,
+    "gaiaAtlas": {
+      "heightPixels": 1024,
+      "widthPixels": 2048
+    },
+    "starCount": 15598,
+    "starsSha256": "c4cf23a44b11ac368ed82c60a6a82c3cb94c2a1981a582256964fcb3fd4a6fad"
+  },
+  "imagery": {
+    "dso": {
+      "Mel022": {
+        "bytes": 19346,
+        "sha256": "4e95f7b7649fe3d2064107f7f2d201111103c43791912d9b06ce32bae67d4ca2"
+      },
+      "NGC0224": {
+        "bytes": 19853,
+        "sha256": "dcb52c845d717877520384d3c9d216173b0e4c45f5e367fa4d147dcececc087e"
+      },
+      "NGC0598": {
+        "bytes": 19628,
+        "sha256": "3ed54983ad053c7778bc7acc9877fd0423b69af598a45809289b4b671e23177d"
+      },
+      "NGC1952": {
+        "bytes": 21218,
+        "sha256": "49f4c3b5c0e9501596c3d34000220e34a0dc0219c255f71bc234ca2c1d3dbcf9"
+      },
+      "NGC1976": {
+        "bytes": 18367,
+        "sha256": "190d337f0722693694bfde43aa9fb79467a5a7e29148cd2872998cb2096c3966"
+      },
+      "NGC3031": {
+        "bytes": 12676,
+        "sha256": "803b1db9d734d119f5f561cfccbdebfa1090d9552458368aab5ed11bf2ab4fc1"
+      },
+      "NGC3034": {
+        "bytes": 12501,
+        "sha256": "f394683707d0b84d5c1d469aa491f7620801be5937669f1094493ae51c80629d"
+      },
+      "NGC4594": {
+        "bytes": 12858,
+        "sha256": "789e83b1f96c3444aa7f49f1c344a72e442f4c9b66f83e792d8cc693c80d8f1d"
+      },
+      "NGC5055": {
+        "bytes": 9975,
+        "sha256": "2544ced59f3f1abaedb8be34a63b9b4ef39c10a071fd72cd62c3bdef89a59aa0"
+      },
+      "NGC5194": {
+        "bytes": 11129,
+        "sha256": "6e48ebd3ed6791debef5581ce407399ee356228f9e019c689b46f47eb27132a7"
+      },
+      "NGC5457": {
+        "bytes": 13883,
+        "sha256": "13c7366aa483c1f9275c0f8f7ac8a5532f0ad286994273925ce49624060e01d7"
+      },
+      "NGC6205": {
+        "bytes": 16420,
+        "sha256": "1c7011438d128897205f3ce0c9c15676cc89bea2bb92ea8a371aa98c8a12f4ea"
+      },
+      "NGC6720": {
+        "bytes": 20880,
+        "sha256": "f40a9c039a3167615709d3717cf94be8fb75c994b5ddb629c01bf1a87d66c5d7"
+      }
+    },
+    "gaia": {
+      "bytes": 648116,
+      "sha256": "bdcf623b2f659cf276c4cc25a70823bfd8f87d9bd051f28823714c12beebaae7"
+    }
+  }
+}

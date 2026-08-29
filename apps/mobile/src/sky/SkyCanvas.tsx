@@ -27,6 +27,12 @@ import {
   type PlanetariumCamera,
 } from './planetariumProjection';
 import { PlanetariumScene } from './PlanetariumScene';
+import type { PlanetariumPanoramaMesh } from './planetariumPanoramaGeometry';
+import {
+  selectRegisteredConstellationLabels,
+  selectRegisteredStarBatches,
+  type RegisteredSkyProjection,
+} from './registeredSkyProjection';
 import { useLatestValue } from './useLatestValue';
 import { usePlanetariumNavigation } from './usePlanetariumNavigation';
 
@@ -63,6 +69,11 @@ export interface SkyCanvasProps {
     visible: boolean;
   } | null;
   minimumTargetCount: number;
+  registeredSky: RegisteredSkyProjection;
+  selectedDsoImage: {
+    mesh: PlanetariumPanoramaMesh;
+    source: number;
+  } | null;
 }
 
 export const SkyCanvas = ({
@@ -81,6 +92,8 @@ export const SkyCanvas = ({
   panoramaOverlay,
   maskOverlay,
   minimumTargetCount,
+  registeredSky,
+  selectedDsoImage,
 }: SkyCanvasProps) => {
   const [canvas, setCanvas] = useState({ widthPixels: 1, heightPixels: 1 });
   const [initialCameraState] = useState<PlanetariumCamera>(() =>
@@ -132,6 +145,24 @@ export const SkyCanvas = ({
         selectedTargetId,
       }),
     [canvas, labelCameraState, residentTargets, selectedTargetId],
+  );
+  const registeredStarBatches = useMemo(
+    () =>
+      selectRegisteredStarBatches(
+        registeredSky.stars,
+        residentCameraState,
+        canvas,
+      ),
+    [canvas, registeredSky.stars, residentCameraState],
+  );
+  const constellationLabels = useMemo(
+    () =>
+      selectRegisteredConstellationLabels(
+        registeredSky.constellations,
+        labelCameraState,
+        canvas,
+      ),
+    [canvas, labelCameraState, registeredSky.constellations],
   );
 
   const getTapContext = useLatestValue(
@@ -286,6 +317,10 @@ export const SkyCanvas = ({
             panoramaTiles={
               panoramaOverlay?.visible ? panoramaOverlay.tiles : []
             }
+            registeredSky={registeredSky}
+            registeredStarBatches={registeredStarBatches}
+            constellationLabels={constellationLabels}
+            selectedDsoImage={selectedDsoImage}
             selectedTargetId={selectedTargetId}
             targets={visibleTargets}
             trajectory={trajectory}

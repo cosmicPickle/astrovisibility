@@ -168,10 +168,20 @@ validation.
 | Astronomy Engine (`astronomy-engine`) 2.1.x | Adopted for v1; lock exact version | Offline time, solar-altitude search, and coordinate calculations behind a fixture-tested adapter |
 | OpenNGC `v20260501` | Adopted for v1 as pinned build input | NGC/IC records, Messier membership, aliases, names, coordinates, angular dimensions, magnitudes, and object types |
 | Astronomical League Caldwell catalogue, snapshot 2026-08-19 | Adopted for v1 as reviewed mapping input | Complete 109-object Caldwell membership cross-reference and provenance |
+| HYG Database v4.4, commit `53e3df311869e813ace5f1ad2ec4ce909f13256c` | Adopted as pinned CC BY-SA 4.0 build input | Offline magnitude-limited real-star layer; only normalized generated data enters the runtime |
+| d3-celestial constellation data, commit `7e720a3de062059d4c5400a379146a601d9010e0` | Adopted as pinned BSD-3-Clause build input | Western constellation chart figures and names; no d3-celestial runtime code is bundled |
+| Gaia DR3 colour flux map `CDS/P/DM/flux-color-Rp-G-Bp/I/355/gaiadr3` | Adopted as bounded CC BY-SA 3.0 IGO image input | One offline 2048×1024 ICRS context atlas generated through CDS HiPS2FITS |
+| Pan-STARRS1 DR1 colour HiPS `CDS/P/PanSTARRS/DR1/color-i-r-g` | Adopted as bounded public-survey image input | Thirteen deterministic 256×256 selected-Messier cutouts generated through CDS HiPS2FITS; no runtime service |
 
 OpenNGC-derived output must retain the required CC BY-SA 4.0 attribution and
 provenance. Astronomy source data is imported and normalized at build time; v1
 does not rely on a network astronomy service at runtime.
+
+The registered-sky adoption is controlled by
+`docs/superpowers/specs/mobile/2026-08-29-1851-registered-sky-background.md`.
+It adds no runtime package, permission, remote cache, or network path. Pinned
+inputs, fixed image requests, generated membership, byte sizes, and SHA-256
+checksums are recorded in the repository and shown through About and licences.
 
 ## Pre-Approved Web and Administrative UI Stack
 

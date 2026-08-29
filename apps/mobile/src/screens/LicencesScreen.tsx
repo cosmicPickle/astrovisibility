@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import licenceManifest from '../catalogue/generated/licence-manifest.json';
 import validationReport from '../catalogue/generated/validation-report.json';
+import skyAssetManifest from '../sky/generated/sky-asset-manifest.json';
 import { ActionButton } from '../components/ui/ActionButton';
 import { AppText } from '../components/ui/AppText';
 import { ModalSheet } from '../components/ui/ModalSheet';
@@ -119,6 +120,63 @@ export const LicencesScreen = ({
           <ActionButton
             label="Open Astronomical League list"
             onPress={() => void Linking.openURL(licenceManifest.sources[1].url)}
+            variant="secondary"
+          />
+        </SectionCard>
+
+        <SectionCard>
+          <AppText tone="label">Registered stars and constellations</AppText>
+          <AppText>
+            {skyAssetManifest.generated.starCount.toLocaleString()} measured HYG
+            v4.4 stars under CC BY-SA 4.0, plus{' '}
+            {skyAssetManifest.generated.constellationCount} Western
+            constellation figures from d3-celestial under BSD-3-Clause.
+          </AppText>
+          <AppText tone="muted">
+            Pinned source revisions and SHA-256 checksums are recorded in the
+            bundled sky asset manifest. Constellation figures are chart
+            conventions, not physical structures or official boundaries.
+          </AppText>
+          <ActionButton
+            label="Open HYG source and licence"
+            onPress={() =>
+              void Linking.openURL(skyAssetManifest.sources[0].url)
+            }
+            variant="secondary"
+          />
+          <ActionButton
+            label="Open d3-celestial source and licence"
+            onPress={() =>
+              void Linking.openURL(skyAssetManifest.sources[1].url)
+            }
+            variant="secondary"
+          />
+        </SectionCard>
+
+        <SectionCard>
+          <AppText tone="label">Gaia and Pan-STARRS survey imagery</AppText>
+          <AppText>
+            Offline Gaia DR3 colour-flux sky context and{' '}
+            {skyAssetManifest.generated.dsoImageCount} selected Pan-STARRS1 DR1
+            Messier cutouts are registered to catalogue coordinates.
+          </AppText>
+          <AppText tone="muted">
+            Gaia data credit: ESA/Gaia/DPAC, CC BY-SA 3.0 IGO. Pan-STARRS1
+            survey imagery is public astronomy data supplied through CDS. No sky
+            imagery is downloaded at runtime.
+          </AppText>
+          <ActionButton
+            label="Open Gaia archive and credit"
+            onPress={() =>
+              void Linking.openURL(skyAssetManifest.sources[2].url)
+            }
+            variant="secondary"
+          />
+          <ActionButton
+            label="Open Pan-STARRS archive"
+            onPress={() =>
+              void Linking.openURL(skyAssetManifest.sources[3].url)
+            }
             variant="secondary"
           />
         </SectionCard>

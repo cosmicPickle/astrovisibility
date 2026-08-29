@@ -80,6 +80,14 @@ import {
 } from './ObservingWindowSheet';
 import { createCelestialEquatorGuide } from './planetariumGuides';
 import { SkyCanvas } from './SkyCanvas';
+import dsoImageMetadataJson from './generated/dso-images.json';
+import { dsoImageAssets } from './registeredSkyAssets';
+import {
+  createRegisteredDsoMesh,
+  createRegisteredSkyProjection,
+  type RegisteredSkyProjection,
+} from './registeredSkyProjection';
+import type { PlanetariumPanoramaMesh } from './planetariumPanoramaGeometry';
 
 export interface SkyViewData {
   catalogueTargets: CatalogueTarget[];
@@ -139,7 +147,19 @@ export interface SkyRendererProps {
     visible: boolean;
   } | null;
   minimumTargetCount: number;
+  registeredSky: RegisteredSkyProjection;
+  selectedDsoImage: {
+    mesh: PlanetariumPanoramaMesh;
+    source: number;
+  } | null;
 }
+
+const dsoImageMetadata = dsoImageMetadataJson as {
+  declinationJ2000Degrees: number;
+  fieldOfViewDegrees: number;
+  rightAscensionJ2000Hours: number;
+  targetId: string;
+}[];
 
 export const skyViewController: SkyViewController = {
   async load(profileId, requestedTimestampUtc) {
@@ -402,6 +422,34 @@ export const SkyViewScreen = ({
         : [],
     [data, sceneTimestampUtc],
   );
+  const registeredSky = useMemo(
+    () =>
+      data && sceneTimestampUtc
+        ? createRegisteredSkyProjection({
+            observer: observerForProfile(data.profile),
+            timestampUtc: sceneTimestampUtc,
+          })
+        : { atlasMeshes: [], constellations: [], stars: [] },
+    [data, sceneTimestampUtc],
+  );
+  const selectedDsoImage = useMemo(() => {
+    if (!data || !sceneTimestampUtc || !selectedTarget) return null;
+    const metadata = dsoImageMetadata.find(
+      ({ targetId }) => targetId === selectedTarget.id,
+    );
+    const source = dsoImageAssets[selectedTarget.id];
+    if (!metadata || source === undefined) return null;
+    return {
+      mesh: createRegisteredDsoMesh({
+        ...metadata,
+        centerDeclinationJ2000Degrees: metadata.declinationJ2000Degrees,
+        centerRightAscensionJ2000Hours: metadata.rightAscensionJ2000Hours,
+        observer: observerForProfile(data.profile),
+        timestampUtc: sceneTimestampUtc,
+      }),
+      source,
+    };
+  }, [data, sceneTimestampUtc, selectedTarget]);
   const selectedDirection = useMemo(() => {
     if (!data || !sceneTimestampUtc || !selectedTarget) return null;
     const horizontal = equatorialJ2000ToHorizontal({
@@ -779,6 +827,8 @@ export const SkyViewScreen = ({
               : null
           }
           minimumTargetCount={minimumTargetCount}
+          registeredSky={registeredSky}
+          selectedDsoImage={selectedDsoImage}
         />
         {!data.hasMask ? (
           <View style={styles.noMaskCallout}>
