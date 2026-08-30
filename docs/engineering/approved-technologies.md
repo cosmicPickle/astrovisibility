@@ -156,6 +156,14 @@ service, permission, analytics, or runtime network path. The adoption and bundle
 boundary are specified in
 `docs/superpowers/specs/mobile/2026-08-28-0954-atlas-focus-profile-optics-controls.md`.
 
+Astrovisibility adopts `reanimated-color-picker` 5.1.2 for the Sky View mask
+color control. The MIT-licensed, pure-JavaScript package has no runtime
+dependencies and uses the already adopted React Native Gesture Handler and
+Reanimated peers. It is confined to the Mask appearance sheet and adds no
+native permission, service, analytics, storage, or runtime network path. The
+adoption and interaction-performance boundary are specified in
+`docs/superpowers/specs/mobile/2026-08-30-1034-sky-visuals-and-mask-modes.md`.
+
 ## Pre-Approved Astronomy Libraries and Data
 
 The product-owner domain approval covers additional popular, maintained
@@ -170,7 +178,7 @@ validation.
 | Astronomical League Caldwell catalogue, snapshot 2026-08-19 | Adopted for v1 as reviewed mapping input | Complete 109-object Caldwell membership cross-reference and provenance |
 | HYG Database v4.4, commit `53e3df311869e813ace5f1ad2ec4ce909f13256c` | Adopted as pinned CC BY-SA 4.0 build input | Offline magnitude-limited real-star layer; only normalized generated data enters the runtime |
 | d3-celestial constellation data, commit `7e720a3de062059d4c5400a379146a601d9010e0` | Adopted as pinned BSD-3-Clause build input | Western constellation chart figures and names; no d3-celestial runtime code is bundled |
-| Gaia DR3 colour flux map `CDS/P/DM/flux-color-Rp-G-Bp/I/355/gaiadr3` | Adopted as bounded CC BY-SA 3.0 IGO image input | One offline 2048×1024 ICRS context atlas generated through CDS HiPS2FITS |
+| Gaia DR3 colour flux map `CDS/P/DM/flux-color-Rp-G-Bp/I/355/gaiadr3` | Adopted as bounded CC BY-SA 3.0 IGO image input | One offline 256×128 ICRS context atlas generated through CDS HiPS2FITS |
 | Pan-STARRS1 DR1 colour HiPS `CDS/P/PanSTARRS/DR1/color-i-r-g` | Adopted as bounded public-survey image input | 223 deterministic 256×256 optical cutouts for required targets fully inside the survey footprint; no runtime service |
 | AllWISE colour HiPS `CDS/P/allWISE/color` | Adopted as an all-sky ODbL-1.0 image input derived by CDS from NASA/IPAC WISE Atlas imagery | 66 deterministic 256×256 infrared cutouts for required targets outside Pan-STARRS coverage; no runtime service |
 

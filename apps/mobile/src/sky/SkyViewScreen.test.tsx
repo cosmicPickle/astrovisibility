@@ -24,6 +24,19 @@ import {
   type SkyViewNavigation,
 } from './SkyViewScreen';
 
+jest.mock('reanimated-color-picker', () => {
+  const react = jest.requireActual('react') as typeof import('react');
+  const reactNative = jest.requireActual('react-native');
+  return {
+    __esModule: true,
+    default: ({ children }: { children: React.ReactNode }) =>
+      react.createElement(reactNative.View, null, children),
+    HueSlider: () => react.createElement(reactNative.View),
+    Panel1: () => react.createElement(reactNative.View),
+    Preview: () => react.createElement(reactNative.View),
+  };
+});
+
 const profile: ProfileRecord = {
   id: 'profile-1',
   name: 'Bedroom window',
@@ -131,6 +144,12 @@ const renderer = (props: SkyRendererProps) => (
       {props.fieldOfViewRotationDegrees}
     </Text>
     <Text testID="minimum-target-count">{props.minimumTargetCount}</Text>
+    <Text testID="constellation-opacity">
+      {props.constellationOpacityPercent}
+    </Text>
+    <Text testID="registered-dso-image-count">
+      {props.registeredDsoImages.length}
+    </Text>
     {props.targets.map((item) => (
       <Pressable
         accessibilityRole="button"
@@ -234,27 +253,31 @@ const obstructionAwareTrajectory: SelectedTargetTrajectory = {
 const rendererWithPanorama = (props: SkyRendererProps) => (
   <View>
     <Text testID="panorama-overlay-present">
-      {props.panoramaOverlay ? 'present' : 'absent'}
+      {props.maskPresentation ? 'present' : 'absent'}
     </Text>
     <Text testID="panorama-tile-count">
-      {props.panoramaOverlay?.tiles.length ?? 0}
+      {props.maskPresentation?.panorama?.tiles.length ?? 0}
     </Text>
     <Text testID="panorama-opacity">
-      {props.panoramaOverlay?.opacityPercent ?? 0}
+      {props.maskPresentation?.opacityPercent ?? 0}
     </Text>
     <Text testID="panorama-visible">
-      {props.panoramaOverlay?.visible ? 'visible' : 'hidden'}
+      {props.maskPresentation?.mode === 'panorama' ? 'visible' : 'hidden'}
     </Text>
     <Text testID="mask-operation-count">
-      {props.maskOverlay?.mask.operations.length ?? 0}
+      {props.maskPresentation?.mask.operations.length ?? 0}
     </Text>
     <Text testID="mask-overlay-present">
-      {props.maskOverlay ? 'present' : 'absent'}
+      {props.maskPresentation ? 'present' : 'absent'}
     </Text>
-    <Text testID="mask-opacity">{props.maskOverlay?.opacityPercent ?? 0}</Text>
+    <Text testID="mask-opacity">
+      {props.maskPresentation?.opacityPercent ?? 0}
+    </Text>
     <Text testID="mask-visible">
-      {props.maskOverlay?.visible ? 'visible' : 'hidden'}
+      {props.maskPresentation ? 'visible' : 'hidden'}
     </Text>
+    <Text testID="mask-mode">{props.maskPresentation?.mode ?? 'none'}</Text>
+    <Text testID="mask-color">{props.maskPresentation?.color ?? 'none'}</Text>
   </View>
 );
 
@@ -342,8 +365,25 @@ describe('SkyViewScreen', () => {
       screen.getByText(/suitable above horizon · unassessed/),
     ).toBeTruthy();
     expect(screen.queryByText('No imaging setup')).toBeNull();
+    expect(
+      screen.getByTestId('registered-dso-image-count').props.children,
+    ).toBe(289);
     await fireEvent.press(screen.getByLabelText('View options'));
     expect(screen.queryByText('Imaging setup · None')).toBeNull();
+    await fireEvent.press(screen.getByText('Constellation opacity · 30%'));
+    await fireEvent(
+      screen.getByLabelText('Constellation opacity'),
+      'accessibilityAction',
+      { nativeEvent: { actionName: 'increment' } },
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('constellation-opacity').props.children).toBe(
+        35,
+      ),
+    );
+    await fireEvent.press(
+      screen.getByLabelText('Close constellation controls'),
+    );
     await fireEvent.press(screen.getByLabelText('Close view options'));
     await fireEvent.press(screen.getByLabelText('Optics'));
     expect(screen.getByText('None')).toBeTruthy();
@@ -652,7 +692,7 @@ describe('SkyViewScreen', () => {
     expect(calculateVisibility).not.toHaveBeenCalled();
   });
 
-  it('renders a saved panorama with independent visibility and adjustable opacity', async () => {
+  it('does not place an unmasked panorama over the registered sky', async () => {
     const screen = await renderWithSafeArea(
       <SkyViewScreen
         controller={controller({ panorama })}
@@ -662,55 +702,24 @@ describe('SkyViewScreen', () => {
       />,
     );
     await waitFor(() => screen.getByText(profile.name));
-    expect(screen.getByTestId('panorama-tile-count').props.children).toBe(1);
-    expect(screen.getByTestId('panorama-opacity').props.children).toBe(55);
-    expect(screen.getByTestId('panorama-visible').props.children).toBe(
-      'visible',
+    expect(screen.getByTestId('panorama-tile-count').props.children).toBe(0);
+    expect(screen.getByTestId('panorama-overlay-present').props.children).toBe(
+      'absent',
     );
 
     await fireEvent.press(screen.getByLabelText('View options'));
-    await fireEvent.press(screen.getByText('Panorama opacity · 55%'));
-    expect(screen.getAllByText('Panorama opacity')).toHaveLength(2);
-    expect(screen.queryByText('Hide panorama')).toBeNull();
-    await fireEvent(
-      screen.getByLabelText('Panorama opacity'),
-      'accessibilityAction',
-      {
-        nativeEvent: { actionName: 'increment' },
-      },
-    );
-    await waitFor(() =>
-      expect(
-        screen.getByLabelText('Panorama opacity').props.accessibilityValue.now,
-      ).toBe(60),
-    );
-    const slider = screen.getByLabelText('Panorama opacity');
-    await fireEvent(slider, 'layout', {
-      nativeEvent: { layout: { height: 44, width: 100, x: 0, y: 0 } },
-    });
-    await fireEvent(slider, 'responderGrant', {
-      nativeEvent: { locationX: 1 },
-    });
-    expect(screen.getByTestId('panorama-overlay-present').props.children).toBe(
-      'present',
-    );
-    await fireEvent(slider, 'responderRelease', {
-      nativeEvent: { locationX: 1 },
-    });
-    await waitFor(() =>
-      expect(
-        screen.getByTestId('panorama-overlay-present').props.children,
-      ).toBe('absent'),
-    );
-    await fireEvent.press(
-      screen.getByLabelText('Close panorama overlay controls'),
-    );
+    expect(screen.queryByText(/Panorama opacity/)).toBeNull();
+    expect(screen.queryByText(/Mask appearance/)).toBeNull();
   });
 
-  it('renders and controls a completed mask independently from its panorama', async () => {
+  it('uses one opacity for panorama and color mask modes', async () => {
     const screen = await renderWithSafeArea(
       <SkyViewScreen
-        controller={controller({ hasMask: true, mask, panorama })}
+        controller={controller({
+          hasMask: true,
+          mask,
+          panorama,
+        })}
         navigation={navigation()}
         profileId={profile.id}
         renderSky={rendererWithPanorama}
@@ -721,10 +730,16 @@ describe('SkyViewScreen', () => {
     expect(screen.getByTestId('mask-operation-count').props.children).toBe(1);
     expect(screen.getByTestId('mask-opacity').props.children).toBe(60);
     expect(screen.getByTestId('mask-visible').props.children).toBe('visible');
+    expect(screen.getByTestId('mask-mode').props.children).toBe('panorama');
+    expect(screen.getByTestId('panorama-tile-count').props.children).toBe(1);
 
     await fireEvent.press(screen.getByLabelText('View options'));
-    await fireEvent.press(screen.getByText('Mask opacity · 60%'));
-    expect(screen.queryByText('Hide mask')).toBeNull();
+    await fireEvent.press(screen.getByText('Mask appearance · Panorama · 60%'));
+    await fireEvent.press(screen.getByText('Color'));
+    await waitFor(() =>
+      expect(screen.getByTestId('mask-mode').props.children).toBe('color'),
+    );
+    expect(screen.getByText('Mask color')).toBeTruthy();
     await fireEvent(
       screen.getByLabelText('Mask opacity'),
       'accessibilityAction',
@@ -827,7 +842,13 @@ describe('SkyViewScreen', () => {
     const screen = await renderWithSafeArea(
       <SkyViewScreen
         calculateVisibility={calculateVisibility}
-        controller={controller({ hasMask: true, mask, panorama })}
+        controller={controller({
+          equipment: [equipment],
+          hasMask: true,
+          mask,
+          panorama,
+          selectedEquipmentId: equipment.id,
+        })}
         navigation={navigation()}
         profileId={profile.id}
         renderSky={rendererWithStageFourOverlays}
@@ -840,6 +861,7 @@ describe('SkyViewScreen', () => {
     await waitFor(() =>
       screen.getByText('5m visible through local obstructions'),
     );
+    expect(screen.getByText(/About \d+ px along minor axis/)).toBeTruthy();
     expect(screen.getByText('Visibility: 23:00–23:05')).toBeTruthy();
     expect(screen.queryByText('Visible until 23:05')).toBeNull();
     expect(
@@ -880,7 +902,7 @@ describe('SkyViewScreen', () => {
     ).toContain('unassessed');
   });
 
-  it('does not recalculate when panorama opacity changes', async () => {
+  it('does not recalculate when mask presentation changes', async () => {
     const calculateVisibility = jest
       .fn()
       .mockResolvedValue(obstructionAwareTrajectory);
@@ -899,9 +921,10 @@ describe('SkyViewScreen', () => {
     await waitFor(() => expect(calculateVisibility).toHaveBeenCalledTimes(1));
 
     await fireEvent.press(screen.getByLabelText('View options'));
-    await fireEvent.press(screen.getByText('Panorama opacity · 55%'));
+    await fireEvent.press(screen.getByText('Mask appearance · Panorama · 60%'));
+    await fireEvent.press(screen.getByText('Color'));
     await fireEvent(
-      screen.getByLabelText('Panorama opacity'),
+      screen.getByLabelText('Mask opacity'),
       'accessibilityAction',
       {
         nativeEvent: { actionName: 'increment' },
@@ -909,12 +932,10 @@ describe('SkyViewScreen', () => {
     );
     await waitFor(() =>
       expect(
-        screen.getByLabelText('Panorama opacity').props.accessibilityValue.now,
-      ).toBe(60),
+        screen.getByLabelText('Mask opacity').props.accessibilityValue.now,
+      ).toBe(65),
     );
-    await fireEvent.press(
-      screen.getByLabelText('Close panorama overlay controls'),
-    );
+    await fireEvent.press(screen.getByLabelText('Close mask overlay controls'));
     expect(calculateVisibility).toHaveBeenCalledTimes(1);
   });
 

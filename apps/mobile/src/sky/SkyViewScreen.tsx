@@ -78,16 +78,20 @@ import {
   ObservingWindowSheet,
   type ObservingWindowChange,
 } from './ObservingWindowSheet';
+import {
+  MaskAppearanceControls,
+  type MaskMode,
+} from './MaskAppearanceControls';
 import { createCelestialEquatorGuide } from './planetariumGuides';
 import { SkyCanvas } from './SkyCanvas';
 import dsoImageMetadataJson from './generated/dso-images.json';
 import { dsoImageAssets } from './registeredSkyAssets';
 import {
-  createRegisteredDsoMesh,
+  createRegisteredDsoProjection,
   createRegisteredSkyProjection,
+  type RegisteredDsoImage,
   type RegisteredSkyProjection,
 } from './registeredSkyProjection';
-import type { PlanetariumPanoramaMesh } from './planetariumPanoramaGeometry';
 
 export interface SkyViewData {
   catalogueTargets: CatalogueTarget[];
@@ -135,23 +139,17 @@ export interface SkyRendererProps {
   selectedTargetId: string | null;
   targets: readonly HorizontalCatalogueTarget[];
   trajectory: SelectedTargetTrajectory | null;
-  panoramaOverlay: {
-    panorama?: ActivePanorama;
-    tiles: ActivePanorama['tiles'];
-    opacityPercent: number;
-    visible: boolean;
-  } | null;
-  maskOverlay: {
+  maskPresentation: {
+    color: string;
     mask: ActiveMaskRevision;
+    mode: MaskMode;
     opacityPercent: number;
-    visible: boolean;
+    panorama: ActivePanorama | null;
   } | null;
   minimumTargetCount: number;
   registeredSky: RegisteredSkyProjection;
-  selectedDsoImage: {
-    mesh: PlanetariumPanoramaMesh;
-    source: number;
-  } | null;
+  registeredDsoImages: readonly RegisteredDsoImage[];
+  constellationOpacityPercent: number;
 }
 
 const dsoImageMetadata = dsoImageMetadataJson as {
@@ -264,11 +262,11 @@ export const SkyViewScreen = ({
     useState<TrajectoryMarker | null>(null);
   const [openSheet, setOpenSheet] = useState<
     | 'info'
+    | 'constellations'
     | 'mask'
     | 'menu'
     | 'optics'
     | 'orientation'
-    | 'panorama'
     | 'time'
     | 'viewOptions'
     | null
@@ -277,8 +275,11 @@ export const SkyViewScreen = ({
   const [fieldOfViewRotationDegrees, setFieldOfViewRotationDegrees] =
     useState(0);
   const [mutationError, setMutationError] = useState<string | null>(null);
-  const [panoramaOpacityPercent, setPanoramaOpacityPercent] = useState(55);
   const [maskOpacityPercent, setMaskOpacityPercent] = useState(60);
+  const [maskMode, setMaskMode] = useState<MaskMode>('panorama');
+  const [maskColor, setMaskColor] = useState<string>(colors.blocked);
+  const [constellationOpacityPercent, setConstellationOpacityPercent] =
+    useState(30);
   const [minimumTargetCount, setMinimumTargetCount] = useState(
     DEFAULT_MINIMUM_ATLAS_TARGET_COUNT,
   );
@@ -432,24 +433,17 @@ export const SkyViewScreen = ({
         : { atlasMeshes: [], constellations: [], stars: [] },
     [data, sceneTimestampUtc],
   );
-  const selectedDsoImage = useMemo(() => {
-    if (!data || !sceneTimestampUtc || !selectedTarget) return null;
-    const metadata = dsoImageMetadata.find(
-      ({ targetId }) => targetId === selectedTarget.id,
-    );
-    const source = dsoImageAssets[selectedTarget.id];
-    if (!metadata || source === undefined) return null;
-    return {
-      mesh: createRegisteredDsoMesh({
-        ...metadata,
-        centerDeclinationJ2000Degrees: metadata.declinationJ2000Degrees,
-        centerRightAscensionJ2000Hours: metadata.rightAscensionJ2000Hours,
-        observer: observerForProfile(data.profile),
-        timestampUtc: sceneTimestampUtc,
+  const registeredDsoImages = useMemo<RegisteredDsoImage[]>(() => {
+    if (!data || !sceneTimestampUtc) return [];
+    return createRegisteredDsoProjection({
+      definitions: dsoImageMetadata.flatMap((metadata) => {
+        const source = dsoImageAssets[metadata.targetId];
+        return source === undefined ? [] : [{ ...metadata, source }];
       }),
-      source,
-    };
-  }, [data, sceneTimestampUtc, selectedTarget]);
+      observer: observerForProfile(data.profile),
+      timestampUtc: sceneTimestampUtc,
+    });
+  }, [data, sceneTimestampUtc]);
   const selectedDirection = useMemo(() => {
     if (!data || !sceneTimestampUtc || !selectedTarget) return null;
     const horizontal = equatorialJ2000ToHorizontal({
@@ -647,6 +641,13 @@ export const SkyViewScreen = ({
       selectedEquipment ? calculateAngularFieldOfView(selectedEquipment) : null,
     [selectedEquipment],
   );
+  const selectedTargetSuitability = useMemo(
+    () =>
+      selectedEquipment && selectedTarget
+        ? evaluateEquipmentSuitability(selectedTarget, selectedEquipment)
+        : null,
+    [selectedEquipment, selectedTarget],
+  );
   const focusRequest = useMemo(
     () =>
       selectedDirection && targetFocusRequestId > 0
@@ -807,28 +808,21 @@ export const SkyViewScreen = ({
           selectedTargetId={selectedTarget?.id ?? null}
           targets={projectedTargets}
           trajectory={trajectory}
-          panoramaOverlay={
-            data.panorama && panoramaOpacityPercent > 0
-              ? {
-                  panorama: data.panorama,
-                  tiles: data.panorama.tiles,
-                  opacityPercent: panoramaOpacityPercent,
-                  visible: true,
-                }
-              : null
-          }
-          maskOverlay={
+          maskPresentation={
             data.mask && maskOpacityPercent > 0
               ? {
+                  color: maskColor,
                   mask: data.mask,
+                  mode: maskMode,
                   opacityPercent: maskOpacityPercent,
-                  visible: true,
+                  panorama: data.panorama,
                 }
               : null
           }
           minimumTargetCount={minimumTargetCount}
           registeredSky={registeredSky}
-          selectedDsoImage={selectedDsoImage}
+          registeredDsoImages={registeredDsoImages}
+          constellationOpacityPercent={constellationOpacityPercent}
         />
         {!data.hasMask ? (
           <View style={styles.noMaskCallout}>
@@ -946,6 +940,15 @@ export const SkyViewScreen = ({
                       ? `${formatDuration(darkVisibleMilliseconds)} visible through local obstructions`
                       : 'No visible time through local obstructions'}
                   </AppText>
+                  {selectedTargetSuitability?.minorAxisPixels === null ||
+                  selectedTargetSuitability?.minorAxisPixels ===
+                    undefined ? null : (
+                    <AppText tone="muted">
+                      About{' '}
+                      {Math.round(selectedTargetSuitability.minorAxisPixels)} px
+                      along minor axis
+                    </AppText>
+                  )}
                   <AppText style={styles.transitionText}>
                     {visibleIntervals.length > 0
                       ? `Visibility: ${visibleIntervals.join('; ')}`
@@ -1009,20 +1012,31 @@ export const SkyViewScreen = ({
           searchText={targetSearchText}
           selectedCategories={selectedCategories}
         />
-        {data.panorama ? (
-          <ActionButton
-            label={`Panorama opacity · ${panoramaOpacityPercent}%`}
-            onPress={() => setOpenSheet('panorama')}
-            variant="secondary"
-          />
-        ) : null}
+        <ActionButton
+          label={`Constellation opacity · ${constellationOpacityPercent}%`}
+          onPress={() => setOpenSheet('constellations')}
+          variant="secondary"
+        />
         {data.mask ? (
           <ActionButton
-            label={`Mask opacity · ${maskOpacityPercent}%`}
+            label={`Mask appearance · ${maskMode === 'panorama' ? 'Panorama' : 'Color'} · ${maskOpacityPercent}%`}
             onPress={() => setOpenSheet('mask')}
             variant="secondary"
           />
         ) : null}
+      </ModalSheet>
+
+      <ModalSheet
+        closeAccessibilityLabel="Close constellation controls"
+        onClose={() => setOpenSheet('viewOptions')}
+        title="Constellations"
+        visible={openSheet === 'constellations'}
+      >
+        <OpacitySlider
+          label="Constellation opacity"
+          onChange={setConstellationOpacityPercent}
+          value={constellationOpacityPercent}
+        />
       </ModalSheet>
 
       <ModalSheet
@@ -1090,13 +1104,16 @@ export const SkyViewScreen = ({
       <ModalSheet
         closeAccessibilityLabel="Close mask overlay controls"
         onClose={() => setOpenSheet(null)}
-        title="Mask opacity"
+        title="Mask appearance"
         visible={openSheet === 'mask'}
       >
-        <OpacitySlider
-          label="Mask opacity"
-          onChange={setMaskOpacityPercent}
-          value={maskOpacityPercent}
+        <MaskAppearanceControls
+          color={maskColor}
+          mode={maskMode}
+          onColorChange={setMaskColor}
+          onModeChange={setMaskMode}
+          onOpacityChange={setMaskOpacityPercent}
+          opacityPercent={maskOpacityPercent}
         />
       </ModalSheet>
 
@@ -1190,19 +1207,6 @@ export const SkyViewScreen = ({
             </AppText>
           </>
         ) : null}
-      </ModalSheet>
-
-      <ModalSheet
-        closeAccessibilityLabel="Close panorama overlay controls"
-        onClose={() => setOpenSheet(null)}
-        title="Panorama opacity"
-        visible={openSheet === 'panorama'}
-      >
-        <OpacitySlider
-          label="Panorama opacity"
-          onChange={setPanoramaOpacityPercent}
-          value={panoramaOpacityPercent}
-        />
       </ModalSheet>
 
       <ObservingWindowSheet

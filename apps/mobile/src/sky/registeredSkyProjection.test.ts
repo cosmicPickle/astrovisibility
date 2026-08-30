@@ -1,8 +1,9 @@
 import { createPlanetariumCamera } from './planetariumProjection';
 import {
   createRegisteredSkyProjection,
-  getSelectedDsoImageOpacity,
+  getRegisteredDsoImageOpacity,
   selectRegisteredConstellationLabels,
+  selectRegisteredDsoImages,
   selectRegisteredStarBatches,
 } from './registeredSkyProjection';
 
@@ -31,14 +32,80 @@ describe('registered sky projection', () => {
 
 describe('selected DSO image visibility', () => {
   it('fades the survey cutout in before the closest zoom level', () => {
-    expect(getSelectedDsoImageOpacity(0.71, 24)).toBe(0);
-    expect(getSelectedDsoImageOpacity(0.71, 20)).toBeGreaterThan(0);
-    expect(getSelectedDsoImageOpacity(0.71, 8)).toBe(0.82);
+    expect(getRegisteredDsoImageOpacity(0.71, 24)).toBe(0);
+    expect(getRegisteredDsoImageOpacity(0.71, 20)).toBeGreaterThan(0);
+    expect(getRegisteredDsoImageOpacity(0.71, 8)).toBe(0.9);
   });
 
   it('starts larger cutouts fading in at a wider field of view', () => {
-    expect(getSelectedDsoImageOpacity(4.25, 40)).toBe(0);
-    expect(getSelectedDsoImageOpacity(4.25, 30)).toBeGreaterThan(0);
+    expect(getRegisteredDsoImageOpacity(4.25, 40)).toBe(0);
+    expect(getRegisteredDsoImageOpacity(4.25, 30)).toBeGreaterThan(0);
+  });
+
+  it('selects every close in-frame cutout and draws the selected one last', () => {
+    const camera = createPlanetariumCamera({
+      centerAltitudeDegrees: 30,
+      centerAzimuthDegrees: 0,
+      fieldOfViewDegrees: 12,
+    });
+    const mesh = (
+      azimuthDegrees: number,
+    ): Parameters<typeof selectRegisteredDsoImages>[0][number]['mesh'] => ({
+      angularRadiusDegrees: 1,
+      centerDirection: { altitudeDegrees: 30, azimuthDegrees },
+      columnCount: 1,
+      directions: [],
+      indices: [],
+      rowCount: 1,
+      texturePointsPixels: [],
+    });
+
+    const selected = selectRegisteredDsoImages(
+      [
+        { targetId: 'near', mesh: mesh(2), source: 1 },
+        { targetId: 'selected', mesh: mesh(0), source: 2 },
+        { targetId: 'opposite', mesh: mesh(180), source: 3 },
+      ],
+      camera,
+      { heightPixels: 780, widthPixels: 390 },
+      'selected',
+    );
+
+    expect(selected.map(({ targetId }) => targetId)).toEqual([
+      'near',
+      'selected',
+    ]);
+  });
+
+  it('does not mount in-frame cutouts before their zoom threshold', () => {
+    const camera = createPlanetariumCamera({
+      centerAltitudeDegrees: 30,
+      centerAzimuthDegrees: 0,
+      fieldOfViewDegrees: 100,
+    });
+
+    expect(
+      selectRegisteredDsoImages(
+        [
+          {
+            targetId: 'wide-view-hidden',
+            mesh: {
+              angularRadiusDegrees: 1,
+              centerDirection: { altitudeDegrees: 30, azimuthDegrees: 0 },
+              columnCount: 1,
+              directions: [],
+              indices: [],
+              rowCount: 1,
+              texturePointsPixels: [],
+            },
+            source: 1,
+          },
+        ],
+        camera,
+        { heightPixels: 780, widthPixels: 390 },
+        null,
+      ),
+    ).toEqual([]);
   });
 });
 

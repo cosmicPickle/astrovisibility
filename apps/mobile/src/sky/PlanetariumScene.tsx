@@ -1,14 +1,18 @@
 import { useMemo } from 'react';
 import {
   Canvas,
+  BlurMask,
   Circle,
   DashPathEffect,
   Fill,
   Group,
   ImageShader,
+  FilterMode,
   matchFont,
+  Mask as SkiaMask,
   Oval,
   Path,
+  MipmapMode,
   Skia,
   Text,
   Vertices,
@@ -59,9 +63,11 @@ import { createProjectedTrajectoryGroups } from './planetariumTrajectory';
 import { isTimestampInIntervals } from '../astronomy/astronomicalDarkness';
 import type { VisibilityInterval } from '../astronomy/trajectory';
 import { gaiaAtlasImage } from './registeredSkyAssets';
+import type { MaskMode } from './MaskAppearanceControls';
 import {
-  getSelectedDsoImageOpacity,
+  getRegisteredDsoImageOpacity,
   type HorizontalRegisteredConstellation,
+  type RegisteredDsoImage,
   type RegisteredSkyProjection,
   type RegisteredStarBatch,
 } from './registeredSkyProjection';
@@ -185,6 +191,7 @@ function ProjectedMultiPath({
   dash,
   lines,
   strokeOpacity = 1,
+  strokeWidth = 1,
 }: {
   camera: SharedValue<PlanetariumCamera>;
   canvas: CanvasSizePixels;
@@ -192,6 +199,7 @@ function ProjectedMultiPath({
   dash?: readonly number[];
   lines: readonly (readonly HorizontalDirectionDegrees[])[];
   strokeOpacity?: number;
+  strokeWidth?: number;
 }) {
   const path = useDerivedValue(() => {
     const builder = Skia.PathBuilder.Make();
@@ -232,7 +240,7 @@ function ProjectedMultiPath({
       path={path}
       strokeCap="round"
       strokeJoin="round"
-      strokeWidth={1}
+      strokeWidth={strokeWidth}
       style="stroke"
     >
       {dash ? <DashPathEffect intervals={[...dash]} /> : null}
@@ -837,13 +845,18 @@ function GaiaAtlasLayer({
   const opacity = useDerivedValue(() =>
     Math.max(
       0,
-      Math.min(0.28, ((camera.value.fieldOfViewDegrees - 5) / 25) * 0.28),
+      Math.min(0.5, ((camera.value.fieldOfViewDegrees - 1) / 17) * 0.5),
     ),
   );
   if (!image) return null;
   return (
     <Group opacity={opacity}>
-      <ImageShader image={image} tx="decal" ty="decal" />
+      <ImageShader
+        image={image}
+        sampling={{ filter: FilterMode.Linear, mipmap: MipmapMode.Linear }}
+        tx="decal"
+        ty="decal"
+      />
       {meshes.map((mesh, index) => (
         <ProjectedImageMesh
           camera={camera}
@@ -894,7 +907,14 @@ function RegisteredStarBatchLayer({
     }
     return builder.build();
   });
-  return <Path color={batch.color} opacity={0.9} path={path} style="fill" />;
+  return (
+    <>
+      <Path color={batch.color} opacity={0.45} path={path} style="fill">
+        <BlurMask blur={1.8} respectCTM={false} style="normal" />
+      </Path>
+      <Path color={batch.color} opacity={1} path={path} style="fill" />
+    </>
+  );
 }
 
 function RegisteredConstellationLayer({
@@ -902,11 +922,13 @@ function RegisteredConstellationLayer({
   canvas,
   constellations,
   labels,
+  opacity,
 }: {
   camera: SharedValue<PlanetariumCamera>;
   canvas: CanvasSizePixels;
   constellations: readonly HorizontalRegisteredConstellation[];
   labels: readonly HorizontalRegisteredConstellation[];
+  opacity: number;
 }) {
   return (
     <>
@@ -915,24 +937,27 @@ function RegisteredConstellationLayer({
         canvas={canvas}
         color="#8093b2"
         lines={constellations.flatMap(({ lines }) => lines)}
-        strokeOpacity={0.42}
+        strokeOpacity={opacity}
+        strokeWidth={1.5}
       />
-      {labels.map((constellation) => (
-        <ProjectedText
-          camera={camera}
-          canvas={canvas}
-          color="#9aabc4"
-          direction={constellation.label}
-          font={secondaryFont}
-          key={constellation.id}
-          text={constellation.name}
-        />
-      ))}
+      <Group opacity={opacity}>
+        {labels.map((constellation) => (
+          <ProjectedText
+            camera={camera}
+            canvas={canvas}
+            color="#9aabc4"
+            direction={constellation.label}
+            font={secondaryFont}
+            key={constellation.id}
+            text={constellation.name}
+          />
+        ))}
+      </Group>
     </>
   );
 }
 
-function SelectedDsoImageLayer({
+function RegisteredDsoImageLayer({
   camera,
   canvas,
   mesh,
@@ -945,7 +970,7 @@ function SelectedDsoImageLayer({
 }) {
   const image = useImage(source);
   const opacity = useDerivedValue(() =>
-    getSelectedDsoImageOpacity(
+    getRegisteredDsoImageOpacity(
       mesh.angularRadiusDegrees,
       camera.value.fieldOfViewDegrees,
     ),
@@ -1020,6 +1045,188 @@ function MaskLayer({
         );
       })}
     </Group>
+  );
+}
+
+function LegacyBlockedMaskStencil({
+  camera,
+  canvas,
+  mask,
+}: {
+  camera: SharedValue<PlanetariumCamera>;
+  canvas: CanvasSizePixels;
+  mask: VisibilityMask;
+}) {
+  return (
+    <Group>
+      <Fill color="white" />
+      {mask.operations.map((operation) => {
+        if (operation.kind === 'visiblePolygon') {
+          return (
+            <ProjectedPath
+              camera={camera}
+              canvas={canvas}
+              closed
+              color="black"
+              directions={densifyHorizontalPath(
+                operation.points.map((point) => ({
+                  altitudeDegrees: point.altitudeDegrees,
+                  azimuthDegrees: point.azimuthDegrees,
+                })),
+                1,
+                true,
+              )}
+              fillOpacity={1}
+              key={operation.id}
+              strokeOpacity={1}
+              strokeWidth={2}
+            />
+          );
+        }
+        return (
+          <LegacyMaskCorrectionStencil
+            camera={camera}
+            canvas={canvas}
+            key={operation.id}
+            operation={operation}
+          />
+        );
+      })}
+    </Group>
+  );
+}
+
+function LegacyMaskCorrectionStencil({
+  camera,
+  canvas,
+  operation,
+}: {
+  camera: SharedValue<PlanetariumCamera>;
+  canvas: CanvasSizePixels;
+  operation: Extract<
+    VisibilityMask['operations'][number],
+    { kind: 'blockedStroke' | 'visibleStroke' }
+  >;
+}) {
+  const strokeWidth = useDerivedValue(() =>
+    Math.max(
+      1,
+      angularSizeToPixels(
+        operation.angularRadiusDegrees * 2,
+        camera.value,
+        canvas,
+      ),
+    ),
+  );
+  return (
+    <ProjectedPath
+      camera={camera}
+      canvas={canvas}
+      color={operation.kind === 'blockedStroke' ? 'white' : 'black'}
+      directions={operation.points.map((point) => ({
+        altitudeDegrees: point.altitudeDegrees,
+        azimuthDegrees: point.azimuthDegrees,
+      }))}
+      strokeOpacity={1}
+      strokeWidth={strokeWidth}
+    />
+  );
+}
+
+function PanoramaLayers({
+  camera,
+  canvas,
+  panoramaImage,
+  panoramaTiles,
+  selectedPanoramaTileId,
+}: {
+  camera: SharedValue<PlanetariumCamera>;
+  canvas: CanvasSizePixels;
+  panoramaImage?: ActivePanorama | null;
+  panoramaTiles: readonly ActivePanoramaTile[];
+  selectedPanoramaTileId?: string | null;
+}) {
+  return (
+    <>
+      {panoramaImage?.uri &&
+      panoramaImage.widthPixels &&
+      panoramaImage.heightPixels ? (
+        <DirectionalAtlasLayer
+          camera={camera}
+          canvas={canvas}
+          heightPixels={panoramaImage.heightPixels}
+          opacity={1}
+          uri={panoramaImage.uri}
+          widthPixels={panoramaImage.widthPixels}
+        />
+      ) : null}
+      {panoramaTiles.map((tile) => (
+        <PanoramaTileLayer
+          camera={camera}
+          canvas={canvas}
+          key={tile.id}
+          opacity={1}
+          selected={
+            selectedPanoramaTileId === undefined
+              ? undefined
+              : tile.id === selectedPanoramaTileId
+          }
+          tile={tile}
+        />
+      ))}
+    </>
+  );
+}
+
+function MaskPresentationLayer({
+  camera,
+  canvas,
+  color,
+  mask,
+  mode,
+  opacity,
+  panoramaImage,
+  panoramaTiles,
+  selectedPanoramaTileId,
+}: {
+  camera: SharedValue<PlanetariumCamera>;
+  canvas: CanvasSizePixels;
+  color: string;
+  mask: VisibilityMask;
+  mode: MaskMode;
+  opacity: number;
+  panoramaImage?: ActivePanorama | null;
+  panoramaTiles: readonly ActivePanoramaTile[];
+  selectedPanoramaTileId?: string | null;
+}) {
+  const stencil = mask.raster ? (
+    <DirectionalAtlasLayer
+      camera={camera}
+      canvas={canvas}
+      heightPixels={mask.raster.heightPixels}
+      opacity={1}
+      uri={mask.raster.uri}
+      widthPixels={mask.raster.widthPixels}
+    />
+  ) : (
+    <LegacyBlockedMaskStencil camera={camera} canvas={canvas} mask={mask} />
+  );
+  return (
+    <SkiaMask mask={stencil} mode={mask.raster ? 'alpha' : 'luminance'}>
+      <Group opacity={opacity}>
+        {mode === 'color' ? (
+          <Fill color={color} />
+        ) : (
+          <PanoramaLayers
+            camera={camera}
+            canvas={canvas}
+            panoramaImage={panoramaImage}
+            panoramaTiles={panoramaTiles}
+            selectedPanoramaTileId={selectedPanoramaTileId}
+          />
+        )}
+      </Group>
+    </SkiaMask>
   );
 }
 
@@ -1107,6 +1314,8 @@ export function PlanetariumScene({
   equipment,
   fieldOfViewRotationDegrees,
   mask,
+  maskColor = colors.blocked,
+  maskMode,
   maskOpacity,
   panoramaOpacity,
   panoramaImage,
@@ -1114,7 +1323,8 @@ export function PlanetariumScene({
   registeredSky = { atlasMeshes: [], constellations: [], stars: [] },
   registeredStarBatches = [],
   constellationLabels = [],
-  selectedDsoImage = null,
+  constellationOpacity = 0.3,
+  registeredDsoImages = [],
   selectedPanoramaTileId,
   selectedTargetId,
   targets,
@@ -1128,6 +1338,8 @@ export function PlanetariumScene({
   equipment: EquipmentRecord | null;
   fieldOfViewRotationDegrees: number;
   mask: VisibilityMask | null;
+  maskColor?: string;
+  maskMode?: MaskMode;
   maskOpacity: number;
   panoramaOpacity: number;
   panoramaImage?: ActivePanorama | null;
@@ -1135,10 +1347,8 @@ export function PlanetariumScene({
   registeredSky?: RegisteredSkyProjection;
   registeredStarBatches?: readonly RegisteredStarBatch[];
   constellationLabels?: readonly HorizontalRegisteredConstellation[];
-  selectedDsoImage?: {
-    mesh: PlanetariumPanoramaMesh;
-    source: number;
-  } | null;
+  constellationOpacity?: number;
+  registeredDsoImages?: readonly RegisteredDsoImage[];
   selectedPanoramaTileId?: string | null;
   selectedTargetId: string | null;
   targets: readonly RenderedPlanetariumTarget[];
@@ -1162,54 +1372,55 @@ export function PlanetariumScene({
         canvas={canvas}
         constellations={registeredSky.constellations}
         labels={constellationLabels}
+        opacity={constellationOpacity}
       />
       <PlanetariumGrid
         camera={camera}
         canvas={canvas}
         celestialEquatorDirections={celestialEquatorDirections}
       />
-      {selectedDsoImage ? (
-        <SelectedDsoImageLayer
+      {registeredDsoImages.map((image) => (
+        <RegisteredDsoImageLayer
           camera={camera}
           canvas={canvas}
-          mesh={selectedDsoImage.mesh}
-          source={selectedDsoImage.source}
-        />
-      ) : null}
-      {panoramaImage?.uri &&
-      panoramaImage.widthPixels &&
-      panoramaImage.heightPixels ? (
-        <DirectionalAtlasLayer
-          camera={camera}
-          canvas={canvas}
-          heightPixels={panoramaImage.heightPixels}
-          opacity={panoramaOpacity}
-          uri={panoramaImage.uri}
-          widthPixels={panoramaImage.widthPixels}
-        />
-      ) : null}
-      {panoramaTiles.map((tile) => (
-        <PanoramaTileLayer
-          camera={camera}
-          canvas={canvas}
-          key={tile.id}
-          opacity={panoramaOpacity}
-          selected={
-            selectedPanoramaTileId === undefined
-              ? undefined
-              : tile.id === selectedPanoramaTileId
-          }
-          tile={tile}
+          key={image.targetId}
+          mesh={image.mesh}
+          source={image.source}
         />
       ))}
-      {mask ? (
-        <MaskLayer
+      {mask && maskMode ? (
+        <MaskPresentationLayer
           camera={camera}
           canvas={canvas}
+          color={maskColor}
           mask={mask}
+          mode={maskMode}
           opacity={maskOpacity}
+          panoramaImage={panoramaImage}
+          panoramaTiles={panoramaTiles}
+          selectedPanoramaTileId={selectedPanoramaTileId}
         />
-      ) : null}
+      ) : (
+        <>
+          <Group opacity={panoramaOpacity}>
+            <PanoramaLayers
+              camera={camera}
+              canvas={canvas}
+              panoramaImage={panoramaImage}
+              panoramaTiles={panoramaTiles}
+              selectedPanoramaTileId={selectedPanoramaTileId}
+            />
+          </Group>
+          {mask ? (
+            <MaskLayer
+              camera={camera}
+              canvas={canvas}
+              mask={mask}
+              opacity={maskOpacity}
+            />
+          ) : null}
+        </>
+      )}
       <TrajectoryLayer
         astronomicalDarknessIntervals={astronomicalDarknessIntervals}
         camera={camera}

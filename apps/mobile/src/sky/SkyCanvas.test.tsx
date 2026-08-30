@@ -109,13 +109,13 @@ const commonProps = {
   fieldOfViewEquipment: null,
   fieldOfViewRotationDegrees: 0,
   focusRequest: null,
-  maskOverlay: null,
+  maskPresentation: null,
   minimumTargetCount: 100,
   onInspectTrajectoryMarker: jest.fn(),
   onSelectTarget: jest.fn(),
-  panoramaOverlay: null,
   registeredSky: { atlasMeshes: [], constellations: [], stars: [] },
-  selectedDsoImage: null,
+  registeredDsoImages: [],
+  constellationOpacityPercent: 30,
   targets: [],
 };
 

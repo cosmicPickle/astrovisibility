@@ -171,20 +171,20 @@ const catalogue = JSON.parse(
 
 export const gaiaAtlasRequest = {
   fileName: 'gaia-dr3-flux-color-car.jpg',
-  heightPixels: 1024,
+  heightPixels: 128,
   query: {
     coordsys: 'icrs',
     dec: '0',
     format: 'jpg',
     fov: '360',
-    height: '1024',
+    height: '128',
     hips: 'CDS/P/DM/flux-color-Rp-G-Bp/I/355/gaiadr3',
     inverse_longitude: 'true',
     projection: 'CAR',
     ra: '180',
-    width: '2048',
+    width: '256',
   },
-  widthPixels: 2048,
+  widthPixels: 256,
 } as const;
 
 export const dsoImageRequests = buildDsoImageRequests(catalogue);

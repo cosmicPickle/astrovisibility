@@ -45,8 +45,8 @@
       "CDS/P/allWISE/color": 66
     },
     "gaiaAtlas": {
-      "heightPixels": 1024,
-      "widthPixels": 2048
+      "heightPixels": 128,
+      "widthPixels": 256
     },
     "starCount": 15598,
     "starsSha256": "c4cf23a44b11ac368ed82c60a6a82c3cb94c2a1981a582256964fcb3fd4a6fad"
@@ -1500,8 +1500,8 @@
       }
     },
     "gaia": {
-      "bytes": 648116,
-      "sha256": "bdcf623b2f659cf276c4cc25a70823bfd8f87d9bd051f28823714c12beebaae7"
+      "bytes": 17692,
+      "sha256": "b68c347fa6361a0084b29bdeb115eba04e8f2c13bb911fa880a79885388111d3"
     }
   }
 }

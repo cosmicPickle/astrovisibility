@@ -12,6 +12,7 @@ import {
   getPlanetariumCameraCenter,
   mountDirectionToHorizontalDirection,
   MAXIMUM_PLANETARIUM_FIELD_OF_VIEW_DEGREES,
+  MINIMUM_PLANETARIUM_FIELD_OF_VIEW_DEGREES,
   projectHorizontalDirection,
   unprojectCanvasPoint,
 } from './planetariumProjection';
@@ -63,7 +64,7 @@ describe('planetarium spherical camera', () => {
         centerAzimuthDegrees: 0,
         fieldOfViewDegrees: 235.01,
       }),
-    ).toThrow('fieldOfViewDegrees must be 8..235');
+    ).toThrow('fieldOfViewDegrees must be 0.25..235');
   });
 
   it('maps a celestial small circle to a screen circle', () => {
@@ -305,6 +306,19 @@ describe('planetarium spherical camera', () => {
     expect(duringGesture.right).toEqual(camera.right);
     expect(duringGesture.up).toEqual(camera.up);
     expect(releaseResult).toEqual(duringGesture);
+  });
+
+  it('supports close inspection down to a quarter-degree field of view', () => {
+    const camera = createPlanetariumCamera({
+      centerAltitudeDegrees: 30,
+      centerAzimuthDegrees: 80,
+      fieldOfViewDegrees: 8,
+    });
+
+    const next = applyPlanetariumZoom(camera, 100);
+
+    expect(MINIMUM_PLANETARIUM_FIELD_OF_VIEW_DEGREES).toBe(0.25);
+    expect(next.fieldOfViewDegrees).toBe(0.25);
   });
 
   it('uses the stereographic local scale for angular DSO sizes', () => {

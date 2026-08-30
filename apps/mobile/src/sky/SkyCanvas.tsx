@@ -27,10 +27,12 @@ import {
   type PlanetariumCamera,
 } from './planetariumProjection';
 import { PlanetariumScene } from './PlanetariumScene';
-import type { PlanetariumPanoramaMesh } from './planetariumPanoramaGeometry';
+import type { MaskMode } from './MaskAppearanceControls';
 import {
   selectRegisteredConstellationLabels,
+  selectRegisteredDsoImages,
   selectRegisteredStarBatches,
+  type RegisteredDsoImage,
   type RegisteredSkyProjection,
 } from './registeredSkyProjection';
 import { useLatestValue } from './useLatestValue';
@@ -57,23 +59,17 @@ export interface SkyCanvasProps {
   selectedTargetId: string | null;
   targets: readonly HorizontalCatalogueTarget[];
   trajectory: SelectedTargetTrajectory | null;
-  panoramaOverlay: {
-    panorama?: ActivePanorama;
-    tiles: ActivePanorama['tiles'];
-    opacityPercent: number;
-    visible: boolean;
-  } | null;
-  maskOverlay: {
+  maskPresentation: {
+    color: string;
     mask: VisibilityMask;
+    mode: MaskMode;
     opacityPercent: number;
-    visible: boolean;
+    panorama: ActivePanorama | null;
   } | null;
   minimumTargetCount: number;
   registeredSky: RegisteredSkyProjection;
-  selectedDsoImage: {
-    mesh: PlanetariumPanoramaMesh;
-    source: number;
-  } | null;
+  registeredDsoImages: readonly RegisteredDsoImage[];
+  constellationOpacityPercent: number;
 }
 
 export const SkyCanvas = ({
@@ -89,11 +85,11 @@ export const SkyCanvas = ({
   selectedTargetId,
   targets,
   trajectory,
-  panoramaOverlay,
-  maskOverlay,
+  maskPresentation,
   minimumTargetCount,
   registeredSky,
-  selectedDsoImage,
+  registeredDsoImages,
+  constellationOpacityPercent,
 }: SkyCanvasProps) => {
   const [canvas, setCanvas] = useState({ widthPixels: 1, heightPixels: 1 });
   const [initialCameraState] = useState<PlanetariumCamera>(() =>
@@ -163,6 +159,16 @@ export const SkyCanvas = ({
         canvas,
       ),
     [canvas, labelCameraState, registeredSky.constellations],
+  );
+  const visibleRegisteredDsoImages = useMemo(
+    () =>
+      selectRegisteredDsoImages(
+        registeredDsoImages,
+        labelCameraState,
+        canvas,
+        selectedTargetId,
+      ),
+    [canvas, labelCameraState, registeredDsoImages, selectedTargetId],
   );
 
   const getTapContext = useLatestValue(
@@ -308,19 +314,18 @@ export const SkyCanvas = ({
             diurnalOrbit={diurnalOrbit}
             equipment={fieldOfViewEquipment}
             fieldOfViewRotationDegrees={fieldOfViewRotationDegrees}
-            mask={maskOverlay?.visible ? maskOverlay.mask : null}
-            maskOpacity={(maskOverlay?.opacityPercent ?? 0) / 100}
-            panoramaOpacity={(panoramaOverlay?.opacityPercent ?? 0) / 100}
-            panoramaImage={
-              panoramaOverlay?.visible ? panoramaOverlay.panorama : null
-            }
-            panoramaTiles={
-              panoramaOverlay?.visible ? panoramaOverlay.tiles : []
-            }
+            mask={maskPresentation?.mask ?? null}
+            maskColor={maskPresentation?.color}
+            maskMode={maskPresentation?.mode}
+            maskOpacity={(maskPresentation?.opacityPercent ?? 0) / 100}
+            panoramaOpacity={(maskPresentation?.opacityPercent ?? 0) / 100}
+            panoramaImage={maskPresentation?.panorama}
+            panoramaTiles={maskPresentation?.panorama?.tiles ?? []}
             registeredSky={registeredSky}
             registeredStarBatches={registeredStarBatches}
             constellationLabels={constellationLabels}
-            selectedDsoImage={selectedDsoImage}
+            constellationOpacity={constellationOpacityPercent / 100}
+            registeredDsoImages={visibleRegisteredDsoImages}
             selectedTargetId={selectedTargetId}
             targets={visibleTargets}
             trajectory={trajectory}

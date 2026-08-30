@@ -66,11 +66,25 @@ export interface RegisteredStarBatch {
   radiusPixels: number;
 }
 
+export interface RegisteredDsoImage {
+  mesh: PlanetariumPanoramaMesh;
+  source: number;
+  targetId: string;
+}
+
+export interface RegisteredDsoImageDefinition {
+  declinationJ2000Degrees: number;
+  fieldOfViewDegrees: number;
+  rightAscensionJ2000Hours: number;
+  source: number;
+  targetId: string;
+}
+
 const stars = starsJson as unknown as RegisteredStarRow[];
 const constellations = constellationsJson as RegisteredConstellation[];
 const equatorialAtlasTiles = createEquatorialAtlasTiles({
-  heightPixels: 1024,
-  widthPixels: 2048,
+  heightPixels: 128,
+  widthPixels: 256,
 });
 
 const projectMesh = (
@@ -154,25 +168,29 @@ export const createRegisteredSkyProjection = (input: {
   };
 };
 
-export const createRegisteredDsoMesh = (input: {
-  centerDeclinationJ2000Degrees: number;
-  centerRightAscensionJ2000Hours: number;
-  fieldOfViewDegrees: number;
+export const createRegisteredDsoProjection = (input: {
+  definitions: readonly RegisteredDsoImageDefinition[];
   observer: ObserverLocation;
   timestampUtc: string;
-}): PlanetariumPanoramaMesh =>
-  projectMesh(
-    createEquatorialCutoutMesh({
-      centerDeclinationJ2000Degrees: input.centerDeclinationJ2000Degrees,
-      centerRightAscensionJ2000Hours: input.centerRightAscensionJ2000Hours,
-      fieldOfViewDegrees: input.fieldOfViewDegrees,
-      heightPixels: 256,
-      widthPixels: 256,
-    }),
-    createInstantHorizontalProjector(input),
-  );
+}): RegisteredDsoImage[] => {
+  const project = createInstantHorizontalProjector(input);
+  return input.definitions.map((definition) => ({
+    mesh: projectMesh(
+      createEquatorialCutoutMesh({
+        centerDeclinationJ2000Degrees: definition.declinationJ2000Degrees,
+        centerRightAscensionJ2000Hours: definition.rightAscensionJ2000Hours,
+        fieldOfViewDegrees: definition.fieldOfViewDegrees,
+        heightPixels: 256,
+        widthPixels: 256,
+      }),
+      project,
+    ),
+    source: definition.source,
+    targetId: definition.targetId,
+  }));
+};
 
-export const getSelectedDsoImageOpacity = (
+export const getRegisteredDsoImageOpacity = (
   angularRadiusDegrees: number,
   cameraFieldOfViewDegrees: number,
 ) => {
@@ -182,7 +200,53 @@ export const getSelectedDsoImageOpacity = (
     ((fadeStartFieldOfViewDegrees - cameraFieldOfViewDegrees) /
       fadeStartFieldOfViewDegrees) *
     1.4;
-  return Math.max(0, Math.min(0.82, opacity));
+  return Math.max(0, Math.min(0.9, opacity));
+};
+
+const getCameraCornerAngularRadiusDegrees = (
+  camera: PlanetariumCamera,
+  canvas: CanvasSizePixels,
+) => {
+  const halfMinimumDimensionPixels =
+    Math.min(canvas.widthPixels, canvas.heightPixels) / 2;
+  const cornerRadiusPixels = Math.hypot(
+    canvas.widthPixels / 2,
+    canvas.heightPixels / 2,
+  );
+  return (
+    (2 *
+      Math.atan(
+        (cornerRadiusPixels / Math.max(1, halfMinimumDimensionPixels)) *
+          Math.tan((camera.fieldOfViewDegrees * Math.PI) / 720),
+      ) *
+      180) /
+    Math.PI
+  );
+};
+
+export const selectRegisteredDsoImages = (
+  images: readonly RegisteredDsoImage[],
+  camera: PlanetariumCamera,
+  canvas: CanvasSizePixels,
+  selectedTargetId: string | null,
+): RegisteredDsoImage[] => {
+  const cameraCenter = getPlanetariumCameraCenter(camera);
+  const viewRadiusDegrees = getCameraCornerAngularRadiusDegrees(camera, canvas);
+  return images
+    .filter(
+      ({ mesh }) =>
+        getRegisteredDsoImageOpacity(
+          mesh.angularRadiusDegrees,
+          camera.fieldOfViewDegrees,
+        ) > 0 &&
+        angularSeparationDegrees(cameraCenter, mesh.centerDirection) <=
+          viewRadiusDegrees + mesh.angularRadiusDegrees,
+    )
+    .sort((left, right) => {
+      if (left.targetId === selectedTargetId) return 1;
+      if (right.targetId === selectedTargetId) return -1;
+      return left.targetId.localeCompare(right.targetId);
+    });
 };
 
 const limitingMagnitudeForFieldOfView = (fieldOfViewDegrees: number) => {
@@ -201,12 +265,12 @@ const starStyle = (star: HorizontalRegisteredStar) => {
         : '#f2f5ff';
   const radiusPixels =
     star.magnitude <= 1.5
-      ? 2.25
+      ? 2.5
       : star.magnitude <= 3.5
-        ? 1.65
+        ? 1.85
         : star.magnitude <= 5
-          ? 1.15
-          : 0.8;
+          ? 1.25
+          : 0.85;
   return { color, radiusPixels };
 };
 
@@ -219,20 +283,10 @@ export const selectRegisteredStarBatches = (
     camera.fieldOfViewDegrees,
   );
   const cameraCenter = getPlanetariumCameraCenter(camera);
-  const halfMinimumDimensionPixels =
-    Math.min(canvas.widthPixels, canvas.heightPixels) / 2;
-  const cornerRadiusPixels = Math.hypot(
-    canvas.widthPixels / 2,
-    canvas.heightPixels / 2,
+  const cornerAngularRadiusDegrees = getCameraCornerAngularRadiusDegrees(
+    camera,
+    canvas,
   );
-  const cornerAngularRadiusDegrees =
-    (2 *
-      Math.atan(
-        (cornerRadiusPixels / Math.max(1, halfMinimumDimensionPixels)) *
-          Math.tan((camera.fieldOfViewDegrees * Math.PI) / 720),
-      ) *
-      180) /
-    Math.PI;
   const residentRadiusDegrees = Math.min(
     180,
     cornerAngularRadiusDegrees + camera.fieldOfViewDegrees * 0.15,

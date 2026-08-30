@@ -35,9 +35,9 @@ silently falling back to vector-only rendering.
       in the approved render order.
 - [x] Extend About and licences plus the technology/data registry.
 - [x] Run the mandatory automated quality gates in final-state order. Format,
-      typecheck, lint, all 358 tests, asset validation, and build pass.
+      typecheck, lint, all 362 tests, asset validation, and build pass.
 - [x] Perform representative and constrained Android visual QA.
-- [x] Build and inspect the 192,055,225-byte release APK and record emulator
+- [x] Build and inspect the 192,161,865-byte release APK and record emulator
       diagnostics.
 - [x] Review security, privacy, attribution, and the final diff.
 - [x] Correct the 12-hour d3-celestial constellation registration error, verify
@@ -58,9 +58,10 @@ The focused specification, deterministic selection tests, generated runtime
 asset map, and manifests cover 289 physical targets: all 110 Messier
 designations across 109 physical records, all 109 Caldwell targets, and 71
 additional notable named DSOs. Asset validation passes for 223 Pan-STARRS and 66
-AllWISE cutouts totalling 4,847,515 bytes. Final automated gates pass, the release
-APK is 192,055,225 bytes, and representative plus constrained Android inspection
-confirms the corrected Cygnus figure and a registered NGC 7000 survey cutout.
+AllWISE cutouts totalling 4,847,515 bytes. Final automated gates pass all 362
+tests, the refreshed release APK is 192,161,865 bytes, and representative plus
+constrained Android inspection confirms the corrected Cygnus figure and a
+registered NGC 7000 survey cutout.
 The remaining step is the physical-device frame-rate measurement.
 
 **Blockers and decisions**

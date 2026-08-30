@@ -3,7 +3,7 @@ import type {
   HorizontalDirectionDegrees,
 } from './projection';
 
-export const MINIMUM_PLANETARIUM_FIELD_OF_VIEW_DEGREES = 8;
+export const MINIMUM_PLANETARIUM_FIELD_OF_VIEW_DEGREES = 0.25;
 export const MAXIMUM_PLANETARIUM_FIELD_OF_VIEW_DEGREES = 235;
 
 export interface Vector3 {
