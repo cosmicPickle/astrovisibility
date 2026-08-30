@@ -193,3 +193,27 @@ export const projectPlanetariumPanoramaMesh = (
   }
   return { indices, vertices };
 };
+
+export const projectPlanetariumPanoramaMeshes = (
+  meshes: readonly PlanetariumPanoramaMesh[],
+  camera: PlanetariumCamera,
+  canvas: CanvasSizePixels,
+): {
+  indices: number[];
+  texturePointsPixels: { x: number; y: number }[];
+  vertices: { xPixels: number; yPixels: number }[];
+} => {
+  'worklet';
+  const indices: number[] = [];
+  const texturePointsPixels: { x: number; y: number }[] = [];
+  const vertices: { xPixels: number; yPixels: number }[] = [];
+  for (const mesh of meshes) {
+    const projection = projectPlanetariumPanoramaMesh(mesh, camera, canvas);
+    if (projection.indices.length === 0) continue;
+    const vertexOffset = vertices.length;
+    vertices.push(...projection.vertices);
+    texturePointsPixels.push(...mesh.texturePointsPixels);
+    for (const index of projection.indices) indices.push(index + vertexOffset);
+  }
+  return { indices, texturePointsPixels, vertices };
+};

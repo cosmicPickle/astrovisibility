@@ -154,21 +154,24 @@ export const LicencesScreen = ({
         </SectionCard>
 
         <SectionCard>
-          <AppText tone="label">Gaia and registered survey imagery</AppText>
+          <AppText tone="label">
+            Milky Way and registered survey imagery
+          </AppText>
           <AppText>
-            Offline Gaia DR3 colour-flux sky context and{' '}
+            Axel Mellinger's offline full-sky Milky Way panorama and{' '}
             {skyAssetManifest.generated.dsoImageCount} registered Pan-STARRS and
             AllWISE cutouts cover all Messier designations, all Caldwell
             targets, and the selected notable named DSO set.
           </AppText>
           <AppText tone="muted">
-            Gaia data credit: ESA/Gaia/DPAC, CC BY-SA 3.0 IGO. Pan-STARRS1
-            survey imagery is public astronomy data; the NASA/IPAC AllWISE
-            colour HiPS is supplied by CDS under ODbL-1.0. No sky imagery is
-            downloaded at runtime.
+            Milky Way image credit: Axel Mellinger, redistributed with the
+            attribution permission recorded by Stellarium. Pan-STARRS1 survey
+            imagery is public astronomy data; the NASA/IPAC AllWISE colour HiPS
+            is supplied by CDS under ODbL-1.0. No sky imagery is downloaded at
+            runtime.
           </AppText>
           <ActionButton
-            label="Open Gaia archive and credit"
+            label="Open Milky Way image credit"
             onPress={() =>
               void Linking.openURL(skyAssetManifest.sources[2].url)
             }

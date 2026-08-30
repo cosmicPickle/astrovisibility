@@ -1,5 +1,5 @@
 {
-  "generatedFromPinnedInputsOn": "2026-08-29",
+  "generatedFromPinnedInputsOn": "2026-08-30",
   "limitingMagnitude": 7,
   "sources": [
     {
@@ -18,10 +18,10 @@
       "url": "https://github.com/ofrohn/d3-celestial"
     },
     {
-      "dataset": "CDS/P/DM/flux-color-Rp-G-Bp/I/355/gaiadr3",
-      "license": "CC BY-SA 3.0 IGO",
-      "name": "Gaia DR3 colour flux map",
-      "url": "https://www.cosmos.esa.int/web/gaia-users/archive"
+      "commit": "e6d38fe5e71e2c591c975fb068f2daf0b89d59b0",
+      "license": "Modification and redistribution permitted with attribution",
+      "name": "Stellarium full-sky Milky Way panorama by Axel Mellinger",
+      "url": "https://github.com/Stellarium/stellarium/blob/e6d38fe5e71e2c591c975fb068f2daf0b89d59b0/CREDITS.md"
     },
     {
       "dataset": "CDS/P/PanSTARRS/DR1/color-i-r-g",
@@ -44,9 +44,9 @@
       "CDS/P/PanSTARRS/DR1/color-i-r-g": 223,
       "CDS/P/allWISE/color": 66
     },
-    "gaiaAtlas": {
-      "heightPixels": 128,
-      "widthPixels": 256
+    "milkyWayAtlas": {
+      "heightPixels": 1024,
+      "widthPixels": 2048
     },
     "starCount": 15598,
     "starsSha256": "c4cf23a44b11ac368ed82c60a6a82c3cb94c2a1981a582256964fcb3fd4a6fad"
@@ -1499,9 +1499,9 @@
         "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
       }
     },
-    "gaia": {
-      "bytes": 17692,
-      "sha256": "b68c347fa6361a0084b29bdeb115eba04e8f2c13bb911fa880a79885388111d3"
+    "milkyWay": {
+      "bytes": 1003398,
+      "sha256": "95ca887ae2fd6811a202f83bccb1376819957d074eed92e4df17f9cbea83df97"
     }
   }
 }

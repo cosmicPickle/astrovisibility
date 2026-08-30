@@ -31,15 +31,16 @@ describe('registered sky projection', () => {
 });
 
 describe('selected DSO image visibility', () => {
-  it('fades the survey cutout in before the closest zoom level', () => {
-    expect(getRegisteredDsoImageOpacity(0.71, 24)).toBe(0);
-    expect(getRegisteredDsoImageOpacity(0.71, 20)).toBeGreaterThan(0);
-    expect(getRegisteredDsoImageOpacity(0.71, 8)).toBe(0.9);
+  it('fades a survey cutout according to its useful on-screen diameter', () => {
+    expect(getRegisteredDsoImageOpacity(0.71, 24, 390)).toBe(0);
+    expect(getRegisteredDsoImageOpacity(0.71, 12, 390)).toBeGreaterThan(0);
+    expect(getRegisteredDsoImageOpacity(0.71, 5, 390)).toBe(0.9);
   });
 
-  it('starts larger cutouts fading in at a wider field of view', () => {
-    expect(getRegisteredDsoImageOpacity(4.25, 40)).toBe(0);
-    expect(getRegisteredDsoImageOpacity(4.25, 30)).toBeGreaterThan(0);
+  it('allows physically larger cutouts to appear in wider views', () => {
+    expect(getRegisteredDsoImageOpacity(4.25, 110, 390)).toBe(0);
+    expect(getRegisteredDsoImageOpacity(4.25, 100, 390)).toBeGreaterThan(0);
+    expect(getRegisteredDsoImageOpacity(4.25, 30, 390)).toBe(0.9);
   });
 
   it('selects every close in-frame cutout and draws the selected one last', () => {
@@ -163,6 +164,11 @@ describe('registered star density', () => {
     );
     expect(batches.flatMap(({ directions }) => directions)).toHaveLength(3);
     expect(new Set(batches.map(({ color }) => color)).size).toBe(3);
+    expect(
+      batches.every(
+        ({ haloRadiusPixels, radiusPixels }) => haloRadiusPixels > radiusPixels,
+      ),
+    ).toBe(true);
   });
 });
 

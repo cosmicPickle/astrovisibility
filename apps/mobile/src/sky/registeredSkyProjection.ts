@@ -62,6 +62,7 @@ export interface RegisteredSkyProjection {
 export interface RegisteredStarBatch {
   color: string;
   directions: HorizontalDirectionDegrees[];
+  haloRadiusPixels: number;
   key: string;
   radiusPixels: number;
 }
@@ -83,8 +84,10 @@ export interface RegisteredDsoImageDefinition {
 const stars = starsJson as unknown as RegisteredStarRow[];
 const constellations = constellationsJson as RegisteredConstellation[];
 const equatorialAtlasTiles = createEquatorialAtlasTiles({
-  heightPixels: 128,
-  widthPixels: 256,
+  heightPixels: 1024,
+  rightAscensionAtLeftEdgeHours: 6,
+  rightAscensionIncreasesToRight: false,
+  widthPixels: 2048,
 });
 
 const projectMesh = (
@@ -193,13 +196,18 @@ export const createRegisteredDsoProjection = (input: {
 export const getRegisteredDsoImageOpacity = (
   angularRadiusDegrees: number,
   cameraFieldOfViewDegrees: number,
+  minimumCanvasDimensionPixels: number,
 ) => {
   'worklet';
-  const fadeStartFieldOfViewDegrees = Math.max(24, angularRadiusDegrees * 8);
+  const approximateDiameterPixels =
+    ((angularRadiusDegrees * 2) / cameraFieldOfViewDegrees) *
+    minimumCanvasDimensionPixels;
+  const fadeStartDiameterPixels = 32;
+  const fullOpacityDiameterPixels = 96;
   const opacity =
-    ((fadeStartFieldOfViewDegrees - cameraFieldOfViewDegrees) /
-      fadeStartFieldOfViewDegrees) *
-    1.4;
+    ((approximateDiameterPixels - fadeStartDiameterPixels) /
+      (fullOpacityDiameterPixels - fadeStartDiameterPixels)) *
+    0.9;
   return Math.max(0, Math.min(0.9, opacity));
 };
 
@@ -238,6 +246,7 @@ export const selectRegisteredDsoImages = (
         getRegisteredDsoImageOpacity(
           mesh.angularRadiusDegrees,
           camera.fieldOfViewDegrees,
+          Math.min(canvas.widthPixels, canvas.heightPixels),
         ) > 0 &&
         angularSeparationDegrees(cameraCenter, mesh.centerDirection) <=
           viewRadiusDegrees + mesh.angularRadiusDegrees,
@@ -271,7 +280,7 @@ const starStyle = (star: HorizontalRegisteredStar) => {
         : star.magnitude <= 5
           ? 1.25
           : 0.85;
-  return { color, radiusPixels };
+  return { color, haloRadiusPixels: radiusPixels + 1.15, radiusPixels };
 };
 
 export const selectRegisteredStarBatches = (
@@ -300,7 +309,7 @@ export const selectRegisteredStarBatches = (
       continue;
     }
     const style = starStyle(star);
-    const key = `${style.color}-${style.radiusPixels}`;
+    const key = `${style.color}-${style.radiusPixels}-${style.haloRadiusPixels}`;
     const batch = batches.get(key) ?? { ...style, directions: [], key };
     batch.directions.push(star);
     batches.set(key, batch);

@@ -41,7 +41,7 @@ const run = async () => {
     };
     imagery: {
       dso: Record<string, { bytes: number; sha256: string; surveyId: string }>;
-      gaia: { bytes: number; sha256: string };
+      milkyWay: { bytes: number; sha256: string };
     };
     sources: { name: string; sha256?: string }[];
   };
@@ -80,14 +80,14 @@ const run = async () => {
   if (sha256(lineBytes) !== manifest.sources[1]?.sha256) {
     fail('constellation source checksum');
   }
-  const gaiaBytes = await readFile(
-    path.join(imageryDirectory, 'gaia-dr3-flux-color-car.jpg'),
+  const milkyWayBytes = await readFile(
+    path.join(imageryDirectory, 'stellarium-milkyway.png'),
   );
   if (
-    gaiaBytes.byteLength !== manifest.imagery.gaia.bytes ||
-    sha256(gaiaBytes) !== manifest.imagery.gaia.sha256
+    milkyWayBytes.byteLength !== manifest.imagery.milkyWay.bytes ||
+    sha256(milkyWayBytes) !== manifest.imagery.milkyWay.sha256
   ) {
-    fail('Gaia image');
+    fail('Milky Way image');
   }
   const expectedDsoIds = Object.keys(manifest.imagery.dso).sort();
   if (

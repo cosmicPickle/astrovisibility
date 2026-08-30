@@ -12,7 +12,7 @@ import {
 import {
   createRegisteredSkyAssetsModule,
   dsoImageRequests,
-  gaiaAtlasRequest,
+  milkyWayAtlasRequest,
 } from './skyImageRequests.ts';
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -75,7 +75,7 @@ const run = async () => {
     ),
   ) as unknown;
   const manifest = {
-    generatedFromPinnedInputsOn: '2026-08-29',
+    generatedFromPinnedInputsOn: '2026-08-30',
     limitingMagnitude: 7,
     sources: [
       {
@@ -94,10 +94,10 @@ const run = async () => {
         url: 'https://github.com/ofrohn/d3-celestial',
       },
       {
-        dataset: 'CDS/P/DM/flux-color-Rp-G-Bp/I/355/gaiadr3',
-        license: 'CC BY-SA 3.0 IGO',
-        name: 'Gaia DR3 colour flux map',
-        url: 'https://www.cosmos.esa.int/web/gaia-users/archive',
+        commit: 'e6d38fe5e71e2c591c975fb068f2daf0b89d59b0',
+        license: 'Modification and redistribution permitted with attribution',
+        name: 'Stellarium full-sky Milky Way panorama by Axel Mellinger',
+        url: 'https://github.com/Stellarium/stellarium/blob/e6d38fe5e71e2c591c975fb068f2daf0b89d59b0/CREDITS.md',
       },
       {
         dataset: 'CDS/P/PanSTARRS/DR1/color-i-r-g',
@@ -117,9 +117,9 @@ const run = async () => {
       constellationsSha256: sha256(constellationsJson),
       dsoImageCount: dsoImageRequests.length,
       dsoImageSurveyCounts,
-      gaiaAtlas: {
-        heightPixels: gaiaAtlasRequest.heightPixels,
-        widthPixels: gaiaAtlasRequest.widthPixels,
+      milkyWayAtlas: {
+        heightPixels: milkyWayAtlasRequest.heightPixels,
+        widthPixels: milkyWayAtlasRequest.widthPixels,
       },
       starCount: starResult.stars.length,
       starsSha256: sha256(starsJson),

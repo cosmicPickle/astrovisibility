@@ -42,6 +42,8 @@ const createGridIndices = (columnCount: number, rowCount: number) => {
 
 export const createEquatorialAtlasTiles = (input: {
   heightPixels: number;
+  rightAscensionAtLeftEdgeHours?: number;
+  rightAscensionIncreasesToRight?: boolean;
   widthPixels: number;
 }): EquatorialImageMesh[] => {
   assertPositivePixels(input.widthPixels, 'widthPixels');
@@ -73,7 +75,10 @@ export const createEquatorialAtlasTiles = (input: {
           directions.push({
             declinationJ2000Degrees: 90 - globalVerticalRatio * 180,
             rightAscensionJ2000Hours: wrapRightAscensionHours(
-              globalHorizontalRatio * 24,
+              (input.rightAscensionAtLeftEdgeHours ?? 0) +
+                globalHorizontalRatio *
+                  24 *
+                  (input.rightAscensionIncreasesToRight === false ? -1 : 1),
             ),
           });
           texturePointsPixels.push({

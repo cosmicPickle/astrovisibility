@@ -6,9 +6,8 @@ import { fileURLToPath } from 'node:url';
 import {
   assetFileNameForTargetId,
   createDsoImageUrl,
-  createHips2FitsUrl,
   dsoImageRequests,
-  gaiaAtlasRequest,
+  milkyWayAtlasRequest,
   SKY_IMAGE_SERVICE_ORIGIN,
 } from './skyImageRequests.ts';
 
@@ -41,18 +40,35 @@ const readJpegDimensions = (bytes: Uint8Array) => {
   throw new TypeError('JPEG dimensions were not found');
 };
 
+const readPngDimensions = (bytes: Uint8Array) => {
+  const signature = [137, 80, 78, 71, 13, 10, 26, 10];
+  if (!signature.every((value, index) => bytes[index] === value)) {
+    throw new TypeError('Downloaded image is not a PNG');
+  }
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  return {
+    heightPixels: view.getUint32(20),
+    widthPixels: view.getUint32(16),
+  };
+};
+
 const downloadImage = async (input: {
+  contentType?: 'image/jpeg' | 'image/png';
   filePath: string;
   heightPixels: number;
   url: URL;
   widthPixels: number;
 }) => {
-  if (input.url.origin !== SKY_IMAGE_SERVICE_ORIGIN) {
+  if (
+    input.url.origin !== SKY_IMAGE_SERVICE_ORIGIN &&
+    input.url.origin !== 'https://raw.githubusercontent.com'
+  ) {
     throw new TypeError(`Unexpected image service origin: ${input.url.origin}`);
   }
   const response = await fetch(input.url, { redirect: 'error' });
   if (!response.ok) throw new Error(`Image request failed: ${response.status}`);
-  if (!response.headers.get('content-type')?.startsWith('image/jpeg')) {
+  const contentType = input.contentType ?? 'image/jpeg';
+  if (!response.headers.get('content-type')?.startsWith(contentType)) {
     throw new TypeError('Image service returned an unexpected content type');
   }
   const declaredLength = Number(response.headers.get('content-length') ?? 0);
@@ -63,7 +79,10 @@ const downloadImage = async (input: {
   if (bytes.byteLength > maximumResponseBytes) {
     throw new RangeError('Image response exceeds the byte limit');
   }
-  const dimensions = readJpegDimensions(bytes);
+  const dimensions =
+    contentType === 'image/png'
+      ? readPngDimensions(bytes)
+      : readJpegDimensions(bytes);
   if (
     dimensions.widthPixels !== input.widthPixels ||
     dimensions.heightPixels !== input.heightPixels
@@ -82,12 +101,12 @@ const downloadImage = async (input: {
 const run = async () => {
   const dsoDirectory = path.join(outputDirectory, 'dso');
   await mkdir(dsoDirectory, { recursive: true });
-  const gaiaUrl = createHips2FitsUrl({ ...gaiaAtlasRequest.query });
-  const gaia = await downloadImage({
-    filePath: path.join(outputDirectory, gaiaAtlasRequest.fileName),
-    heightPixels: gaiaAtlasRequest.heightPixels,
-    url: gaiaUrl,
-    widthPixels: gaiaAtlasRequest.widthPixels,
+  const milkyWay = await downloadImage({
+    contentType: 'image/png',
+    filePath: path.join(outputDirectory, milkyWayAtlasRequest.fileName),
+    heightPixels: milkyWayAtlasRequest.heightPixels,
+    url: new URL(milkyWayAtlasRequest.sourceUrl),
+    widthPixels: milkyWayAtlasRequest.widthPixels,
   });
   const dso: Record<
     string,
@@ -125,7 +144,7 @@ const run = async () => {
   }
   await writeFile(
     path.join(outputDirectory, 'download-manifest.json'),
-    `${JSON.stringify({ dso, gaia }, null, 2)}\n`,
+    `${JSON.stringify({ dso, milkyWay }, null, 2)}\n`,
   );
 };
 

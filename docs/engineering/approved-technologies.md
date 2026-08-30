@@ -178,7 +178,7 @@ validation.
 | Astronomical League Caldwell catalogue, snapshot 2026-08-19 | Adopted for v1 as reviewed mapping input | Complete 109-object Caldwell membership cross-reference and provenance |
 | HYG Database v4.4, commit `53e3df311869e813ace5f1ad2ec4ce909f13256c` | Adopted as pinned CC BY-SA 4.0 build input | Offline magnitude-limited real-star layer; only normalized generated data enters the runtime |
 | d3-celestial constellation data, commit `7e720a3de062059d4c5400a379146a601d9010e0` | Adopted as pinned BSD-3-Clause build input | Western constellation chart figures and names; no d3-celestial runtime code is bundled |
-| Gaia DR3 colour flux map `CDS/P/DM/flux-color-Rp-G-Bp/I/355/gaiadr3` | Adopted as bounded CC BY-SA 3.0 IGO image input | One offline 256×128 ICRS context atlas generated through CDS HiPS2FITS |
+| Stellarium full-sky Milky Way panorama by Axel Mellinger | Adopted as a pinned, attributed static image input; modification and redistribution are permitted with proper credit | One offline 2048×1024 equatorial context atlas from Stellarium commit `e6d38fe5e71e2c591c975fb068f2daf0b89d59b0`; display opacity is bounded in-app |
 | Pan-STARRS1 DR1 colour HiPS `CDS/P/PanSTARRS/DR1/color-i-r-g` | Adopted as bounded public-survey image input | 223 deterministic 256×256 optical cutouts for required targets fully inside the survey footprint; no runtime service |
 | AllWISE colour HiPS `CDS/P/allWISE/color` | Adopted as an all-sky ODbL-1.0 image input derived by CDS from NASA/IPAC WISE Atlas imagery | 66 deterministic 256×256 infrared cutouts for required targets outside Pan-STARRS coverage; no runtime service |
 

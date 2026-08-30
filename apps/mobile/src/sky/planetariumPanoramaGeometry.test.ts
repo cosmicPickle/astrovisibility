@@ -6,6 +6,7 @@ import {
 import {
   createPlanetariumPanoramaMesh,
   projectPlanetariumPanoramaMesh,
+  projectPlanetariumPanoramaMeshes,
 } from './planetariumPanoramaGeometry';
 
 const upwardTile: ActivePanoramaTile = {
@@ -98,5 +99,30 @@ describe('planetarium panorama mesh', () => {
       expect(Math.abs(point.xPixels)).toBeLessThan(canvas.widthPixels * 3);
       expect(Math.abs(point.yPixels)).toBeLessThan(canvas.heightPixels * 3);
     }
+  });
+
+  it('combines visible meshes into one correctly indexed draw payload', () => {
+    const mesh = createPlanetariumPanoramaMesh({
+      ...upwardTile,
+      centerAltitudeDegrees: 35,
+      centerAzimuthDegrees: 15,
+    });
+    const projection = projectPlanetariumPanoramaMeshes(
+      [mesh, mesh],
+      createPlanetariumCamera({
+        centerAltitudeDegrees: 35,
+        centerAzimuthDegrees: 0,
+        fieldOfViewDegrees: 100,
+      }),
+      { widthPixels: 390, heightPixels: 420 },
+    );
+
+    expect(projection.vertices).toHaveLength(mesh.directions.length * 2);
+    expect(projection.texturePointsPixels).toHaveLength(
+      mesh.texturePointsPixels.length * 2,
+    );
+    expect(Math.max(...projection.indices)).toBeGreaterThanOrEqual(
+      mesh.directions.length,
+    );
   });
 });

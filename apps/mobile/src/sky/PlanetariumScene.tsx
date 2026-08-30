@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import {
   Canvas,
-  BlurMask,
   Circle,
   DashPathEffect,
   Fill,
@@ -45,6 +44,7 @@ import {
 import {
   createPlanetariumPanoramaMesh,
   projectPlanetariumPanoramaMesh,
+  projectPlanetariumPanoramaMeshes,
   type PlanetariumPanoramaMesh,
 } from './planetariumPanoramaGeometry';
 import { createScreenCenteredFieldOfViewFrame } from './fieldOfViewGeometry';
@@ -62,7 +62,7 @@ import type {
 import { createProjectedTrajectoryGroups } from './planetariumTrajectory';
 import { isTimestampInIntervals } from '../astronomy/astronomicalDarkness';
 import type { VisibilityInterval } from '../astronomy/trajectory';
-import { gaiaAtlasImage } from './registeredSkyAssets';
+import { milkyWayAtlasImage } from './registeredSkyAssets';
 import type { MaskMode } from './MaskAppearanceControls';
 import {
   getRegisteredDsoImageOpacity,
@@ -88,6 +88,7 @@ const markerFont = matchFont({
   fontSize: 9,
   fontWeight: '700',
 });
+
 const cardinalFont = matchFont({
   fontFamily: 'sans-serif',
   fontSize: CARDINAL_LABEL_FONT_SIZE_PIXELS,
@@ -832,7 +833,7 @@ function ProjectedImageMesh({
   );
 }
 
-function GaiaAtlasLayer({
+function ProjectedImageMeshes({
   camera,
   canvas,
   meshes,
@@ -841,11 +842,49 @@ function GaiaAtlasLayer({
   canvas: CanvasSizePixels;
   meshes: readonly PlanetariumPanoramaMesh[];
 }) {
-  const image = useImage(gaiaAtlasImage);
+  const projectedMeshes = useDerivedValue(() => {
+    const projection = projectPlanetariumPanoramaMeshes(
+      meshes,
+      camera.value,
+      canvas,
+    );
+    return {
+      indices: projection.indices,
+      textures: projection.texturePointsPixels.map((point) =>
+        vec(point.x, point.y),
+      ),
+      vertices: projection.vertices.map((point) =>
+        vec(point.xPixels, point.yPixels),
+      ),
+    };
+  });
+  const indices = useDerivedValue(() => projectedMeshes.value.indices);
+  const textures = useDerivedValue(() => projectedMeshes.value.textures);
+  const vertices = useDerivedValue(() => projectedMeshes.value.vertices);
+  return (
+    <Vertices
+      indices={indices}
+      mode="triangles"
+      textures={textures}
+      vertices={vertices}
+    />
+  );
+}
+
+function MilkyWayAtlasLayer({
+  camera,
+  canvas,
+  meshes,
+}: {
+  camera: SharedValue<PlanetariumCamera>;
+  canvas: CanvasSizePixels;
+  meshes: readonly PlanetariumPanoramaMesh[];
+}) {
+  const image = useImage(milkyWayAtlasImage);
   const opacity = useDerivedValue(() =>
     Math.max(
       0,
-      Math.min(0.5, ((camera.value.fieldOfViewDegrees - 1) / 17) * 0.5),
+      Math.min(0.62, ((camera.value.fieldOfViewDegrees - 1) / 17) * 0.62),
     ),
   );
   if (!image) return null;
@@ -857,14 +896,7 @@ function GaiaAtlasLayer({
         tx="decal"
         ty="decal"
       />
-      {meshes.map((mesh, index) => (
-        <ProjectedImageMesh
-          camera={camera}
-          canvas={canvas}
-          key={index}
-          mesh={mesh}
-        />
-      ))}
+      <ProjectedImageMeshes camera={camera} canvas={canvas} meshes={meshes} />
     </Group>
   );
 }
@@ -897,22 +929,28 @@ function RegisteredStarBatchLayer({
   camera: SharedValue<PlanetariumCamera>;
   canvas: CanvasSizePixels;
 }) {
-  const path = useDerivedValue(() => {
-    const builder = Skia.PathBuilder.Make();
+  const paths = useDerivedValue(() => {
+    const coreBuilder = Skia.PathBuilder.Make();
+    const haloBuilder = Skia.PathBuilder.Make();
     for (const direction of batch.directions) {
       const point = projectHorizontalDirection(direction, camera.value, canvas);
       if (point.visible) {
-        builder.addCircle(point.xPixels, point.yPixels, batch.radiusPixels);
+        coreBuilder.addCircle(point.xPixels, point.yPixels, batch.radiusPixels);
+        haloBuilder.addCircle(
+          point.xPixels,
+          point.yPixels,
+          batch.haloRadiusPixels,
+        );
       }
     }
-    return builder.build();
+    return { core: coreBuilder.build(), halo: haloBuilder.build() };
   });
+  const corePath = useDerivedValue(() => paths.value.core);
+  const haloPath = useDerivedValue(() => paths.value.halo);
   return (
     <>
-      <Path color={batch.color} opacity={0.45} path={path} style="fill">
-        <BlurMask blur={1.8} respectCTM={false} style="normal" />
-      </Path>
-      <Path color={batch.color} opacity={1} path={path} style="fill" />
+      <Path color={batch.color} opacity={0.22} path={haloPath} style="fill" />
+      <Path color={batch.color} opacity={1} path={corePath} style="fill" />
     </>
   );
 }
@@ -973,6 +1011,7 @@ function RegisteredDsoImageLayer({
     getRegisteredDsoImageOpacity(
       mesh.angularRadiusDegrees,
       camera.value.fieldOfViewDegrees,
+      Math.min(canvas.widthPixels, canvas.heightPixels),
     ),
   );
   if (!image) return null;
@@ -1357,7 +1396,7 @@ export function PlanetariumScene({
   return (
     <Canvas style={{ flex: 1 }}>
       <Fill color={colors.backdrop} />
-      <GaiaAtlasLayer
+      <MilkyWayAtlasLayer
         camera={camera}
         canvas={canvas}
         meshes={registeredSky.atlasMeshes}

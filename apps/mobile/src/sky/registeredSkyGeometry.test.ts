@@ -32,6 +32,19 @@ describe('registered sky geometry', () => {
     });
   });
 
+  it('registers a westward equatorial atlas from its left-edge hour', () => {
+    const tiles = createEquatorialAtlasTiles({
+      heightPixels: 512,
+      rightAscensionAtLeftEdgeHours: 6,
+      rightAscensionIncreasesToRight: false,
+      widthPixels: 1024,
+    });
+
+    expect(tiles[0]?.directions[0]?.rightAscensionJ2000Hours).toBe(6);
+    expect(tiles[0]?.directions.at(-1)?.rightAscensionJ2000Hours).toBe(4);
+    expect(tiles.at(-1)?.directions.at(-1)?.rightAscensionJ2000Hours).toBe(6);
+  });
+
   it('centres a bounded cutout mesh on its catalogue coordinate across RA zero', () => {
     const mesh = createEquatorialCutoutMesh({
       centerDeclinationJ2000Degrees: 41.269,
