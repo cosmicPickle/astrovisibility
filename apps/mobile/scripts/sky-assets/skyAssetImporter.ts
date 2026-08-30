@@ -136,7 +136,7 @@ export const buildStarData = (
 };
 
 const longitudeToRightAscensionHours = (longitudeDegrees: number) =>
-  ((((longitudeDegrees + 180) % 360) + 360) % 360) / 15;
+  (((longitudeDegrees % 360) + 360) % 360) / 15;
 
 const toEquatorialCoordinate = (
   coordinates: JsonCoordinate,

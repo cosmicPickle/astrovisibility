@@ -95,27 +95,27 @@ describe('registered sky asset importer', () => {
         id: 'Ser',
         label: {
           declinationJ2000Degrees: 1,
-          rightAscensionJ2000Hours: 0,
+          rightAscensionJ2000Hours: 12,
         },
         lines: [
           [
             {
               declinationJ2000Degrees: 4,
-              rightAscensionJ2000Hours: 23.933333333333334,
+              rightAscensionJ2000Hours: 11.933333333333334,
             },
             {
               declinationJ2000Degrees: 5,
-              rightAscensionJ2000Hours: 0.06666666666666667,
+              rightAscensionJ2000Hours: 12.066666666666666,
             },
           ],
           [
             {
               declinationJ2000Degrees: -2,
-              rightAscensionJ2000Hours: 13,
+              rightAscensionJ2000Hours: 1,
             },
             {
               declinationJ2000Degrees: -1,
-              rightAscensionJ2000Hours: 14,
+              rightAscensionJ2000Hours: 2,
             },
           ],
         ],
@@ -123,5 +123,40 @@ describe('registered sky asset importer', () => {
         rank: 2,
       },
     ]);
+  });
+
+  it('keeps the Cygnus Deneb vertex at Deneb right ascension', () => {
+    const result = buildConstellationData(
+      {
+        type: 'FeatureCollection',
+        features: [
+          {
+            type: 'Feature',
+            id: 'Cyg',
+            geometry: {
+              type: 'MultiLineString',
+              coordinates: [[[-49.642, 45.2803]]],
+            },
+          },
+        ],
+      },
+      {
+        type: 'FeatureCollection',
+        features: [
+          {
+            type: 'Feature',
+            id: 'Cyg',
+            properties: { name: 'Cygnus', rank: '1' },
+            geometry: { type: 'Point', coordinates: [-52.5, 50] },
+          },
+        ],
+      },
+    );
+
+    expect(result[0]?.lines[0]?.[0]?.declinationJ2000Degrees).toBe(45.2803);
+    expect(result[0]?.lines[0]?.[0]?.rightAscensionJ2000Hours).toBeCloseTo(
+      20.69053333333333,
+      12,
+    );
   });
 });

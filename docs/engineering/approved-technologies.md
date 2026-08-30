@@ -171,7 +171,8 @@ validation.
 | HYG Database v4.4, commit `53e3df311869e813ace5f1ad2ec4ce909f13256c` | Adopted as pinned CC BY-SA 4.0 build input | Offline magnitude-limited real-star layer; only normalized generated data enters the runtime |
 | d3-celestial constellation data, commit `7e720a3de062059d4c5400a379146a601d9010e0` | Adopted as pinned BSD-3-Clause build input | Western constellation chart figures and names; no d3-celestial runtime code is bundled |
 | Gaia DR3 colour flux map `CDS/P/DM/flux-color-Rp-G-Bp/I/355/gaiadr3` | Adopted as bounded CC BY-SA 3.0 IGO image input | One offline 2048×1024 ICRS context atlas generated through CDS HiPS2FITS |
-| Pan-STARRS1 DR1 colour HiPS `CDS/P/PanSTARRS/DR1/color-i-r-g` | Adopted as bounded public-survey image input | Thirteen deterministic 256×256 selected-Messier cutouts generated through CDS HiPS2FITS; no runtime service |
+| Pan-STARRS1 DR1 colour HiPS `CDS/P/PanSTARRS/DR1/color-i-r-g` | Adopted as bounded public-survey image input | 223 deterministic 256×256 optical cutouts for required targets fully inside the survey footprint; no runtime service |
+| AllWISE colour HiPS `CDS/P/allWISE/color` | Adopted as an all-sky ODbL-1.0 image input derived by CDS from NASA/IPAC WISE Atlas imagery | 66 deterministic 256×256 infrared cutouts for required targets outside Pan-STARRS coverage; no runtime service |
 
 OpenNGC-derived output must retain the required CC BY-SA 4.0 attribution and
 provenance. Astronomy source data is imported and normalized at build time; v1

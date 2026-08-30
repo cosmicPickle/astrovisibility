@@ -9,7 +9,11 @@ import {
   buildStarData,
   type ConstellationFeatureCollection,
 } from './skyAssetImporter.ts';
-import { dsoImageRequests, gaiaAtlasRequest } from './skyImageRequests.ts';
+import {
+  createRegisteredSkyAssetsModule,
+  dsoImageRequests,
+  gaiaAtlasRequest,
+} from './skyImageRequests.ts';
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const sourceDirectory = path.join(scriptDirectory, 'source');
@@ -17,6 +21,7 @@ const generatedDirectory = path.resolve(
   scriptDirectory,
   '../../src/sky/generated',
 );
+const runtimeSkyDirectory = path.dirname(generatedDirectory);
 const imageryDirectory = path.resolve(scriptDirectory, '../../assets/sky');
 
 const sha256 = (bytes: Uint8Array | string) =>
@@ -54,6 +59,15 @@ const run = async () => {
   );
   const constellationsJson = serialize(constellations);
   const dsoImagesJson = serialize(dsoImageRequests);
+  const registeredSkyAssetsModule =
+    createRegisteredSkyAssetsModule(dsoImageRequests);
+  const dsoImageSurveyCounts = dsoImageRequests.reduce<Record<string, number>>(
+    (counts, { surveyId }) => ({
+      ...counts,
+      [surveyId]: (counts[surveyId] ?? 0) + 1,
+    }),
+    {},
+  );
   const downloadManifest = JSON.parse(
     await readFile(
       path.join(imageryDirectory, 'download-manifest.json'),
@@ -91,11 +105,18 @@ const run = async () => {
         name: 'Pan-STARRS1 DR1 colour imagery',
         url: 'https://outerspace.stsci.edu/spaces/PANSTARRS/',
       },
+      {
+        dataset: 'CDS/P/allWISE/color',
+        license: 'ODbL-1.0',
+        name: 'AllWISE W4-W2-W1 colour imagery',
+        url: 'https://alasky.cds.unistra.fr/MocServer/query?ID=CDS%2FP%2FallWISE%2Fcolor&fmt=html&get=record',
+      },
     ],
     generated: {
       constellationCount: constellations.length,
       constellationsSha256: sha256(constellationsJson),
       dsoImageCount: dsoImageRequests.length,
+      dsoImageSurveyCounts,
       gaiaAtlas: {
         heightPixels: gaiaAtlasRequest.heightPixels,
         widthPixels: gaiaAtlasRequest.widthPixels,
@@ -116,6 +137,10 @@ const run = async () => {
     writeFile(
       path.join(generatedDirectory, 'sky-asset-manifest.json'),
       `${JSON.stringify(manifest, null, 2)}\n`,
+    ),
+    writeFile(
+      path.join(runtimeSkyDirectory, 'registeredSkyAssets.ts'),
+      registeredSkyAssetsModule,
     ),
   ]);
 };

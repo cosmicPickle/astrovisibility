@@ -154,16 +154,18 @@ export const LicencesScreen = ({
         </SectionCard>
 
         <SectionCard>
-          <AppText tone="label">Gaia and Pan-STARRS survey imagery</AppText>
+          <AppText tone="label">Gaia and registered survey imagery</AppText>
           <AppText>
             Offline Gaia DR3 colour-flux sky context and{' '}
-            {skyAssetManifest.generated.dsoImageCount} selected Pan-STARRS1 DR1
-            Messier cutouts are registered to catalogue coordinates.
+            {skyAssetManifest.generated.dsoImageCount} registered Pan-STARRS and
+            AllWISE cutouts cover all Messier designations, all Caldwell
+            targets, and the selected notable named DSO set.
           </AppText>
           <AppText tone="muted">
             Gaia data credit: ESA/Gaia/DPAC, CC BY-SA 3.0 IGO. Pan-STARRS1
-            survey imagery is public astronomy data supplied through CDS. No sky
-            imagery is downloaded at runtime.
+            survey imagery is public astronomy data; the NASA/IPAC AllWISE
+            colour HiPS is supplied by CDS under ODbL-1.0. No sky imagery is
+            downloaded at runtime.
           </AppText>
           <ActionButton
             label="Open Gaia archive and credit"
@@ -176,6 +178,13 @@ export const LicencesScreen = ({
             label="Open Pan-STARRS archive"
             onPress={() =>
               void Linking.openURL(skyAssetManifest.sources[3].url)
+            }
+            variant="secondary"
+          />
+          <ActionButton
+            label="Open AllWISE HiPS licence"
+            onPress={() =>
+              void Linking.openURL(skyAssetManifest.sources[4].url)
             }
             variant="secondary"
           />

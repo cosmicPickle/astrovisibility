@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
+  assetFileNameForTargetId,
   createDsoImageUrl,
   createHips2FitsUrl,
   dsoImageRequests,
@@ -14,6 +15,7 @@ import {
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const outputDirectory = path.resolve(scriptDirectory, '../../assets/sky');
 const maximumResponseBytes = 8 * 1024 * 1024;
+const maximumConcurrentDownloads = 4;
 
 const readJpegDimensions = (bytes: Uint8Array) => {
   if (bytes[0] !== 0xff || bytes[1] !== 0xd8) {
@@ -87,14 +89,39 @@ const run = async () => {
     url: gaiaUrl,
     widthPixels: gaiaAtlasRequest.widthPixels,
   });
-  const dso: Record<string, { bytes: number; sha256: string }> = {};
-  for (const request of dsoImageRequests) {
-    dso[request.targetId] = await downloadImage({
-      filePath: path.join(dsoDirectory, `${request.targetId}.jpg`),
-      heightPixels: request.heightPixels,
-      url: createDsoImageUrl(request),
-      widthPixels: request.widthPixels,
-    });
+  const dso: Record<
+    string,
+    { bytes: number; sha256: string; surveyId: string }
+  > = {};
+  for (
+    let offset = 0;
+    offset < dsoImageRequests.length;
+    offset += maximumConcurrentDownloads
+  ) {
+    const batch = dsoImageRequests.slice(
+      offset,
+      offset + maximumConcurrentDownloads,
+    );
+    const results = await Promise.all(
+      batch.map(async (request) => ({
+        request,
+        image: await downloadImage({
+          filePath: path.join(
+            dsoDirectory,
+            `${assetFileNameForTargetId(request.targetId)}.jpg`,
+          ),
+          heightPixels: request.heightPixels,
+          url: createDsoImageUrl(request),
+          widthPixels: request.widthPixels,
+        }),
+      })),
+    );
+    for (const { image, request } of results) {
+      dso[request.targetId] = { ...image, surveyId: request.surveyId };
+    }
+    console.log(
+      `Downloaded ${Math.min(offset + batch.length, dsoImageRequests.length)}/${dsoImageRequests.length} DSO images.`,
+    );
   }
   await writeFile(
     path.join(outputDirectory, 'download-manifest.json'),

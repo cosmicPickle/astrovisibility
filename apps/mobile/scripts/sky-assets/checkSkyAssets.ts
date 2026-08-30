@@ -3,6 +3,12 @@ import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import {
+  assetFileNameForTargetId,
+  createRegisteredSkyAssetsModule,
+  dsoImageRequests,
+} from './skyImageRequests.ts';
+
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const sourceDirectory = path.join(scriptDirectory, 'source');
 const generatedDirectory = path.resolve(
@@ -10,6 +16,7 @@ const generatedDirectory = path.resolve(
   '../../src/sky/generated',
 );
 const imageryDirectory = path.resolve(scriptDirectory, '../../assets/sky');
+const runtimeSkyDirectory = path.dirname(generatedDirectory);
 
 const sha256 = (bytes: Uint8Array | string) =>
   createHash('sha256').update(bytes).digest('hex');
@@ -33,7 +40,7 @@ const run = async () => {
       starsSha256: string;
     };
     imagery: {
-      dso: Record<string, { bytes: number; sha256: string }>;
+      dso: Record<string, { bytes: number; sha256: string; surveyId: string }>;
       gaia: { bytes: number; sha256: string };
     };
     sources: { name: string; sha256?: string }[];
@@ -90,9 +97,29 @@ const run = async () => {
   ) {
     fail('DSO image membership');
   }
+  const registeredSkyAssetsSource = await readFile(
+    path.join(runtimeSkyDirectory, 'registeredSkyAssets.ts'),
+    'utf8',
+  );
+  if (
+    registeredSkyAssetsSource !==
+    createRegisteredSkyAssetsModule(dsoImageRequests)
+  ) {
+    fail('runtime DSO asset module');
+  }
   for (const targetId of expectedDsoIds) {
     const expected = manifest.imagery.dso[targetId]!;
-    const filePath = path.join(imageryDirectory, 'dso', `${targetId}.jpg`);
+    const metadata = dsoImageRequests.find(
+      (request) => request.targetId === targetId,
+    );
+    if (!metadata || metadata.surveyId !== expected.surveyId) {
+      fail(`DSO image survey ${targetId}`);
+    }
+    const filePath = path.join(
+      imageryDirectory,
+      'dso',
+      `${assetFileNameForTargetId(targetId)}.jpg`,
+    );
     const fileStat = await stat(filePath);
     const bytes = await readFile(filePath);
     if (fileStat.size !== expected.bytes || sha256(bytes) !== expected.sha256) {

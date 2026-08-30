@@ -34,6 +34,9 @@ describe('LicencesScreen privacy and local-data controls', () => {
 
     expect(view.getByText(/never uploaded/i)).toBeTruthy();
     expect(view.getByText(/Prototype limits/i)).toBeTruthy();
+    expect(
+      view.getByText(/289 registered Pan-STARRS and AllWISE cutouts/i),
+    ).toBeTruthy();
     await fireEvent.press(view.getByText('Delete all local data'));
     expect(view.getByText('Delete everything local?')).toBeTruthy();
     expect(controller.deleteAllLocalData).not.toHaveBeenCalled();
