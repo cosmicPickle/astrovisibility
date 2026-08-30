@@ -60,10 +60,14 @@ export interface RegisteredSkyProjection {
 }
 
 export interface RegisteredStarBatch {
+  coreColor: string;
   color: string;
-  directions: HorizontalDirectionDegrees[];
+  directions: HorizontalRegisteredStar[];
+  fadeStartFieldOfViewDegrees: number | null;
+  fullOpacityFieldOfViewDegrees: number | null;
   haloRadiusPixels: number;
   key: string;
+  outerHaloRadiusPixels: number | null;
   radiusPixels: number;
 }
 
@@ -258,29 +262,167 @@ export const selectRegisteredDsoImages = (
     });
 };
 
-const limitingMagnitudeForFieldOfView = (fieldOfViewDegrees: number) => {
-  if (fieldOfViewDegrees >= 100) return 5.5;
-  if (fieldOfViewDegrees >= 50) return 6;
-  if (fieldOfViewDegrees >= 20) return 6.5;
-  return 7;
+const MAXIMUM_RENDERED_STAR_MAGNITUDE = 6.7;
+const STAR_BAND_PREFETCH_FIELD_OF_VIEW_RATIO = 1.25;
+
+interface RegisteredStarStyle extends Omit<
+  RegisteredStarBatch,
+  'directions' | 'key'
+> {
+  styleKey: string;
+}
+
+interface RegisteredStarMagnitudeStyle extends Pick<
+  RegisteredStarBatch,
+  | 'fadeStartFieldOfViewDegrees'
+  | 'fullOpacityFieldOfViewDegrees'
+  | 'haloRadiusPixels'
+  | 'outerHaloRadiusPixels'
+  | 'radiusPixels'
+> {
+  key: string;
+  maximumMagnitude: number;
+}
+
+const STAR_MAGNITUDE_STYLES: readonly RegisteredStarMagnitudeStyle[] = [
+  {
+    fadeStartFieldOfViewDegrees: null,
+    fullOpacityFieldOfViewDegrees: null,
+    haloRadiusPixels: 3.15,
+    key: '1',
+    maximumMagnitude: 1.5,
+    outerHaloRadiusPixels: 5.2,
+    radiusPixels: 1.85,
+  },
+  {
+    fadeStartFieldOfViewDegrees: null,
+    fullOpacityFieldOfViewDegrees: null,
+    haloRadiusPixels: 2.6,
+    key: '2',
+    maximumMagnitude: 3,
+    outerHaloRadiusPixels: 4.2,
+    radiusPixels: 1.45,
+  },
+  {
+    fadeStartFieldOfViewDegrees: null,
+    fullOpacityFieldOfViewDegrees: null,
+    haloRadiusPixels: 2.05,
+    key: '3',
+    maximumMagnitude: 4,
+    outerHaloRadiusPixels: null,
+    radiusPixels: 1.1,
+  },
+  {
+    fadeStartFieldOfViewDegrees: 105,
+    fullOpacityFieldOfViewDegrees: 65,
+    haloRadiusPixels: 1.8,
+    key: '4',
+    maximumMagnitude: 4.8,
+    outerHaloRadiusPixels: null,
+    radiusPixels: 0.9,
+  },
+  {
+    fadeStartFieldOfViewDegrees: 70,
+    fullOpacityFieldOfViewDegrees: 40,
+    haloRadiusPixels: 1.55,
+    key: '5',
+    maximumMagnitude: 5.5,
+    outerHaloRadiusPixels: null,
+    radiusPixels: 0.72,
+  },
+  {
+    fadeStartFieldOfViewDegrees: 45,
+    fullOpacityFieldOfViewDegrees: 24,
+    haloRadiusPixels: 1.4,
+    key: '6',
+    maximumMagnitude: 6,
+    outerHaloRadiusPixels: null,
+    radiusPixels: 0.62,
+  },
+  {
+    fadeStartFieldOfViewDegrees: 26,
+    fullOpacityFieldOfViewDegrees: 13,
+    haloRadiusPixels: 1.3,
+    key: '7',
+    maximumMagnitude: 6.4,
+    outerHaloRadiusPixels: null,
+    radiusPixels: 0.56,
+  },
+  {
+    fadeStartFieldOfViewDegrees: 14,
+    fullOpacityFieldOfViewDegrees: 7,
+    haloRadiusPixels: 1.2,
+    key: '8',
+    maximumMagnitude: MAXIMUM_RENDERED_STAR_MAGNITUDE,
+    outerHaloRadiusPixels: null,
+    radiusPixels: 0.5,
+  },
+];
+
+const getStarColorStyle = (colorIndexBv: number | undefined) => {
+  if (colorIndexBv !== undefined && colorIndexBv < 0.2) {
+    return { color: '#9fcaff', coreColor: '#f7fbff', key: 'blue' };
+  }
+  if (colorIndexBv !== undefined && colorIndexBv > 1) {
+    return { color: '#ffc88f', coreColor: '#fff9ef', key: 'warm' };
+  }
+  return { color: '#dce7ff', coreColor: '#ffffff', key: 'neutral' };
 };
 
-const starStyle = (star: HorizontalRegisteredStar) => {
-  const color =
-    star.colorIndexBv !== undefined && star.colorIndexBv < 0.2
-      ? '#b9d8ff'
-      : star.colorIndexBv !== undefined && star.colorIndexBv > 1
-        ? '#ffd0a0'
-        : '#f2f5ff';
-  const radiusPixels =
-    star.magnitude <= 1.5
-      ? 2.5
-      : star.magnitude <= 3.5
-        ? 1.85
-        : star.magnitude <= 5
-          ? 1.25
-          : 0.85;
-  return { color, haloRadiusPixels: radiusPixels + 1.15, radiusPixels };
+const getMaximumResidentStarMagnitude = (fieldOfViewDegrees: number) => {
+  let maximumMagnitude = STAR_MAGNITUDE_STYLES[0]!.maximumMagnitude;
+  for (const style of STAR_MAGNITUDE_STYLES) {
+    if (
+      style.fadeStartFieldOfViewDegrees !== null &&
+      fieldOfViewDegrees >
+        style.fadeStartFieldOfViewDegrees *
+          STAR_BAND_PREFETCH_FIELD_OF_VIEW_RATIO
+    ) {
+      break;
+    }
+    maximumMagnitude = style.maximumMagnitude;
+  }
+  return maximumMagnitude;
+};
+
+const starStyle = (star: HorizontalRegisteredStar): RegisteredStarStyle => {
+  const colorStyle = getStarColorStyle(star.colorIndexBv);
+  const magnitudeStyle = STAR_MAGNITUDE_STYLES.find(
+    ({ maximumMagnitude }) => star.magnitude <= maximumMagnitude,
+  )!;
+  return {
+    color: colorStyle.color,
+    coreColor: colorStyle.coreColor,
+    fadeStartFieldOfViewDegrees: magnitudeStyle.fadeStartFieldOfViewDegrees,
+    fullOpacityFieldOfViewDegrees: magnitudeStyle.fullOpacityFieldOfViewDegrees,
+    haloRadiusPixels: magnitudeStyle.haloRadiusPixels,
+    outerHaloRadiusPixels: magnitudeStyle.outerHaloRadiusPixels,
+    radiusPixels: magnitudeStyle.radiusPixels,
+    styleKey: `${colorStyle.key}-${magnitudeStyle.key}`,
+  };
+};
+
+export const getRegisteredStarBatchOpacity = (
+  batch: Pick<
+    RegisteredStarBatch,
+    'fadeStartFieldOfViewDegrees' | 'fullOpacityFieldOfViewDegrees'
+  >,
+  cameraFieldOfViewDegrees: number,
+) => {
+  'worklet';
+  const { fadeStartFieldOfViewDegrees, fullOpacityFieldOfViewDegrees } = batch;
+  if (
+    fadeStartFieldOfViewDegrees === null ||
+    fullOpacityFieldOfViewDegrees === null
+  ) {
+    return 1;
+  }
+  if (cameraFieldOfViewDegrees >= fadeStartFieldOfViewDegrees) return 0;
+  if (cameraFieldOfViewDegrees <= fullOpacityFieldOfViewDegrees) return 1;
+  const progress =
+    (fadeStartFieldOfViewDegrees - cameraFieldOfViewDegrees) /
+    (fadeStartFieldOfViewDegrees - fullOpacityFieldOfViewDegrees);
+  return progress * progress * (3 - 2 * progress);
 };
 
 export const selectRegisteredStarBatches = (
@@ -288,7 +430,7 @@ export const selectRegisteredStarBatches = (
   camera: PlanetariumCamera,
   canvas: CanvasSizePixels,
 ): RegisteredStarBatch[] => {
-  const limitingMagnitude = limitingMagnitudeForFieldOfView(
+  const maximumResidentMagnitude = getMaximumResidentStarMagnitude(
     camera.fieldOfViewDegrees,
   );
   const cameraCenter = getPlanetariumCameraCenter(camera);
@@ -302,15 +444,19 @@ export const selectRegisteredStarBatches = (
   );
   const batches = new Map<string, RegisteredStarBatch>();
   for (const star of projectedStars) {
-    if (
-      star.magnitude > limitingMagnitude ||
-      angularSeparationDegrees(cameraCenter, star) > residentRadiusDegrees
-    ) {
+    if (star.magnitude > maximumResidentMagnitude) {
       continue;
     }
     const style = starStyle(star);
-    const key = `${style.color}-${style.radiusPixels}-${style.haloRadiusPixels}`;
-    const batch = batches.get(key) ?? { ...style, directions: [], key };
+    if (angularSeparationDegrees(cameraCenter, star) > residentRadiusDegrees) {
+      continue;
+    }
+    const { styleKey: key, ...batchStyle } = style;
+    const batch = batches.get(key) ?? {
+      ...batchStyle,
+      directions: [],
+      key,
+    };
     batch.directions.push(star);
     batches.set(key, batch);
   }

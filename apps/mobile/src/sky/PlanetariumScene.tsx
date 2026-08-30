@@ -66,6 +66,7 @@ import { milkyWayAtlasImage } from './registeredSkyAssets';
 import type { MaskMode } from './MaskAppearanceControls';
 import {
   getRegisteredDsoImageOpacity,
+  getRegisteredStarBatchOpacity,
   type HorizontalRegisteredConstellation,
   type RegisteredDsoImage,
   type RegisteredSkyProjection,
@@ -932,6 +933,8 @@ function RegisteredStarBatchLayer({
   const paths = useDerivedValue(() => {
     const coreBuilder = Skia.PathBuilder.Make();
     const haloBuilder = Skia.PathBuilder.Make();
+    const outerHaloBuilder =
+      batch.outerHaloRadiusPixels === null ? null : Skia.PathBuilder.Make();
     for (const direction of batch.directions) {
       const point = projectHorizontalDirection(direction, camera.value, canvas);
       if (point.visible) {
@@ -941,17 +944,42 @@ function RegisteredStarBatchLayer({
           point.yPixels,
           batch.haloRadiusPixels,
         );
+        if (outerHaloBuilder !== null && batch.outerHaloRadiusPixels !== null) {
+          outerHaloBuilder.addCircle(
+            point.xPixels,
+            point.yPixels,
+            batch.outerHaloRadiusPixels,
+          );
+        }
       }
     }
-    return { core: coreBuilder.build(), halo: haloBuilder.build() };
+    return {
+      core: coreBuilder.build(),
+      halo: haloBuilder.build(),
+      outerHalo: outerHaloBuilder?.build() ?? null,
+    };
   });
   const corePath = useDerivedValue(() => paths.value.core);
   const haloPath = useDerivedValue(() => paths.value.halo);
+  const outerHaloPath = useDerivedValue(
+    () => paths.value.outerHalo ?? paths.value.halo,
+  );
+  const opacity = useDerivedValue(() =>
+    getRegisteredStarBatchOpacity(batch, camera.value.fieldOfViewDegrees),
+  );
   return (
-    <>
-      <Path color={batch.color} opacity={0.22} path={haloPath} style="fill" />
-      <Path color={batch.color} opacity={1} path={corePath} style="fill" />
-    </>
+    <Group opacity={opacity}>
+      {batch.outerHaloRadiusPixels === null ? null : (
+        <Path
+          color={batch.color}
+          opacity={0.1}
+          path={outerHaloPath}
+          style="fill"
+        />
+      )}
+      <Path color={batch.color} opacity={0.28} path={haloPath} style="fill" />
+      <Path color={batch.coreColor} path={corePath} style="fill" />
+    </Group>
   );
 }
 

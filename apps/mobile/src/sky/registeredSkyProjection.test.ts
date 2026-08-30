@@ -2,6 +2,7 @@ import { createPlanetariumCamera } from './planetariumProjection';
 import {
   createRegisteredSkyProjection,
   getRegisteredDsoImageOpacity,
+  getRegisteredStarBatchOpacity,
   selectRegisteredConstellationLabels,
   selectRegisteredDsoImages,
   selectRegisteredStarBatches,
@@ -120,6 +121,20 @@ describe('registered star density', () => {
       azimuthDegrees: 0,
     },
     {
+      id: 'wide-fade',
+      magnitude: 4.5,
+      colorIndexBv: 0.3,
+      altitudeDegrees: 31,
+      azimuthDegrees: 1,
+    },
+    {
+      id: 'near-fade',
+      magnitude: 5.2,
+      colorIndexBv: 0.4,
+      altitudeDegrees: 31.5,
+      azimuthDegrees: 1.5,
+    },
+    {
       id: 'medium',
       magnitude: 5.8,
       colorIndexBv: 0.6,
@@ -128,16 +143,23 @@ describe('registered star density', () => {
     },
     {
       id: 'dim',
-      magnitude: 6.8,
+      magnitude: 6.6,
       colorIndexBv: 1.2,
       altitudeDegrees: 34,
       azimuthDegrees: 4,
+    },
+    {
+      id: 'beyond-limit',
+      magnitude: 6.8,
+      colorIndexBv: 1.2,
+      altitudeDegrees: 35,
+      azimuthDegrees: 5,
     },
     { id: 'opposite', magnitude: 1, altitudeDegrees: 30, azimuthDegrees: 180 },
   ];
   const canvas = { widthPixels: 390, heightPixels: 780 };
 
-  it('limits wide views and excludes stars outside the resident sphere', () => {
+  it('limits wide views to a bright foundation plus one faint prefetch band', () => {
     const batches = selectRegisteredStarBatches(
       stars,
       createPlanetariumCamera({
@@ -147,12 +169,41 @@ describe('registered star density', () => {
       }),
       canvas,
     );
-    expect(batches.flatMap(({ directions }) => directions)).toEqual([
-      expect.objectContaining({ id: 'bright' }),
-    ]);
+    expect(
+      batches.flatMap(({ directions }) => directions).map(({ id }) => id),
+    ).toEqual(['bright', 'wide-fade']);
+    expect(
+      batches
+        .filter((batch) => getRegisteredStarBatchOpacity(batch, 100) >= 0.1)
+        .flatMap(({ directions }) => directions)
+        .map(({ id }) => id),
+    ).toEqual(['bright']);
   });
 
-  it('includes magnitude-seven stars in a close view and keeps colour bins', () => {
+  it('fades a prefetched magnitude band continuously before it becomes full', () => {
+    const batches = selectRegisteredStarBatches(
+      stars,
+      createPlanetariumCamera({
+        centerAltitudeDegrees: 32,
+        centerAzimuthDegrees: 2,
+        fieldOfViewDegrees: 80,
+      }),
+      canvas,
+    );
+    const enteringBatch = batches.find(({ directions }) =>
+      directions.some(({ id }) => id === 'near-fade'),
+    );
+
+    expect(enteringBatch).toBeDefined();
+    expect(getRegisteredStarBatchOpacity(enteringBatch!, 70)).toBe(0);
+    expect(getRegisteredStarBatchOpacity(enteringBatch!, 55)).toBeGreaterThan(
+      0,
+    );
+    expect(getRegisteredStarBatchOpacity(enteringBatch!, 55)).toBeLessThan(1);
+    expect(getRegisteredStarBatchOpacity(enteringBatch!, 40)).toBe(1);
+  });
+
+  it('prefetches but hides the faintest band until a closer view', () => {
     const batches = selectRegisteredStarBatches(
       stars,
       createPlanetariumCamera({
@@ -162,13 +213,32 @@ describe('registered star density', () => {
       }),
       canvas,
     );
-    expect(batches.flatMap(({ directions }) => directions)).toHaveLength(3);
+    const directions = batches.flatMap(({ directions }) => directions);
+    expect(directions).toHaveLength(5);
+    expect(directions.map(({ id }) => id)).not.toContain('beyond-limit');
+    const dimBatch = batches.find(({ directions: batchDirections }) =>
+      batchDirections.some(({ id }) => id === 'dim'),
+    );
+    expect(dimBatch).toBeDefined();
+    expect(getRegisteredStarBatchOpacity(dimBatch!, 15)).toBe(0);
+    expect(getRegisteredStarBatchOpacity(dimBatch!, 10)).toBeGreaterThan(0);
+    expect(getRegisteredStarBatchOpacity(dimBatch!, 10)).toBeLessThan(1);
+    expect(getRegisteredStarBatchOpacity(dimBatch!, 7)).toBe(1);
     expect(new Set(batches.map(({ color }) => color)).size).toBe(3);
     expect(
       batches.every(
         ({ haloRadiusPixels, radiusPixels }) => haloRadiusPixels > radiusPixels,
       ),
     ).toBe(true);
+    expect(Math.max(...batches.map(({ radiusPixels }) => radiusPixels))).toBe(
+      1.85,
+    );
+    const brightBatch = batches.find(({ directions: batchDirections }) =>
+      batchDirections.some(({ id }) => id === 'bright'),
+    );
+    expect(brightBatch?.outerHaloRadiusPixels).toBeGreaterThan(
+      brightBatch!.haloRadiusPixels,
+    );
   });
 });
 

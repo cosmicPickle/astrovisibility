@@ -36,9 +36,9 @@ silently falling back to vector-only rendering.
       imagery into Skia in the approved render order.
 - [x] Extend About and licences plus the technology/data registry.
 - [x] Run the mandatory automated quality gates in final-state order. Format,
-      typecheck, lint, all 364 tests, asset validation, and build pass.
+      typecheck, lint, all 365 tests, asset validation, and build pass.
 - [x] Perform representative and constrained Android visual QA.
-- [x] Build and inspect the 193,799,993-byte release APK and record emulator
+- [x] Build and inspect the 193,803,381-byte release APK and record emulator
       diagnostics.
 - [x] Review security, privacy, attribution, and the final diff.
 - [x] Correct the 12-hour d3-celestial constellation registration error, verify
@@ -60,12 +60,13 @@ asset map, and manifests cover 289 physical targets: all 110 Messier
 designations across 109 physical records, all 109 Caldwell targets, and 71
 additional notable named DSOs. Asset validation passes for 223 Pan-STARRS and 66
 AllWISE cutouts totalling 4,847,515 bytes. The pinned Stellarium/Mellinger Milky
-Way atlas replaces the spotted Gaia flux texture, star halos no longer use GPU
-blur, all atlas tiles share one draw payload, and DSO image decoding is gated by
-useful on-screen size. Final automated gates pass all 364 tests, the refreshed
-release APK is 193,799,993 bytes, and representative plus constrained Android
-inspection confirms the smooth registered Milky Way, corrected Cygnus figure,
-and registered DSO imagery.
+Way atlas replaces the spotted Gaia flux texture, and stars use stronger
+zoom-density bands with UI-thread fades plus small near-white cores and batched
+filter-free haloes. All atlas tiles share one draw payload, and DSO image
+decoding is gated by useful on-screen size. Final automated gates pass all 365
+tests, the refreshed release APK is 193,803,381 bytes, and representative plus
+constrained Android inspection confirms the smooth registered Milky Way,
+corrected Cygnus figure, registered DSO imagery, and refined star treatment.
 The remaining step is the physical-device frame-rate measurement.
 
 **Blockers and decisions**
