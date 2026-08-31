@@ -379,8 +379,13 @@ The agent/tooling bootstrap adopts:
   configured origin.
 - the GitHub Releases REST API through Node.js built-in HTTPS facilities for
   explicit local Android release publication; the publisher requires a
-  repository-scoped `GH_TOKEN`, validates the exact pushed commit and unique
-  version tag, and uploads the APK plus checksum through a draft-first flow.
+  GitHub CLI credential, falling back to repository-scoped `GH_TOKEN` only when
+  the CLI is unavailable, validates the exact pushed commit and unique version
+  tag, and uploads the APK plus checksum through a draft-first flow;
+- GitHub CLI as the preferred local publisher authentication source, using its
+  operating-system credential-store integration after one interactive login;
+  it is invoked only for an in-memory token and is not an application runtime or
+  package dependency.
 
 When adopting a technology, add an entry with:
 

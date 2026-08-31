@@ -17,6 +17,7 @@ import {
   validateVersionMetadata,
   type AndroidVersionMetadata,
 } from './androidRelease.ts';
+import { resolvePublisherToken } from './githubAuthentication.ts';
 import { GitHubReleaseClient } from './githubReleaseClient.ts';
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
@@ -134,12 +135,7 @@ async function calculateSha256(filePath: string): Promise<string> {
 async function publishAndroidRelease(): Promise<void> {
   const { prerelease } = parseReleaseArguments(process.argv.slice(2));
   const releaseVersion = validateVersionMetadata(readVersionMetadata());
-  const token = (process.env.GH_TOKEN ?? '').trim();
-  if (!token) {
-    throw new Error(
-      'GH_TOKEN is required. Use a fine-grained GitHub token with Contents read/write access to this repository.',
-    );
-  }
+  const authentication = resolvePublisherToken(process.env.GH_TOKEN);
 
   const trackedChanges = runCapture('git', [
     'status',
@@ -156,7 +152,7 @@ async function publishAndroidRelease(): Promise<void> {
     runCapture('git', ['remote', 'get-url', 'origin']),
   );
   const commitSha = runCapture('git', ['rev-parse', 'HEAD']);
-  const client = new GitHubReleaseClient(repository, token);
+  const client = new GitHubReleaseClient(repository, authentication.token);
   await client.assertCommitExists(commitSha);
   await client.assertReleaseTagAvailable(releaseVersion.tag);
 

@@ -141,9 +141,34 @@ Play-Store signed; no keystore or signing secret belongs in this repository.
 
 ### Publish a GitHub APK release locally
 
-Prepare a fine-grained GitHub personal access token limited to this repository
-with **Contents: Read and write**, expose it only to the publishing shell as
-`GH_TOKEN`, and run from the repository root:
+The preferred authentication path is the official GitHub CLI. Install and log in
+once:
+
+```powershell
+winget install --id GitHub.cli --source winget
+# Open a new terminal after installation.
+gh auth login --web
+```
+
+The CLI stores its credential in the Windows credential store. Every subsequent
+normal release is one command from the repository root:
+
+```powershell
+pnpm release:android
+```
+
+For a prerelease:
+
+```powershell
+pnpm release:android -- --prerelease
+```
+
+The publisher always prefers the GitHub CLI credential. It falls back to
+`GH_TOKEN` only when the `gh` executable is not installed. If `gh` is installed
+but logged out, run `gh auth login --web`; the publisher deliberately does not
+switch to a different environment credential. On a machine without GitHub CLI,
+prepare a fine-grained token limited to this repository with **Contents: Read and
+write**, then expose it only to the publishing shell:
 
 ```powershell
 $secureToken = Read-Host 'GitHub token' -AsSecureString
@@ -151,12 +176,6 @@ $env:GH_TOKEN = [System.Net.NetworkCredential]::new('', $secureToken).Password
 pnpm release:android
 Remove-Item Env:GH_TOKEN
 $secureToken.Dispose()
-```
-
-For a prerelease, use:
-
-```powershell
-pnpm release:android -- --prerelease
 ```
 
 Before running, update and commit the same semantic version in

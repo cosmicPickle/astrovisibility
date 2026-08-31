@@ -14,7 +14,7 @@ versioned GitHub Release.
 - Derive the tag from the committed mobile version and verify that the package,
   Expo, and native Gradle version names agree.
 - Refuse a release from dirty tracked source, an unpushed commit, an existing
-  tag/release, or without an authenticated GitHub token.
+  tag/release, or without an authenticated GitHub credential.
 - Run format, typecheck, lint, tests, and application build before the native
   APK build.
 - Reuse the repository's established Android build/share script so the exact
@@ -53,10 +53,13 @@ matches `apps/mobile/app.config.ts` and
 Android version codes match and are positive integers. The release tag and APK
 asset name are `v<version>` and `astrovisibility-v<version>.apk`.
 
-The current Git remote must identify a GitHub repository. `GH_TOKEN` must contain
-a fine-grained personal access token with Contents read/write permission for
-that repository. The token is sent only in GitHub API authorization headers and
-is never printed or persisted by the script.
+The current Git remote must identify a GitHub repository. When GitHub CLI is
+installed, the publisher obtains its existing credential through
+`gh auth token`; an unauthenticated or broken installation is an error. Only
+when the executable is absent may `GH_TOKEN` supply a fine-grained personal
+access token with Contents read/write permission for that repository. The token
+is sent only in GitHub API authorization headers and is never printed or
+persisted by the script.
 
 ## Publication Safety
 
@@ -92,6 +95,8 @@ no keystore or signing secret belongs in Git.
 - A failed validation/build creates no remote release; a failed upload leaves
   only a draft release and explains where to inspect it.
 - No new runtime or development dependency is introduced.
+- GitHub CLI authentication takes precedence, and `GH_TOKEN` is used only when
+  GitHub CLI is unavailable.
 - Tokens and generated binaries stay out of Git and logs.
 - Existing local APK building behavior remains unchanged.
 
