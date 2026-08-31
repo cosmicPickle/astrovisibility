@@ -1,0 +1,4 @@
+interface:
+  display_name: 'Publish Android GitHub Release'
+  short_description: 'Version and publish an Android GitHub release'
+  default_prompt: 'Use $publish-android-github-release to publish a new Astrovisibility release to GitHub.'
