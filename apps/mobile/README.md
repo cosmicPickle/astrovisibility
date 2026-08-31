@@ -139,6 +139,43 @@ The fresh Gradle output is validated and staged at
 `tmp/artifacts/android/app-release.apk`. It is locally distributable rather than
 Play-Store signed; no keystore or signing secret belongs in this repository.
 
+### Publish a GitHub APK release locally
+
+Prepare a fine-grained GitHub personal access token limited to this repository
+with **Contents: Read and write**, expose it only to the publishing shell as
+`GH_TOKEN`, and run from the repository root:
+
+```powershell
+$secureToken = Read-Host 'GitHub token' -AsSecureString
+$env:GH_TOKEN = [System.Net.NetworkCredential]::new('', $secureToken).Password
+pnpm release:android
+Remove-Item Env:GH_TOKEN
+$secureToken.Dispose()
+```
+
+For a prerelease, use:
+
+```powershell
+pnpm release:android -- --prerelease
+```
+
+Before running, update and commit the same semantic version in
+`apps/mobile/package.json`, `apps/mobile/app.config.ts`, and
+`apps/mobile/android/app/build.gradle`; the Expo and native Android version
+codes must also match and increase for an upgrade. Push that commit first. The
+publisher refuses dirty tracked files, an unpushed commit, inconsistent version
+metadata, or an existing `v<version>` tag/release. It runs every repository gate,
+builds a fresh APK through the staging workflow above, then publishes
+`astrovisibility-v<version>.apk` and its SHA-256 checksum to a GitHub Release for
+the exact current commit.
+
+The remote release is created as a draft and becomes public only after both
+assets upload. If publication stops after draft creation, the command prints the
+draft URL for inspection; it never deletes or overwrites a release. The current
+APK is debug-signed, so retain the same ignored local debug keystore if future
+APK files must upgrade an existing installation. Production or Play signing is
+a separate release-engineering change.
+
 ## Troubleshooting
 
 - **`build.ninja still dirty after 100 tries` or long CMake paths:** confirm

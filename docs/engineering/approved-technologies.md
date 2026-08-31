@@ -377,6 +377,10 @@ The agent/tooling bootstrap adopts:
 - Context7 as a repository-local MCP source for current library documentation;
 - GitHub as repository hosting, with `cosmicPickle/astrovisibility` as the
   configured origin.
+- the GitHub Releases REST API through Node.js built-in HTTPS facilities for
+  explicit local Android release publication; the publisher requires a
+  repository-scoped `GH_TOKEN`, validates the exact pushed commit and unique
+  version tag, and uploads the APK plus checksum through a draft-first flow.
 
 When adopting a technology, add an entry with:
 

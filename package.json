@@ -11,7 +11,8 @@
     "test": "pnpm --filter @astrovisibility/mobile test",
     "test:e2e:android": "pnpm --filter @astrovisibility/mobile test:e2e:android",
     "build": "pnpm --filter @astrovisibility/mobile build",
-    "android:prebuild": "pnpm --filter @astrovisibility/mobile android:prebuild"
+    "android:prebuild": "pnpm --filter @astrovisibility/mobile android:prebuild",
+    "release:android": "node apps/mobile/scripts/release/publishAndroidRelease.ts"
   },
   "engines": {
     "node": ">=24.16.0"
