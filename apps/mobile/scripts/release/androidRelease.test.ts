@@ -1,6 +1,7 @@
 /** @jest-environment node */
 
 import {
+  createPnpmInvocation,
   createReleaseAssetNames,
   formatSha256Checksum,
   parseGitHubRepository,
@@ -9,6 +10,19 @@ import {
 } from './androidRelease';
 
 describe('Android release publisher', () => {
+  it('runs pnpm through the Windows command interpreter', () => {
+    expect(
+      createPnpmInvocation('test', 'win32', 'C:\\Windows\\System32\\cmd.exe'),
+    ).toEqual({
+      command: 'C:\\Windows\\System32\\cmd.exe',
+      arguments: ['/d', '/s', '/c', 'pnpm.cmd', 'test'],
+    });
+    expect(createPnpmInvocation('test', 'linux')).toEqual({
+      command: 'pnpm',
+      arguments: ['test'],
+    });
+  });
+
   it('accepts the optional prerelease flag and rejects unknown arguments', () => {
     expect(parseReleaseArguments([])).toEqual({ prerelease: false });
     expect(parseReleaseArguments(['--', '--prerelease'])).toEqual({

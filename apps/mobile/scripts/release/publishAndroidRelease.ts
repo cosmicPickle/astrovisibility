@@ -10,6 +10,8 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
+  androidReleaseGateNames,
+  createPnpmInvocation,
   createReleaseAssetNames,
   formatSha256Checksum,
   parseGitHubRepository,
@@ -156,9 +158,9 @@ async function publishAndroidRelease(): Promise<void> {
   await client.assertCommitExists(commitSha);
   await client.assertReleaseTagAvailable(releaseVersion.tag);
 
-  const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
-  for (const gate of ['format', 'typecheck', 'lint', 'test', 'build']) {
-    runVisible(pnpmCommand, [gate]);
+  for (const gate of androidReleaseGateNames) {
+    const invocation = createPnpmInvocation(gate);
+    runVisible(invocation.command, invocation.arguments);
   }
   runVisible(process.execPath, [buildShareScript]);
 

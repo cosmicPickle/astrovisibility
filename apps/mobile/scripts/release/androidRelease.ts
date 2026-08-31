@@ -11,8 +11,38 @@ export type GitHubRepository = {
   repository: string;
 };
 
+export type CommandInvocation = {
+  command: string;
+  arguments: string[];
+};
+
+export const androidReleaseGateNames = [
+  'format',
+  'typecheck',
+  'lint',
+  'test',
+  'build',
+] as const;
+
+type AndroidReleaseGateName = (typeof androidReleaseGateNames)[number];
+
 const semanticVersionPattern =
   /^\d+\.\d+\.\d+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?(?:\+[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$/;
+
+export function createPnpmInvocation(
+  gateName: AndroidReleaseGateName,
+  platform: NodeJS.Platform = process.platform,
+  windowsCommandInterpreter = process.env.ComSpec,
+): CommandInvocation {
+  if (platform === 'win32') {
+    return {
+      command: windowsCommandInterpreter || 'cmd.exe',
+      arguments: ['/d', '/s', '/c', 'pnpm.cmd', gateName],
+    };
+  }
+
+  return { command: 'pnpm', arguments: [gateName] };
+}
 
 export function parseReleaseArguments(arguments_: string[]): {
   prerelease: boolean;
