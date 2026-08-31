@@ -33,6 +33,12 @@ export interface ProjectedSkyPoint {
   yPixels: number;
 }
 
+export interface PlanetariumProjectionContext {
+  camera: PlanetariumCamera;
+  canvas: CanvasSizePixels;
+  projectionScalePixels: number;
+}
+
 const DEGREES_TO_RADIANS = Math.PI / 180;
 const RADIANS_TO_DEGREES = 180 / Math.PI;
 const VECTOR_EPSILON = 1e-10;
@@ -373,33 +379,52 @@ const getStereographicProjectionScale = (
   return diameterPixels / 2 / Math.tan(quarterFieldRadians);
 };
 
-export const projectVectorToCanvas = (
-  directionVector: Vector3,
+export const createPlanetariumProjectionContext = (
   camera: PlanetariumCamera,
   canvas: CanvasSizePixels,
+): PlanetariumProjectionContext => {
+  'worklet';
+  return {
+    camera,
+    canvas,
+    projectionScalePixels: getStereographicProjectionScale(camera, canvas),
+  };
+};
+
+/** Fast path for vectors normalized when their static direction is built. */
+export const projectUnitVectorToCanvas = (
+  directionVector: Vector3,
+  context: PlanetariumProjectionContext,
 ): ProjectedSkyPoint => {
   'worklet';
-  const direction = normalize(directionVector);
-  const localX = dot(direction, camera.right);
-  const localY = dot(direction, camera.up);
-  const localZ = clamp(dot(direction, camera.forward), -1, 1);
-  const angularDistanceRadians = Math.acos(localZ);
-  const tangentLength = Math.hypot(localX, localY);
-  const radialPixels =
-    Math.tan(Math.min(Math.PI - 1e-7, angularDistanceRadians) / 2) *
-    getStereographicProjectionScale(camera, canvas);
-  const unitX =
-    tangentLength <= VECTOR_EPSILON
-      ? localZ < 0
-        ? 1
-        : 0
-      : localX / tangentLength;
-  const unitY = tangentLength <= VECTOR_EPSILON ? 0 : localY / tangentLength;
-  const xPixels = canvas.widthPixels / 2 + unitX * radialPixels;
-  const yPixels = canvas.heightPixels / 2 - unitY * radialPixels;
+  const { camera, canvas, projectionScalePixels } = context;
+  const localX = dot(directionVector, camera.right);
+  const localY = dot(directionVector, camera.up);
+  const localZ = clamp(dot(directionVector, camera.forward), -1, 1);
+  const denominator = 1 + localZ;
+  let offsetXPixels: number;
+  let offsetYPixels: number;
+  if (denominator <= VECTOR_EPSILON) {
+    const tangentLength = Math.hypot(localX, localY);
+    const radialPixels =
+      Math.sqrt((1 - localZ) / VECTOR_EPSILON) * projectionScalePixels;
+    offsetXPixels =
+      (tangentLength <= VECTOR_EPSILON ? 1 : localX / tangentLength) *
+      radialPixels;
+    offsetYPixels =
+      (tangentLength <= VECTOR_EPSILON ? 0 : localY / tangentLength) *
+      radialPixels;
+  } else {
+    // tan(angle / 2) = sin(angle) / (1 + cos(angle)).
+    offsetXPixels = (localX / denominator) * projectionScalePixels;
+    offsetYPixels = (localY / denominator) * projectionScalePixels;
+  }
+  const xPixels = canvas.widthPixels / 2 + offsetXPixels;
+  const yPixels = canvas.heightPixels / 2 - offsetYPixels;
   return {
     visible:
-      angularDistanceRadians <= Math.PI + VECTOR_EPSILON &&
+      Number.isFinite(xPixels) &&
+      Number.isFinite(yPixels) &&
       xPixels >= -VECTOR_EPSILON &&
       xPixels <= canvas.widthPixels + VECTOR_EPSILON &&
       yPixels >= -VECTOR_EPSILON &&
@@ -407,6 +432,18 @@ export const projectVectorToCanvas = (
     xPixels,
     yPixels,
   };
+};
+
+export const projectVectorToCanvas = (
+  directionVector: Vector3,
+  camera: PlanetariumCamera,
+  canvas: CanvasSizePixels,
+): ProjectedSkyPoint => {
+  'worklet';
+  return projectUnitVectorToCanvas(
+    normalize(directionVector),
+    createPlanetariumProjectionContext(camera, canvas),
+  );
 };
 
 export const projectHorizontalDirection = (

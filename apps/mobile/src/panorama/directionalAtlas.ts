@@ -4,6 +4,7 @@ import {
   type HorizontalDirectionDegrees,
 } from '../sky/projection';
 import type { PlanetariumPanoramaMesh } from '../sky/planetariumPanoramaGeometry';
+import { horizontalDirectionToVector } from '../sky/planetariumProjection';
 
 export const DIRECTIONAL_ATLAS_SIZE_PIXELS = 2048;
 export const DIRECTIONAL_ATLAS_PROJECTION =
@@ -238,6 +239,7 @@ export function createDirectionalAtlasMesh(
     centerDirection: { altitudeDegrees: 90, azimuthDegrees: 0 },
     columnCount: ringStride,
     directions,
+    directionVectors: directions.map(horizontalDirectionToVector),
     indices,
     rowCount: ringCount,
     texturePointsPixels,

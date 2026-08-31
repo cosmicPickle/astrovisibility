@@ -17,12 +17,10 @@ Implement the approved offline registered-sky stack: a smooth registered Milky
 Way atlas, real stars, Western constellation figures, and real offline survey
 imagery for at least all 110 Messier objects plus a documented curated set of
 the most notable non-Messier objects, especially famous named nebulae, galaxies,
-and clusters,
-behind the existing panorama/mask. Preserve complete vector target and
-trajectory behavior above it. Pan-STARRS may supply objects inside its
-footprint; any required-object coverage gap needs another owner-approved open,
-free-for-commercial-use, established, safe, and attributed source rather than
-silently falling back to vector-only rendering.
+and clusters, behind the existing panorama/mask. Preserve complete vector
+target and trajectory behavior above it. Required objects use the approved
+open, free-for-commercial-use, established, safe, and attributed all-sky DSS2
+optical source rather than silently falling back to vector-only rendering.
 
 **Checklist**
 
@@ -36,9 +34,9 @@ silently falling back to vector-only rendering.
       imagery into Skia in the approved render order.
 - [x] Extend About and licences plus the technology/data registry.
 - [x] Run the mandatory automated quality gates in final-state order. Format,
-      typecheck, lint, all 365 tests, asset validation, and build pass.
+      typecheck, lint, all 368 tests, asset validation, and build pass.
 - [x] Perform representative and constrained Android visual QA.
-- [x] Build and inspect the 193,803,381-byte release APK and record emulator
+- [x] Build and inspect the 193,070,045-byte release APK and record emulator
       diagnostics.
 - [x] Review security, privacy, attribution, and the final diff.
 - [x] Correct the 12-hour d3-celestial constellation registration error, verify
@@ -58,23 +56,29 @@ silently falling back to vector-only rendering.
 The focused specification, deterministic selection tests, generated runtime
 asset map, and manifests cover 289 physical targets: all 110 Messier
 designations across 109 physical records, all 109 Caldwell targets, and 71
-additional notable named DSOs. Asset validation passes for 223 Pan-STARRS and 66
-AllWISE cutouts totalling 4,847,515 bytes. The pinned Stellarium/Mellinger Milky
-Way atlas replaces the spotted Gaia flux texture, and stars use stronger
+additional notable named DSOs. Asset validation passes for 289 DSS2 optical
+cutouts totalling 4,109,915 bytes. The pinned Stellarium/Mellinger Milky Way
+atlas replaces the spotted Gaia flux texture, and stars use stronger
 zoom-density bands with UI-thread fades plus small near-white cores and batched
-filter-free haloes. All atlas tiles share one draw payload, and DSO image
-decoding is gated by useful on-screen size. Final automated gates pass all 365
-tests, the refreshed release APK is 193,803,381 bytes, and representative plus
-constrained Android inspection confirms the smooth registered Milky Way,
-corrected Cygnus figure, registered DSO imagery, and refined star treatment.
-The remaining step is the physical-device frame-rate measurement.
+filter-free haloes. All atlas tiles share one draw payload, DSO image decoding
+is gated by useful on-screen size, static directions use prepared unit vectors,
+and gesture-time JS cache previews are sampled against existing full-screen
+overscan while the native shared camera still updates every event. Final
+automated gates pass all 368 tests. The refreshed release APK is 193,070,045
+bytes, and representative plus constrained Android inspection confirms the
+smooth registered Milky Way, corrected Cygnus figure, neutral optical DSO
+imagery, and refined star treatment. A software-rendered constrained-emulator
+interaction sample recorded 80 frames, 9 ms p95, and one janky frame; the
+remaining step is the physical-device frame-rate measurement.
 
 **Blockers and decisions**
 
 - Physical-device performance evidence depends on a suitable connected device;
   only the headless emulator was available. Its software-rendered frame timing is
   diagnostic and does not substitute for the required physical-device result.
-- Pan-STARRS does not cover every required object. The official all-sky AllWISE
-  colour HiPS, ODbL-1.0 and derived from NASA/IPAC WISE Atlas imagery, is the
-  approved deterministic fallback. Non-selected catalogue objects continue to
-  use complete vector behavior.
+- The previous Pan-STARRS and AllWISE composites contained visible colour-channel
+  and coverage artifacts. The official full-sky optical CDS DSS2 colour HiPS is
+  the approved ODbL-1.0 deterministic source for every bundled cutout.
+- No sky density, DSO coverage, panorama/mask behavior, catalogue feature, or
+  interaction was removed for performance. Any future compromise still requires
+  human approval.

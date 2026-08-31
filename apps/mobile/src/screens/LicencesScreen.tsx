@@ -159,16 +159,16 @@ export const LicencesScreen = ({
           </AppText>
           <AppText>
             Axel Mellinger's offline full-sky Milky Way panorama and{' '}
-            {skyAssetManifest.generated.dsoImageCount} registered Pan-STARRS and
-            AllWISE cutouts cover all Messier designations, all Caldwell
-            targets, and the selected notable named DSO set.
+            {skyAssetManifest.generated.dsoImageCount} registered DSS2 optical
+            cutouts cover all Messier designations, all Caldwell targets, and
+            the selected notable named DSO set.
           </AppText>
           <AppText tone="muted">
             Milky Way image credit: Axel Mellinger, redistributed with the
-            attribution permission recorded by Stellarium. Pan-STARRS1 survey
-            imagery is public astronomy data; the NASA/IPAC AllWISE colour HiPS
-            is supplied by CDS under ODbL-1.0. No sky imagery is downloaded at
-            runtime.
+            attribution permission recorded by Stellarium. The Digitized Sky
+            Survey optical colour HiPS is produced by CDS from STScI survey
+            plates and supplied under ODbL-1.0 with the bundled DSS
+            acknowledgement. No sky imagery is downloaded at runtime.
           </AppText>
           <ActionButton
             label="Open Milky Way image credit"
@@ -178,16 +178,9 @@ export const LicencesScreen = ({
             variant="secondary"
           />
           <ActionButton
-            label="Open Pan-STARRS archive"
+            label="Open DSS2 HiPS licence"
             onPress={() =>
               void Linking.openURL(skyAssetManifest.sources[3].url)
-            }
-            variant="secondary"
-          />
-          <ActionButton
-            label="Open AllWISE HiPS licence"
-            onPress={() =>
-              void Linking.openURL(skyAssetManifest.sources[4].url)
             }
             variant="secondary"
           />

@@ -34,6 +34,7 @@ describe('planetarium panorama mesh', () => {
     const topRight = mesh.directions[mesh.columnCount - 1]!;
 
     expect(center.altitudeDegrees).toBeCloseTo(90, 7);
+    expect(mesh.directionVectors).toHaveLength(mesh.directions.length);
     expect(angularSeparationDegrees(topLeft, topRight)).toBeGreaterThan(30);
     expect(topLeft.altitudeDegrees).toBeLessThan(90);
     expect(topRight.altitudeDegrees).toBeLessThan(90);
@@ -123,6 +124,28 @@ describe('planetarium panorama mesh', () => {
     );
     expect(Math.max(...projection.indices)).toBeGreaterThanOrEqual(
       mesh.directions.length,
+    );
+  });
+
+  it('keeps prepared and compatibility mesh projections equivalent', () => {
+    const mesh = createPlanetariumPanoramaMesh({
+      ...upwardTile,
+      centerAltitudeDegrees: 35,
+      centerAzimuthDegrees: 15,
+    });
+    const camera = createPlanetariumCamera({
+      centerAltitudeDegrees: 35,
+      centerAzimuthDegrees: 0,
+      fieldOfViewDegrees: 100,
+    });
+    const testCanvas = { widthPixels: 390, heightPixels: 420 };
+
+    expect(projectPlanetariumPanoramaMesh(mesh, camera, testCanvas)).toEqual(
+      projectPlanetariumPanoramaMesh(
+        { ...mesh, directionVectors: undefined },
+        camera,
+        testCanvas,
+      ),
     );
   });
 });

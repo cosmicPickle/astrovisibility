@@ -7,8 +7,10 @@ import {
 import {
   angularSeparationDegrees,
   getPlanetariumCameraCenter,
+  horizontalDirectionToVector,
   projectHorizontalDirection,
   type PlanetariumCamera,
+  type Vector3,
 } from './planetariumProjection';
 import type { PlanetariumPanoramaMesh } from './planetariumPanoramaGeometry';
 import type {
@@ -43,6 +45,7 @@ export interface HorizontalRegisteredStar extends HorizontalDirectionDegrees {
   colorIndexBv?: number;
   id: string;
   magnitude: number;
+  unitVector?: Vector3;
 }
 
 export interface HorizontalRegisteredConstellation {
@@ -118,6 +121,7 @@ const projectMesh = (
     centerDirection,
     columnCount: mesh.columnCount,
     directions,
+    directionVectors: directions.map(horizontalDirectionToVector),
     indices: mesh.indices,
     rowCount: mesh.rowCount,
     texturePointsPixels: mesh.texturePointsPixels,
@@ -164,12 +168,16 @@ export const createRegisteredSkyProjection = (input: {
         declinationJ2000Degrees,
         rightAscensionJ2000Hours,
       });
-      return {
-        ...(colorIndexBv === null ? {} : { colorIndexBv }),
+      const direction = {
         altitudeDegrees: horizontal.refractedAltitudeDegrees,
         azimuthDegrees: horizontal.azimuthDegreesClockwiseFromNorth,
+      };
+      return {
+        ...(colorIndexBv === null ? {} : { colorIndexBv }),
+        ...direction,
         id,
         magnitude,
+        unitVector: horizontalDirectionToVector(direction),
       };
     }),
   };
@@ -433,7 +441,6 @@ export const selectRegisteredStarBatches = (
   const maximumResidentMagnitude = getMaximumResidentStarMagnitude(
     camera.fieldOfViewDegrees,
   );
-  const cameraCenter = getPlanetariumCameraCenter(camera);
   const cornerAngularRadiusDegrees = getCameraCornerAngularRadiusDegrees(
     camera,
     canvas,
@@ -442,13 +449,24 @@ export const selectRegisteredStarBatches = (
     180,
     cornerAngularRadiusDegrees + camera.fieldOfViewDegrees * 0.15,
   );
+  const minimumResidentDotProduct = Math.cos(
+    (residentRadiusDegrees * Math.PI) / 180,
+  );
   const batches = new Map<string, RegisteredStarBatch>();
   for (const star of projectedStars) {
     if (star.magnitude > maximumResidentMagnitude) {
       continue;
     }
     const style = starStyle(star);
-    if (angularSeparationDegrees(cameraCenter, star) > residentRadiusDegrees) {
+    const starVector = star.unitVector ?? horizontalDirectionToVector(star);
+    const centerDotProduct =
+      starVector.x * camera.forward.x +
+      starVector.y * camera.forward.y +
+      starVector.z * camera.forward.z;
+    if (
+      residentRadiusDegrees < 180 &&
+      centerDotProduct < minimumResidentDotProduct
+    ) {
       continue;
     }
     const { styleKey: key, ...batchStyle } = style;

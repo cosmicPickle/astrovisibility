@@ -75,7 +75,7 @@ const run = async () => {
     ),
   ) as unknown;
   const manifest = {
-    generatedFromPinnedInputsOn: '2026-08-30',
+    generatedFromPinnedInputsOn: '2026-08-31',
     limitingMagnitude: 7,
     sources: [
       {
@@ -100,16 +100,10 @@ const run = async () => {
         url: 'https://github.com/Stellarium/stellarium/blob/e6d38fe5e71e2c591c975fb068f2daf0b89d59b0/CREDITS.md',
       },
       {
-        dataset: 'CDS/P/PanSTARRS/DR1/color-i-r-g',
-        license: 'Public survey data; attribution required',
-        name: 'Pan-STARRS1 DR1 colour imagery',
-        url: 'https://outerspace.stsci.edu/spaces/PANSTARRS/',
-      },
-      {
-        dataset: 'CDS/P/allWISE/color',
+        dataset: 'CDS/P/DSS2/color',
         license: 'ODbL-1.0',
-        name: 'AllWISE W4-W2-W1 colour imagery',
-        url: 'https://alasky.cds.unistra.fr/MocServer/query?ID=CDS%2FP%2FallWISE%2Fcolor&fmt=html&get=record',
+        name: 'CDS Digitized Sky Survey 2 colour imagery',
+        url: 'https://alasky.cds.unistra.fr/MocServer/query?ID=CDS%2FP%2FDSS2%2Fcolor&fmt=html&get=record',
       },
     ],
     generated: {

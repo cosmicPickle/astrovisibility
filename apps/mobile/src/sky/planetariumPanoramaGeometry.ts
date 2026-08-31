@@ -2,9 +2,13 @@ import type { ActivePanoramaTile } from '../storage/panoramaDraftRepository';
 import { createTileDirectionProjector } from '../panorama/tileGeometry';
 import {
   angularSeparationDegrees,
+  createPlanetariumProjectionContext,
   getPlanetariumCameraCenter,
-  projectHorizontalDirection,
+  horizontalDirectionToVector,
+  projectUnitVectorToCanvas,
   type PlanetariumCamera,
+  type PlanetariumProjectionContext,
+  type Vector3,
 } from './planetariumProjection';
 import type {
   CanvasSizePixels,
@@ -19,6 +23,7 @@ export interface PlanetariumPanoramaMesh {
   centerDirection: HorizontalDirectionDegrees;
   columnCount: number;
   directions: HorizontalDirectionDegrees[];
+  directionVectors?: Vector3[];
   indices: number[];
   rowCount: number;
   texturePointsPixels: { x: number; y: number }[];
@@ -86,6 +91,7 @@ export const createPlanetariumPanoramaMesh = (
     centerDirection,
     columnCount,
     directions,
+    directionVectors: directions.map(horizontalDirectionToVector),
     indices,
     rowCount,
     texturePointsPixels,
@@ -109,19 +115,39 @@ const canvasAngularRadiusDegrees = (
   return (2 * Math.atan(cornerRadiusPixels / projectionScale) * 180) / Math.PI;
 };
 
+interface PanoramaProjectionContext {
+  cameraCenter: HorizontalDirectionDegrees;
+  canvasAngularRadiusDegrees: number;
+  projection: PlanetariumProjectionContext;
+}
+
+const createPanoramaProjectionContext = (
+  camera: PlanetariumCamera,
+  canvas: CanvasSizePixels,
+): PanoramaProjectionContext => {
+  'worklet';
+  return {
+    cameraCenter: getPlanetariumCameraCenter(camera),
+    canvasAngularRadiusDegrees: canvasAngularRadiusDegrees(camera, canvas),
+    projection: createPlanetariumProjectionContext(camera, canvas),
+  };
+};
+
 export const projectPlanetariumPanoramaMesh = (
   mesh: PlanetariumPanoramaMesh,
   camera: PlanetariumCamera,
   canvas: CanvasSizePixels,
+  preparedContext?: PanoramaProjectionContext,
 ): {
   indices: number[];
   vertices: { xPixels: number; yPixels: number }[];
 } => {
   'worklet';
-  const cameraCenter = getPlanetariumCameraCenter(camera);
+  const context =
+    preparedContext ?? createPanoramaProjectionContext(camera, canvas);
   if (
-    angularSeparationDegrees(mesh.centerDirection, cameraCenter) >
-    canvasAngularRadiusDegrees(camera, canvas) +
+    angularSeparationDegrees(mesh.centerDirection, context.cameraCenter) >
+    context.canvasAngularRadiusDegrees +
       mesh.angularRadiusDegrees +
       MAXIMUM_CELL_ANGLE_DEGREES
   ) {
@@ -136,8 +162,13 @@ export const projectPlanetariumPanoramaMesh = (
   const projectedXPixels: number[] = [];
   const projectedYPixels: number[] = [];
   const vertices: { xPixels: number; yPixels: number }[] = [];
-  for (const direction of mesh.directions) {
-    const point = projectHorizontalDirection(direction, camera, canvas);
+  const directionVectors =
+    mesh.directionVectors ?? mesh.directions.map(horizontalDirectionToVector);
+  for (const directionVector of directionVectors) {
+    const point = projectUnitVectorToCanvas(
+      directionVector,
+      context.projection,
+    );
     projectedXPixels.push(point.xPixels);
     projectedYPixels.push(point.yPixels);
     vertices.push({
@@ -207,8 +238,14 @@ export const projectPlanetariumPanoramaMeshes = (
   const indices: number[] = [];
   const texturePointsPixels: { x: number; y: number }[] = [];
   const vertices: { xPixels: number; yPixels: number }[] = [];
+  const context = createPanoramaProjectionContext(camera, canvas);
   for (const mesh of meshes) {
-    const projection = projectPlanetariumPanoramaMesh(mesh, camera, canvas);
+    const projection = projectPlanetariumPanoramaMesh(
+      mesh,
+      camera,
+      canvas,
+      context,
+    );
     if (projection.indices.length === 0) continue;
     const vertexOffset = vertices.length;
     vertices.push(...projection.vertices);

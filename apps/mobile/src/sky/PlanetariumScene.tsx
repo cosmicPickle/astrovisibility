@@ -37,9 +37,12 @@ import {
 } from './planetariumCatalogue';
 import {
   angularSizeDegreesToPixelsAtDirection,
+  createPlanetariumProjectionContext,
   densifyHorizontalPath,
-  projectHorizontalDirection,
+  horizontalDirectionToVector,
+  projectUnitVectorToCanvas,
   type PlanetariumCamera,
+  type Vector3,
 } from './planetariumProjection';
 import {
   createPlanetariumPanoramaMesh,
@@ -109,7 +112,7 @@ const angularSizeToPixels = (
 };
 
 const createPath = (
-  directions: readonly HorizontalDirectionDegrees[],
+  directionVectors: readonly Vector3[],
   camera: PlanetariumCamera,
   canvas: CanvasSizePixels,
   closed: boolean,
@@ -123,8 +126,9 @@ const createPath = (
     canvas.widthPixels,
     canvas.heightPixels,
   );
-  for (const direction of directions) {
-    const point = projectHorizontalDirection(direction, camera, canvas);
+  const projectionContext = createPlanetariumProjectionContext(camera, canvas);
+  for (const directionVector of directionVectors) {
+    const point = projectUnitVectorToCanvas(directionVector, projectionContext);
     const discontinuity =
       drawing &&
       Math.hypot(point.xPixels - previousX, point.yPixels - previousY) >
@@ -163,8 +167,12 @@ function ProjectedPath({
   strokeOpacity?: number;
   strokeWidth?: number | SharedValue<number>;
 }) {
+  const directionVectors = useMemo(
+    () => directions.map(horizontalDirectionToVector),
+    [directions],
+  );
   const path = useDerivedValue(() =>
-    createPath(directions, camera.value, canvas, closed),
+    createPath(directionVectors, camera.value, canvas, closed),
   );
   return (
     <>
@@ -203,21 +211,29 @@ function ProjectedMultiPath({
   strokeOpacity?: number;
   strokeWidth?: number;
 }) {
+  const lineVectors = useMemo(
+    () =>
+      lines.map((directions) => directions.map(horizontalDirectionToVector)),
+    [lines],
+  );
   const path = useDerivedValue(() => {
     const builder = Skia.PathBuilder.Make();
     const discontinuityPixels = Math.hypot(
       canvas.widthPixels,
       canvas.heightPixels,
     );
-    for (const directions of lines) {
+    const projectionContext = createPlanetariumProjectionContext(
+      camera.value,
+      canvas,
+    );
+    for (const directionVectors of lineVectors) {
       let first = true;
       let previousX = 0;
       let previousY = 0;
-      for (const direction of directions) {
-        const point = projectHorizontalDirection(
-          direction,
-          camera.value,
-          canvas,
+      for (const directionVector of directionVectors) {
+        const point = projectUnitVectorToCanvas(
+          directionVector,
+          projectionContext,
         );
         const discontinuity =
           !first &&
@@ -267,8 +283,15 @@ function ProjectedText({
   text: string;
   verticalOffsetPixels?: number;
 }) {
+  const directionVector = useMemo(
+    () => horizontalDirectionToVector(direction),
+    [direction],
+  );
   const point = useDerivedValue(() =>
-    projectHorizontalDirection(direction, camera.value, canvas),
+    projectUnitVectorToCanvas(
+      directionVector,
+      createPlanetariumProjectionContext(camera.value, canvas),
+    ),
   );
   const x = useDerivedValue(
     () => point.value.xPixels - font.measureText(text).width / 2,
@@ -432,12 +455,22 @@ function PlanetariumTarget({
   item: RenderedPlanetariumTarget;
   selected: boolean;
 }) {
-  const direction = {
-    altitudeDegrees: item.altitudeDegrees,
-    azimuthDegrees: item.azimuthDegrees,
-  };
+  const direction = useMemo(
+    () => ({
+      altitudeDegrees: item.altitudeDegrees,
+      azimuthDegrees: item.azimuthDegrees,
+    }),
+    [item.altitudeDegrees, item.azimuthDegrees],
+  );
+  const directionVector = useMemo(
+    () => horizontalDirectionToVector(direction),
+    [direction],
+  );
   const point = useDerivedValue(() =>
-    projectHorizontalDirection(direction, camera.value, canvas),
+    projectUnitVectorToCanvas(
+      directionVector,
+      createPlanetariumProjectionContext(camera.value, canvas),
+    ),
   );
   const opacity = useDerivedValue(() => (point.value.visible ? 1 : 0));
   const transform = useDerivedValue(() => [
@@ -665,22 +698,20 @@ function ProjectedMarker({
   color: string;
   direction: HorizontalDirectionDegrees;
 }) {
-  const point = useDerivedValue(() => {
-    const projected = projectHorizontalDirection(
-      direction,
-      camera.value,
-      canvas,
-    );
-    return vec(projected.xPixels, projected.yPixels);
-  });
-  const opacity = useDerivedValue(() => {
-    const projected = projectHorizontalDirection(
-      direction,
-      camera.value,
-      canvas,
-    );
-    return projected.visible ? 1 : 0;
-  });
+  const directionVector = useMemo(
+    () => horizontalDirectionToVector(direction),
+    [direction],
+  );
+  const projection = useDerivedValue(() =>
+    projectUnitVectorToCanvas(
+      directionVector,
+      createPlanetariumProjectionContext(camera.value, canvas),
+    ),
+  );
+  const point = useDerivedValue(() =>
+    vec(projection.value.xPixels, projection.value.yPixels),
+  );
+  const opacity = useDerivedValue(() => (projection.value.visible ? 1 : 0));
   return (
     <Circle
       c={point}
@@ -935,8 +966,15 @@ function RegisteredStarBatchLayer({
     const haloBuilder = Skia.PathBuilder.Make();
     const outerHaloBuilder =
       batch.outerHaloRadiusPixels === null ? null : Skia.PathBuilder.Make();
+    const projectionContext = createPlanetariumProjectionContext(
+      camera.value,
+      canvas,
+    );
     for (const direction of batch.directions) {
-      const point = projectHorizontalDirection(direction, camera.value, canvas);
+      const point = projectUnitVectorToCanvas(
+        direction.unitVector ?? horizontalDirectionToVector(direction),
+        projectionContext,
+      );
       if (point.visible) {
         coreBuilder.addCircle(point.xPixels, point.yPixels, batch.radiusPixels);
         haloBuilder.addCircle(

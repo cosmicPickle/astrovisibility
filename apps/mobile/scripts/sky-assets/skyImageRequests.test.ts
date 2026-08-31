@@ -39,7 +39,7 @@ describe('registered DSO image requests', () => {
     expect(requestsByTargetId.size).toBe(dsoImageRequests.length);
   });
 
-  it('adds the deterministic notable named DSO set and chooses an all-sky southern fallback', () => {
+  it('adds the deterministic notable named DSO set and uses one all-sky optical survey', () => {
     expect(dsoImageRequests).toHaveLength(289);
     expect(dsoImageRequests.map(({ targetId }) => targetId)).toEqual(
       dsoImageRequests.map(({ targetId }) => targetId).toSorted(),
@@ -59,10 +59,10 @@ describe('registered DSO image requests', () => {
 
     const m31 = dsoImageRequests.find(({ targetId }) => targetId === 'NGC0224');
     const m7 = dsoImageRequests.find(({ targetId }) => targetId === 'NGC6475');
-    expect(m31?.surveyId).toBe('CDS/P/PanSTARRS/DR1/color-i-r-g');
-    expect(m7?.surveyId).toBe('CDS/P/allWISE/color');
+    expect(m31?.surveyId).toBe('CDS/P/DSS2/color');
+    expect(m7?.surveyId).toBe('CDS/P/DSS2/color');
     expect(createDsoImageUrl(m7!).searchParams.get('hips')).toBe(
-      'CDS/P/allWISE/color',
+      'CDS/P/DSS2/color',
     );
   });
 
@@ -78,7 +78,7 @@ describe('registered DSO image requests', () => {
       fieldOfViewDegrees: 2.5,
       widthPixels: 256,
       heightPixels: 256,
-      surveyId: 'CDS/P/PanSTARRS/DR1/color-i-r-g',
+      surveyId: 'CDS/P/DSS2/color',
     });
     expect(
       Number(createDsoImageUrl(request!).searchParams.get('ra')),
@@ -95,7 +95,7 @@ describe('registered DSO image requests', () => {
         fieldOfViewDegrees: 0.5,
         widthPixels: 256,
         heightPixels: 256,
-        surveyId: 'CDS/P/PanSTARRS/DR1/color-i-r-g',
+        surveyId: 'CDS/P/DSS2/color',
       },
     ]);
 

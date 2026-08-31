@@ -146,6 +146,18 @@ describe('usePlanetariumNavigation', () => {
         timestamp: 200,
       });
       mockGestureHandlers['pinch-onUpdate']!({
+        focalX: 135,
+        focalY: 296,
+        scale: 2.1,
+        timestamp: 208,
+      });
+      mockGestureHandlers['pinch-onUpdate']!({
+        focalX: 138,
+        focalY: 294,
+        scale: 2.15,
+        timestamp: 212,
+      });
+      mockGestureHandlers['pinch-onUpdate']!({
         focalX: 141,
         focalY: 291,
         scale: 2.2,
@@ -157,7 +169,7 @@ describe('usePlanetariumNavigation', () => {
       mockGestureHandlers['pan-onEnd']!();
     });
 
-    expect(onCameraPreview).toHaveBeenCalledTimes(3);
+    expect(onCameraPreview).toHaveBeenCalledTimes(2);
     expect(onCameraCommit).toHaveBeenCalledTimes(1);
     const committed = onCameraCommit.mock.calls.at(-1)![0] as PlanetariumCamera;
     expect(getPlanetariumCameraCenter(committed)).toEqual(
@@ -184,7 +196,9 @@ describe('usePlanetariumNavigation', () => {
 
     await act(() => {
       mockGestureHandlers['pan-onStart']!({ x: 200, y: 400 });
+      mockGestureHandlers['pan-onUpdate']!({ x: 210, y: 400 });
       mockGestureHandlers['pan-onUpdate']!({ x: 220, y: 400 });
+      mockGestureHandlers['pan-onUpdate']!({ x: 230, y: 400 });
       mockGestureHandlers['pan-onUpdate']!({ x: 240, y: 400 });
       mockGestureHandlers['pan-onEnd']!();
       mockGestureHandlers['pan-onFinalize']!();
@@ -193,11 +207,8 @@ describe('usePlanetariumNavigation', () => {
     const previews = onCameraPreview.mock.calls.map(
       ([preview]) => preview as PlanetariumCamera,
     );
-    expect(previews).toHaveLength(3);
-    expect(getPlanetariumCameraCenter(previews[1]!)).not.toEqual(
-      getPlanetariumCameraCenter(previews[0]!),
-    );
-    expect(previews[1]).toEqual(
+    expect(previews).toHaveLength(2);
+    expect(previews[0]).toEqual(
       applyPlanetariumPan(
         camera,
         canvas,
@@ -205,11 +216,43 @@ describe('usePlanetariumNavigation', () => {
         { xPixels: 240, yPixels: 400 },
       ),
     );
-    expect(previews[2]).toEqual(previews[1]);
-    expect(previews[1]!.fieldOfViewDegrees).toBe(100);
+    expect(previews[1]).toEqual(previews[0]);
+    expect(previews[0]!.fieldOfViewDegrees).toBe(100);
     expect(mockGestureOptions['pan-maxPointers']).toBe(1);
     expect(onCameraCommit).toHaveBeenCalledTimes(1);
-    expect(onCameraCommit.mock.calls.at(-1)![0]).toEqual(previews[1]);
+    expect(onCameraCommit.mock.calls.at(-1)![0]).toEqual(previews[0]);
+  });
+
+  it('bounds JS cache previews while keeping the final camera authoritative', async () => {
+    const camera = createPlanetariumCamera({
+      centerAltitudeDegrees: 35,
+      centerAzimuthDegrees: 180,
+      fieldOfViewDegrees: 100,
+    });
+    const onCameraCommit = jest.fn();
+    const onCameraPreview = jest.fn();
+    await render(
+      <Harness
+        camera={camera}
+        onCameraCommit={onCameraCommit}
+        onCameraPreview={onCameraPreview}
+      />,
+    );
+
+    await act(() => {
+      mockGestureHandlers['pan-onStart']!({ x: 200, y: 400 });
+      for (let step = 1; step <= 9; step += 1) {
+        mockGestureHandlers['pan-onUpdate']!({ x: 200 + step * 4, y: 400 });
+      }
+      mockGestureHandlers['pan-onEnd']!();
+      mockGestureHandlers['pan-onFinalize']!();
+    });
+
+    expect(onCameraPreview).toHaveBeenCalledTimes(3);
+    expect(onCameraCommit).toHaveBeenCalledTimes(1);
+    expect(onCameraPreview.mock.calls.at(-1)?.[0]).toEqual(
+      onCameraCommit.mock.calls.at(-1)?.[0],
+    );
   });
 
   it('keeps the native gesture camera authoritative across a commit-only parent rerender', async () => {

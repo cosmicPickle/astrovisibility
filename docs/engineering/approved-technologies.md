@@ -179,8 +179,7 @@ validation.
 | HYG Database v4.4, commit `53e3df311869e813ace5f1ad2ec4ce909f13256c` | Adopted as pinned CC BY-SA 4.0 build input | Offline magnitude-limited real-star layer; only normalized generated data enters the runtime |
 | d3-celestial constellation data, commit `7e720a3de062059d4c5400a379146a601d9010e0` | Adopted as pinned BSD-3-Clause build input | Western constellation chart figures and names; no d3-celestial runtime code is bundled |
 | Stellarium full-sky Milky Way panorama by Axel Mellinger | Adopted as a pinned, attributed static image input; modification and redistribution are permitted with proper credit | One offline 2048×1024 equatorial context atlas from Stellarium commit `e6d38fe5e71e2c591c975fb068f2daf0b89d59b0`; display opacity is bounded in-app |
-| Pan-STARRS1 DR1 colour HiPS `CDS/P/PanSTARRS/DR1/color-i-r-g` | Adopted as bounded public-survey image input | 223 deterministic 256×256 optical cutouts for required targets fully inside the survey footprint; no runtime service |
-| AllWISE colour HiPS `CDS/P/allWISE/color` | Adopted as an all-sky ODbL-1.0 image input derived by CDS from NASA/IPAC WISE Atlas imagery | 66 deterministic 256×256 infrared cutouts for required targets outside Pan-STARRS coverage; no runtime service |
+| CDS DSS2 colour HiPS `CDS/P/DSS2/color` | Adopted as the all-sky optical ODbL-1.0 image input | 289 deterministic 256×256 optical cutouts for required targets; replaces artifact-prone Pan-STARRS/AllWISE false-colour composites; bundled only, with no runtime service |
 
 OpenNGC-derived output must retain the required CC BY-SA 4.0 attribution and
 provenance. Astronomy source data is imported and normalized at build time; v1

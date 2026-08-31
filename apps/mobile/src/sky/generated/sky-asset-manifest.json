@@ -1,5 +1,5 @@
 {
-  "generatedFromPinnedInputsOn": "2026-08-30",
+  "generatedFromPinnedInputsOn": "2026-08-31",
   "limitingMagnitude": 7,
   "sources": [
     {
@@ -24,16 +24,10 @@
       "url": "https://github.com/Stellarium/stellarium/blob/e6d38fe5e71e2c591c975fb068f2daf0b89d59b0/CREDITS.md"
     },
     {
-      "dataset": "CDS/P/PanSTARRS/DR1/color-i-r-g",
-      "license": "Public survey data; attribution required",
-      "name": "Pan-STARRS1 DR1 colour imagery",
-      "url": "https://outerspace.stsci.edu/spaces/PANSTARRS/"
-    },
-    {
-      "dataset": "CDS/P/allWISE/color",
+      "dataset": "CDS/P/DSS2/color",
       "license": "ODbL-1.0",
-      "name": "AllWISE W4-W2-W1 colour imagery",
-      "url": "https://alasky.cds.unistra.fr/MocServer/query?ID=CDS%2FP%2FallWISE%2Fcolor&fmt=html&get=record"
+      "name": "CDS Digitized Sky Survey 2 colour imagery",
+      "url": "https://alasky.cds.unistra.fr/MocServer/query?ID=CDS%2FP%2FDSS2%2Fcolor&fmt=html&get=record"
     }
   ],
   "generated": {
@@ -41,8 +35,7 @@
     "constellationsSha256": "6862af10298f1ca9352935ef9e31fefd1b926e9f1368a822ef511a814aa28b02",
     "dsoImageCount": 289,
     "dsoImageSurveyCounts": {
-      "CDS/P/PanSTARRS/DR1/color-i-r-g": 223,
-      "CDS/P/allWISE/color": 66
+      "CDS/P/DSS2/color": 289
     },
     "milkyWayAtlas": {
       "heightPixels": 1024,
@@ -54,1449 +47,1449 @@
   "imagery": {
     "dso": {
       "B033": {
-        "bytes": 13614,
-        "sha256": "6da11aac19a6d0bf639f6085b3ff2fe1ceb3b01d3a2b18dcf81f7161ea6bdcd5",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 11842,
+        "sha256": "e29b4393f83d4a92b633a5fa9eebc893dd2c3c45fcbdd1ff4822fb2b814339a4",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "C009": {
-        "bytes": 20102,
-        "sha256": "013c0667dc06529f744c1b1f205645980212a162179d53c9f2fb8bfe13f02842",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 8455,
+        "sha256": "e04ca204e6cbc7891bce210133ee8a1f2a262d9ee7c42cc980fff52a09581bb8",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "C014": {
-        "bytes": 26526,
-        "sha256": "6010d607f41582a46ee8a245eb62035cea48c0b63fa1a7e7fde3550994c53b74",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 13453,
+        "sha256": "f3de7889470c3e82be904af1995f39f3ac3ec5321cc8cc9c925eaf157ef36ba8",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "C041": {
-        "bytes": 17744,
-        "sha256": "0af9529c62d9f3ce004e70f4fde31e07dbf0bc0af0957a72f9392c82dc213ac5",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 6486,
+        "sha256": "6916083e31d64039b91b607f0e9d99c82f1617c8aefb801dad5fcb9abfbe67fe",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "C099": {
-        "bytes": 22493,
-        "sha256": "5e0d41fe4747e110cf003fcaef924e38e9f9538258c9fbc863c9658341f70b43",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 11827,
+        "sha256": "72d4676daf1246ab018e5588b601028d5ad44fc4e6a0839e263c9aaf7ca9fc03",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "Cl399": {
-        "bytes": 24873,
-        "sha256": "15697e23ab1c7e285b0ee9bfbb5f4d749117621b6480f07029a9b7b44348ae43",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 10390,
+        "sha256": "3a6078c85b7cb8b52412af3105da66945b3ad5f7891df7c23fbdec3a18cc5c5c",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "ESO056-115": {
-        "bytes": 6019,
-        "sha256": "24576f1464d8689ab1deefaf1385e612e88b99022352bfdba04f8743dbe7e1e4",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 7711,
+        "sha256": "08bc1787bd729ee4dbeb94b6800a71f1ebe028138757b5fa95e9b741866f4223",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "ESO097-013": {
-        "bytes": 16335,
-        "sha256": "074e5850f41b2afb5772343e6f2e9c7e36eb28f563760f099fafe9e3cc3a88b6",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 23972,
+        "sha256": "1a0aecad9fe2e94e6e86e9b85cbcb9e2d70a03b56cfe7adebac26ab8867f09d6",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "ESO270-017": {
-        "bytes": 8907,
-        "sha256": "939e6cfa0cb85763c8db2e09c3ee2af357523a628107b6129f3c5563f36d8882",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 13984,
+        "sha256": "0abf1668d32dd116969b0472027c356c2987fbe652eaeda00d0fda69346d1332",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "ESO351-030": {
-        "bytes": 5668,
-        "sha256": "c72c0b37f4bcdf15cbc1fd5b390ffba7314d584218b13bc34f0ea2d5d9ec9613",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 12609,
+        "sha256": "73e4e9b85cd0ddd5a64ceac7e2afa345daa42664ec3c71105a1f7547a608d3a8",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "ESO356-004": {
-        "bytes": 6840,
-        "sha256": "aa6350b8f6e5ada4af5d77d5b471404647841a9379a2859c1a0dce9ec2555283",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 14097,
+        "sha256": "ed68a65d38ac459094e5adc197f2e1376a670a9025cd92f2d89742a3fa09a8e1",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "HCG079": {
-        "bytes": 12524,
-        "sha256": "41ec09bc9d67ccbd6f00438b6d8433b42063d827c2957d05509d6f95e9bd2e74",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7657,
+        "sha256": "a2d5170091b38fc546edfc4160fac91460208c5c65c69945dce28fc719426901",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "HCG092": {
-        "bytes": 15895,
-        "sha256": "fa27201610ead38d7b2b840f35948f9905625273c2b79549acc95a9d8789c058",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 11174,
+        "sha256": "c4b2e641162ffbf5cd7a79ff7d4a6690741fb99cf73d2d8d91b92994fd45508b",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "IC0342": {
-        "bytes": 20382,
-        "sha256": "890dabc2cf8806fde00a3df951fec6918a6344543117484b013169f1f987dbb3",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 15294,
+        "sha256": "62e9d170cbf80d5fc71dfd098c844ef69d9903c27d79d1859fd1a8abefa9195d",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "IC0348": {
-        "bytes": 12850,
-        "sha256": "b30704961d1adab1163e88c85443cc2dfeedc5f7365bd4731fe3103afd53134e",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 10126,
+        "sha256": "c1af2466abee6c6515a1d31b24f3eb6ed4a947e6804a5b6123c913f86f6e8661",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "IC0349": {
-        "bytes": 15564,
-        "sha256": "51b1072f25cb0126eb98b7762383be6cac1cb92984b194d23c5f803b4f282dec",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 10943,
+        "sha256": "5bc8bb65d027dd49294d86c12a463b09142142612bd6a10773ca13618e5d4876",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "IC0405": {
-        "bytes": 24107,
-        "sha256": "a8314bece12b969dd14f7be1256ba75b6071bb19b4053b606e5412ddee47b5c1",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 11160,
+        "sha256": "e632aec1dc8fd23a28bfe501afb259dc4f55d257b0c9da4fc45c0fbc3f8b4d75",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "IC0434": {
-        "bytes": 19031,
-        "sha256": "fb844d3087ad41d434f7146d6b422858d365f958dc4284fdab28fb46a84f67fc",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 9293,
+        "sha256": "f816a257c758d4628b44686ba60cfe245cf5529b611eff6c23ed6ff886c1b411",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "IC0443": {
-        "bytes": 24643,
-        "sha256": "83f33d7dba6cf0ea165e6fd1df9715044014e6d3744673573b4a16828ded61d1",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 11206,
+        "sha256": "c4d5936899b16a3214ac9562532eced148a839700154a04dbcd05a3cd1f9ead7",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "IC1613": {
-        "bytes": 14877,
-        "sha256": "a559ac996dfd9b3ece605039c5c7b2bd986771d7e5abb25723e57904d381aa7d",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 9404,
+        "sha256": "4eebd7897c6d7187fc10c8b000d621db0104ae74a4530e68e36c75e409a6ea08",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "IC2220": {
-        "bytes": 9690,
-        "sha256": "de1d17089a1a0f0111686eb90d720eb95c09833cc9d28c9e58f38ea0afb13d45",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 13879,
+        "sha256": "c297bc8837340449d082a70e2589c6a4c8d53854070466aa3594a9055df4fa20",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "IC2391": {
-        "bytes": 14886,
-        "sha256": "1de6b26146ae0a211dd140ed4823760cbfaacaa08e31f4977984bc8659160b20",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 16819,
+        "sha256": "bee9950a56b3966208826492676b7c4ef34f81defd1e94a3240da9200c9572e6",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "IC2431 NED02": {
-        "bytes": 11474,
-        "sha256": "7071678069a02b75d5f7264419767ba833aa7b178af2f80e3fc667e0a3ccc73c",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7503,
+        "sha256": "42e16ce98bab6bbd187b68af2c0dcd11f07908bdbbf6ad27b95a0a1d486a2714",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "IC2574": {
-        "bytes": 11027,
-        "sha256": "cc3658d9231fa6cbfd5fd59860c535dcff763c7c588ee354f63359e723d74824",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7894,
+        "sha256": "d32f14ffc8fd64a3e11f84b6e9b4bf786618667152af4af13b43f8456e849685",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "IC2602": {
-        "bytes": 17163,
-        "sha256": "0891aaa0c2e98e8216058f8ca2e692ee3cc014c356e1a037434a1b77596349c7",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 16016,
+        "sha256": "01fe2008a38956207ea38096e554a7488534922a68dc319ef4e80a4f36b59ed9",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "IC2944": {
-        "bytes": 17497,
-        "sha256": "bc9ff62ed6b92c62630293d2a35fdbe43c05796005ed777bc93b91f5250a8b16",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 20273,
+        "sha256": "9689163d7fc7a1ac0f244cb3456ef219a2c37cc237284784468849e9aededfa4",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "IC4604": {
-        "bytes": 16471,
-        "sha256": "6b0d1da1ced28e2bfd34a115691fe5c7d373cc5d7868f79b8b872658b6f211e2",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7854,
+        "sha256": "1eabc37dd186b4a9470bd09082a29c208c0a68d8d6d1b9c75700e259348741f7",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "IC4703": {
-        "bytes": 21291,
-        "sha256": "bd520004040ce2216abc56bdc49dd019b41e16e105ea8c2a253f8ea3e507cab4",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 13201,
+        "sha256": "a7564456eebc70aca908fbd5a42ea300aef7496ad590a584ee36e4ea82cad195",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "IC4715": {
-        "bytes": 27001,
-        "sha256": "a90401e769bae21cb5e069530b2d3234ad5750df0ca37b529cd5e0073f0b012d",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 14473,
+        "sha256": "e24cb81f70c808a790f1e4a1b116b437ad7485f9515784d7d3a9e664c6fa9334",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "IC4725": {
-        "bytes": 26584,
-        "sha256": "3cd2a22af70bf1d34bce05b13f5b83fae9b104871e5ab6283bc5d8c59d1d0354",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 23770,
+        "sha256": "c64cde8c36b4983fbbee3dfad18610320b2e9b67dc030ee0c4be676cf00710e3",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "IC5070": {
-        "bytes": 22646,
-        "sha256": "8dd9a5688162d1e40db7f2a3336ccca68ef188366b120fe742bf112feef3190a",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 10956,
+        "sha256": "ddf2c0611ea1f4cfbfe259e86ae32ceddc3ce85cde869fa105771f703040b631",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "IC5146": {
-        "bytes": 17444,
-        "sha256": "467dca227e30d6334d5286ec5580dc061fda8c0817dafcc7c4eda396834c893c",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 13010,
+        "sha256": "a211de4550f1032dc6e80ff9dd8176c79ea4eb97e8c1eacd3ded6b316bc189e0",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "M040": {
-        "bytes": 15240,
-        "sha256": "4809cabd5d3637b58458c55de233adb03218e8eeb984ff1273ef9df856f293db",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 5685,
+        "sha256": "3bf07b3368e532b2649a0bafacfbce8ed18f105f9388c53b3866de217ac420bd",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "Mel022": {
-        "bytes": 21366,
-        "sha256": "af0c8821a62e471a2cea73fe9bfc926114131516123409860258c3ab53140a86",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 8846,
+        "sha256": "3eeddc3a20c1536de0dbc3365a7aa6c9357f80072fe4d665f0e058fd4077fb9c",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "Mel111": {
-        "bytes": 14998,
-        "sha256": "4e700d258dcf3230a5b0e9d12b4ca6158cf064170b32a74e02fa461eac10ae6d",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 6122,
+        "sha256": "f4184cdfab34e1784b7a74425301ff50c37a0ddd40d0965014987673af2224ea",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC0040": {
-        "bytes": 18982,
-        "sha256": "f5e75f6144a0e22f20913f973b8400c82d42533fa4c9d10abfa9a25d42328487",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 14358,
+        "sha256": "39b0496955866b58a9174a3a351b7992c9acb25ee497c83910e59001f339c21e",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC0055": {
-        "bytes": 5768,
-        "sha256": "aa8c788b2ff75014a771521e53760f1d9f5aeaf5c07d70f995ce1caf224460bf",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 8091,
+        "sha256": "3ca15be18c0c0b207a831e7a407a6877a40cc5f9bcec76415e0870f22824c4da",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC0104": {
-        "bytes": 13105,
-        "sha256": "c45f4ff09fd9116f87b331f24f2703ef6ea9e246f3d06267cff0641c1caa1d32",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 20855,
+        "sha256": "58a9ca11c7476a135895b1dda99d41c68b5cee37c33115e0482a5f3c3b469c34",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC0147": {
-        "bytes": 17394,
-        "sha256": "a73d081a9883151ec7f3019dd3c0c9a6d9799f75209fb0645711f158e92f5eb1",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 13327,
+        "sha256": "e64e43b71e4b97a22c4a4e81281dc4ff54dbd84bedf6f8b3593dae76b98edf4f",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC0185": {
-        "bytes": 17712,
-        "sha256": "af40a6a61a1d182f3473ffff8673d600cdad2f50025f2519ea447653efb086c4",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 13659,
+        "sha256": "6ca1fdd2c1d33a106e9ddba5dc23ba8493407569103c7cfbf39292698ede2a04",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC0188": {
-        "bytes": 19563,
-        "sha256": "177e1bc7509b1afe53556034300b1aaccf1fa3909076235eddf6e693231cd541",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 14959,
+        "sha256": "34bef32453137d02cd07f2b76b6303d0837c67bb6ac8dcaf7a7423eb19692e1d",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC0205": {
-        "bytes": 17418,
-        "sha256": "8069e7178450a5a6f60c356a67164098785b7155d988fc03c68de0eee8f75192",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 12644,
+        "sha256": "118edb63e189fa19f68228055505b0f1b1969c827668b8e0811316a892625151",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC0221": {
-        "bytes": 16989,
-        "sha256": "73124822599ee00cb8345ae4e20bd0e2ac015c71e16eb604ff47af2175c3b3f9",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 12791,
+        "sha256": "dd849e2d772ba4862687d69d56d449f4881fd62afd2f546abdfca56b9864d5f2",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC0224": {
-        "bytes": 18781,
-        "sha256": "ae74e7b909ecc02c0be75958a6f63271f8fa2bd6c4843f400392c5e4ec909125",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 6702,
+        "sha256": "c7c0dbce80f55a8a3827df73ad1c2ff31179a931786cb83c594af8c26d596a6e",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC0246": {
-        "bytes": 10387,
-        "sha256": "a0830cdf82891a2503f3ef5797884f597fe1c4952e151c311e5cc506ac462ea9",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7562,
+        "sha256": "315221a47363c68207f133e9b2a04a778ad59617f3acfb6d47a599cc5884ad33",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC0247": {
-        "bytes": 11850,
-        "sha256": "5d9cbe85f7afc6d60b05d99106e27b5f1ed6e10f5de3aa5088d44c4f4ff5fce9",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 9305,
+        "sha256": "1d292c8dcd3edaf50abaf0f11638d1f176acd5deb0a255cddd4fd6471728e6d8",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC0253": {
-        "bytes": 11003,
-        "sha256": "a9d2e1bcf3cff0fe6d398bef3a0d90d54210db961d66f0b28830ab66956c2ba1",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 8209,
+        "sha256": "9e9113e13f6e9a94829ed4b8c48721e912400417a57db1a23a555751b384ae9a",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC0292": {
-        "bytes": 5538,
-        "sha256": "b522ec4958abbb5ddebbbca5673e1dca1c892c64debc01b1302e52c55c0b1ae4",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 6951,
+        "sha256": "9b85f1f0f40371ee1997a425d7e6332e9bc2703e099fe2e3d8b5ea4332395cda",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC0300": {
-        "bytes": 6271,
-        "sha256": "2fea259e8853e9eee726ca196af0ece63d79b277ad4c51b35bff8518f34b2795",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 9978,
+        "sha256": "a9532989b5b8c20a4a811b4238445d4c8b349917dcdf6030c7d2871346a9c857",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC0362": {
-        "bytes": 8784,
-        "sha256": "962b287c37bcb029caf12a1590542558ff5b6f29f00b61497ef4a4cd5a9fa933",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 18727,
+        "sha256": "be0277ef55e0c12916934e720e319dc151a66b3d3b6eabeede797e9b7291ef78",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC0457": {
-        "bytes": 22756,
-        "sha256": "e9ce8a935a6bf2c40b8d0cc9a2619042f1bd4530b077d71c4e42f872016ad028",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 19259,
+        "sha256": "61c0b7226c8ede8edeb0e6fc7cbb5630144d130159cddda76cb3ba77aab46956",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC0559": {
-        "bytes": 22779,
-        "sha256": "7a8f1d96548ed688b6ebf07292d61011b411e69de62a23a3550955433dc28813",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 17289,
+        "sha256": "0ba934342ea63735e1766feccd5a7d9e66f01f080ae0a0d3ed14d48264b3ef4d",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC0581": {
-        "bytes": 23638,
-        "sha256": "594fe0f0ec321a18f128ea7a72a7f010aab44386f8ded0631d7af88c086255d4",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 19665,
+        "sha256": "959f55f0c0594eaf31da06be2e5bbe95b6f8f36c54ec8ca63f3b9a24251aa80c",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC0598": {
-        "bytes": 19207,
-        "sha256": "25a7ef711b2ddafbb5d882264c1706382aa81c238514633151bc8d6b4aa11f78",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7789,
+        "sha256": "4131d890383c58d592ff6469dad658b3c07862f9f8b36207c8b8d5d90e586476",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC0628": {
-        "bytes": 10972,
-        "sha256": "4de5fbea4068820500dd6ee7c40eb36653bd498bc661f4cf14ec94f525ef86f3",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 8814,
+        "sha256": "847ad704a258fe972082439398d4480ad79599b9d3eae3a3f98131aa2b53b0f9",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC0650": {
-        "bytes": 18526,
-        "sha256": "15dcb0f9eede94d008ce24517764c9fa88cff9ad388296d8d9e528f838bf648b",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 14039,
+        "sha256": "723325107cc35372d2981333a4fc91f55c4d55de7307b7c41d46ab56261d5cea",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC0663": {
-        "bytes": 22903,
-        "sha256": "f3afa79cc3a6c4cd77f63a82ba39580820636ae07bca03108f392934916137fa",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 18870,
+        "sha256": "0e39a270682dbaa955fb8ec0f9aabd667dc93d434d097c761ba2be500709d80b",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC0752": {
-        "bytes": 18563,
-        "sha256": "08ce81aebfe4f56f22f4180bc73f9b12c6f802e3f0a70997e9a8dea076eb3df2",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 12914,
+        "sha256": "744bd659658f3041d4a3dee2b4c03df39d8937330573b840216a7b04ec36b33d",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC0869": {
-        "bytes": 25602,
-        "sha256": "641c231723916f60a65e4743e823deb330cfadaff635d85b0147c19cea6c5176",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 23825,
+        "sha256": "102444857b0100323aadc97695bce41ae5e5282c51f7cab842ea98807f043cc8",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC0884": {
-        "bytes": 23506,
-        "sha256": "9fe98a42d7ede730dbee2aa2d3d57a85da3830eb5c617c3c40694f1304177b91",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 21644,
+        "sha256": "81119d49384bac6ead84e512edfd89afd9c0a0b92babf2b54940767d60610330",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC0891": {
-        "bytes": 16259,
-        "sha256": "bc65411d90287a6279aabe0e85c85ba6ca23942a3d4244d54915c7b8a8e5dbff",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 13656,
+        "sha256": "0ee3e946a5197e909ec5f20eb1974878680268adda2229ff65d295d37cac02a2",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC1039": {
-        "bytes": 19054,
-        "sha256": "4a077f9c4b647e615e9961c7e25dc689ba60b899c6661535ca70fc5f25e78832",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 14574,
+        "sha256": "117ca2a80fdae01f1f2ea298a94dc1ed3ef44b8d2a06c24bdee465ab227ca431",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC1049": {
-        "bytes": 5492,
-        "sha256": "a05a194a5f640b69067f4cc06d519e3773cd2f9f9e390ee30afeb4fa9290bedb",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 11066,
+        "sha256": "b2cb84ed7e04f5f414b52427041dcdec515ab8b6b14492b95d1a2a2bd96acde1",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC1068": {
-        "bytes": 11224,
-        "sha256": "5b14b5966cee314b30aa4f2e180da1ceb12d223bd7d9a3888da1f59adf63a72f",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 8571,
+        "sha256": "56d5942203ec3f2eb673318c4c49132b4305fbe8279a6d9fe5b51cf4ca045742",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC1097": {
-        "bytes": 5920,
-        "sha256": "aa42ee679e8524ecd135222735b2b45fde46c861b302dee00bfc35e820319bf4",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 9652,
+        "sha256": "10e47e58339a52fa7be6285377f151d5418bc9e09534e5fd7bfeac4c7670c884",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC1261": {
-        "bytes": 6521,
-        "sha256": "0bceddb932bf8a47c27988cbf245d59c2148892d5e9e24a1e03bf3e34f427757",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 12725,
+        "sha256": "66419de3115f1dca46c85912fa1928cb95cd482d107cd4941381a93cc687e3e7",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC1275": {
-        "bytes": 16926,
-        "sha256": "b773d154fff1c9d4998934b33e55ec7c0ffa346daa46ffd1498b52cb23469dc5",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 13229,
+        "sha256": "43130e57382b13b0601a4bfca1ace1c5ca74d334375d407f7f9398cff2d9cf20",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC1316": {
-        "bytes": 6018,
-        "sha256": "d60d43979ed5c1fb8e36a24a9f29db31f4626c197d4da2b0d715da054d8b2a52",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 8122,
+        "sha256": "72fa3e54b5db3f30ae9e4309eb2d62094d9943bd808dd66c68c4615b9a9e589e",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC1317": {
-        "bytes": 5834,
-        "sha256": "71f37794c9a86692dc47e9df16c0af1779503e741fceabf91904fadf396429ca",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 7810,
+        "sha256": "4cee1d4dcb68975ef564e8b5a6f9fa756491bdef443e9d0233ca83cac687252c",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC1432": {
-        "bytes": 20624,
-        "sha256": "900f2ea57db7de6a7aa0306943fdec91cedb5dff43a314adf0e71513122dcc5b",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 10313,
+        "sha256": "09eebb0894ba1acc927438a4a3d38bc77b0c97e48a899d49540551eb23a56afc",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC1435": {
-        "bytes": 15240,
-        "sha256": "927b1cd31f6b784ccf788cf40cbd6b9f1ae813926e7a8e137b0a4d308d188179",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 10156,
+        "sha256": "7fe84e44e8a268459111501b08905a6e44aed85acc458fb3d234576c94a1705d",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC1499": {
-        "bytes": 23395,
-        "sha256": "3e7d147d20f26f81e8db1ec9dee8e08ced0b062798d9844c206320199d029e76",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 6922,
+        "sha256": "67bb241a7b5b8bdcc71c1c0c467db366e59964ecbf88a7a765c671881830d543",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC1555": {
-        "bytes": 10950,
-        "sha256": "f8316edc2868611913d95a5be7eb38f31ac48998f3f5aaadab922cea26f46aac",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7677,
+        "sha256": "04cde80ea46b93bc17a98bbdc76f0e9df13983717448745298fada20912a7291",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC1851": {
-        "bytes": 7476,
-        "sha256": "510fbc462b60ff08a2b8b53b01ad7440f0fb2df323ed74cc3bdee342ef6f8b5d",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 15213,
+        "sha256": "258977159bf3b5607767dc2c348ea46587cbcf18a03d57970c3f9aefafea3813",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC1904": {
-        "bytes": 16959,
-        "sha256": "6ade37743ae276724c641326fc7db01d4f0133eb3cdd39b473d88e26b63a5990",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 12896,
+        "sha256": "57e41c6dcbbe73f1b628d42bf92544ebfdf6f2f2382bd4af105e153af4606c3a",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC1909": {
-        "bytes": 17654,
-        "sha256": "b8a7fd509c61e14fe51d8a8e7b579b471254723491a5f0bb9adf9b1f9fd5210c",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 6616,
+        "sha256": "65c8488f76dcc42ceda7e081ec63d410282077ff4c217bec7b2f8b45e653fe9b",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC1912": {
-        "bytes": 22602,
-        "sha256": "e67a43db85e5b3f81cac70ea340e1140c41d729694bebce97aa22b20949ee06b",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 19966,
+        "sha256": "d7d97eb679ef0001242d74d3c17447dbff2bc5aa1a6674edc5b9570bb958bcb6",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC1952": {
-        "bytes": 18906,
-        "sha256": "a12ef08aa631fb6e52a9be9d9c9695821bbea716a8429f26ed919682b3f56afd",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 13728,
+        "sha256": "2ebd46d3d6f16a34ff4d130bf7e224ad61f4dc652c1bc022b85d518805b0b26b",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC1960": {
-        "bytes": 22107,
-        "sha256": "850bed13173613e5fe4a0b2aa2ee3eff166de547d8595dc056496f1325109779",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 17823,
+        "sha256": "6a28567a5522fb2253141e27fa3fa8837d566477058f54a3dc4c2f7a3a3f48f7",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC1976": {
-        "bytes": 19407,
-        "sha256": "791e7cc37b7c9d83cd0bc973d81e4d7f4d190e1ca5815880f31b8e39aaeb22b6",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 10355,
+        "sha256": "1bcb020896d6c32318ecf7164c44cc03f4b622e5077442101294e296f2530186",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC1977": {
-        "bytes": 15858,
-        "sha256": "f6210fc3e15e86b26fae764eed166e1db981bc989ef24478da405b9866b7a2c2",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 12706,
+        "sha256": "ae5da8a910ad1f8fa0d8ae9d527a4b903854db15b69b92db468de0121dd94404",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC1980": {
-        "bytes": 13795,
-        "sha256": "de2736def4db76b3620e852f677aa29ea5388568e02f782bfd2f17a293311aab",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 13958,
+        "sha256": "58491f3d9768d69b8a1177563818a6226dd452553899f97623e9ecca5cf5d37d",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC1981": {
-        "bytes": 14105,
-        "sha256": "2fcd37f3b5e524c1156024fa0ca9661fdb04a4a2b95a21cd425fde53639aade3",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 12775,
+        "sha256": "40c5fb665b710180e7f22d5b1627432af23ab6da96f08f30eaeb879ec855b895",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC1982": {
-        "bytes": 16609,
-        "sha256": "4ece65cde4f698f981d8e049f26b310f16b8c7c7d839b480e5d61179ce6ec4f5",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 10885,
+        "sha256": "e9f83ce7a0197a65df872318a4c55d8612e69da38d0e4e2d487cdee6e619b9d2",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC2068": {
-        "bytes": 11498,
-        "sha256": "27b358ad47ab67314d861cf3c9a81ed6d7721f6f13e3e29b9be25cbd5bd37bcd",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 9671,
+        "sha256": "3150c172a1483203611425dd317e6b34503232d2968422a89fe8a3d6a6688a34",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC2070": {
-        "bytes": 14087,
-        "sha256": "064ffc63638aedfec57eee2582f4316fd258bb43ceba5732559ea0ae8e4793d7",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 21593,
+        "sha256": "62d438349a2d3f7b910436fe7d027c3191066d33373b92c0482ae2b5265a1afb",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC2099": {
-        "bytes": 25825,
-        "sha256": "b4278ea7a48ef11a44f8a8077a78dda64037a15ce73e14db8b6c3b758353a988",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 24041,
+        "sha256": "07cdd292f9b6521345c2df842e2da49adc016ad9fd06ff78a8805d4f8e80a4ee",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC2168": {
-        "bytes": 23931,
-        "sha256": "24d2af3a9ace2a60c62cc236ec715fbc3b01da6152769ffe8be716ce1b5fcd43",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 17204,
+        "sha256": "a8871e556b86d3d2d136d4a60023a387c904f4ef905ebde10ae6245f458ea3be",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC2174": {
-        "bytes": 21036,
-        "sha256": "8cbef4c152367a1f30664a61c986e7c0c076dc62d2856d996269aac3452af1c0",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 13243,
+        "sha256": "44ad37e0e4445e73f4d5ce0614e7e459347505b9860d85b7f536beb93c409b12",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC2237": {
-        "bytes": 26344,
-        "sha256": "d28226f2270228b9240a53165c082da84c03a73398018852ee5d5204e5b70e7a",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 12287,
+        "sha256": "09c7088c7bbd0907e89184411a7468cab8cff0f5cdd32923ece7993c3c8556ae",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC2238": {
-        "bytes": 26223,
-        "sha256": "76ddebd011f6eaa4f16ff9b99e7c8874fc9d23000e0a18ab2805eec161fd4426",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 12265,
+        "sha256": "10252ecf0c8e176a536b7c238ed24b759fd7f3c137b77a11a0e6e4461cafc88f",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC2239": {
-        "bytes": 20040,
-        "sha256": "bf7876ca13de118c1e549543a8936fcde9ad38562877314ddff5dc96c996621f",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 16008,
+        "sha256": "a67abf516dce0ffc30dbd8b141da8aeb2cbabe970b7676e8ca86f324985973d7",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC2246": {
-        "bytes": 18774,
-        "sha256": "5d1ded811e8abbe435a66ffe7eaf5a9db386356501a6bdc103fc041e013cf170",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 14597,
+        "sha256": "4dfbb7d7ce5e5e0cc71b5666aa25a46eff4e4ddb854f7d273faa318b2f6acbcd",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC2261": {
-        "bytes": 18960,
-        "sha256": "483df7b3176e0c7556a87f8975338bcfea03d9211aa3bc86fa01b7aa5cf06367",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 12934,
+        "sha256": "21728d632cbf38026965e30c902f690b9a2bf866d87b706bab75d9c3e9cc0165",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC2264": {
-        "bytes": 16152,
-        "sha256": "381e9c0f7352c48f62451e9b4fcb5da8b77cd54bf0429d5ae162d04cdd7f338f",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 12286,
+        "sha256": "c886d20aa8f3458d6f9d9ee594b3a429539cee200323c1a8130cf083ff54119b",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC2287": {
-        "bytes": 20759,
-        "sha256": "3101d5d309e56d27afd7df24165308ebfd0c1886a0bcf918eed8dc5df987659d",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 19200,
+        "sha256": "f8bcb757bbf4f745726b63e8e0932a0a171657661219f3cff3b56da5e1e131f5",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC2301": {
-        "bytes": 22742,
-        "sha256": "d9ac6526ef272cd9034d8065e1636f525bf9efdf995b0a92bf5b23710f6f6a65",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 19669,
+        "sha256": "ac0a8698ed1ce59067bceeee82435ebab62a358747762122f29711b6ac982312",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC2323": {
-        "bytes": 24237,
-        "sha256": "44714de439373082c1e36f752eac937e908e81593a41a4f10f2c0292a5a5c198",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 20131,
+        "sha256": "89ffed1a398e6b2fef6f50998ce38bf57dfd7b19f390e49de24ef88fe9e7c540",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC2360": {
-        "bytes": 23509,
-        "sha256": "933d87e9200c44ebbd6dfd914f8c44fa2f615a3c77fef3c54374eb0d876f8841",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 22505,
+        "sha256": "42e18f7e0d0862f7d519d775ab0b4f7fb97f5088693b1a33cd9b15fba83cb147",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC2362": {
-        "bytes": 22847,
-        "sha256": "b38805cc24995b95b21fa0e149f1f71d09310b92443ba461e64ef5bb13bfffda",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 20564,
+        "sha256": "5a720dce3372038df637e53a44456e5fff1367a4afdcc10badf2c23dd3c127c2",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC2392": {
-        "bytes": 16132,
-        "sha256": "63f50ff6244e85fb90a7960989a4a4d8fe7797b01b7d6ada4964b7f303bc1720",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 11080,
+        "sha256": "693c9066721302615b487d6800c8adf1075f2327880aecf180febbbd422b1558",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC2403": {
-        "bytes": 15484,
-        "sha256": "0272c6b1292f20be82af1387e93325e37977caca96e40cebbc949a6f73b1e1aa",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 11487,
+        "sha256": "ba12d3011c5a04ccff708bc346924e9591360620b9a0f1b2a2c7e4dbafc1957d",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC2419": {
-        "bytes": 14781,
-        "sha256": "62585923eca89af0ce8262b133bfe283e366c05f873b1e071c53914379b96432",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 9619,
+        "sha256": "341c9272d40aebece57f049ec55b2d260d3e7c98a72b0ba87259d98d926d048f",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC2422": {
-        "bytes": 27143,
-        "sha256": "6ed12cb1a05d4cde19044096c05dd4be4f8290a8bcba1f6c94f526502550cfc8",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 26411,
+        "sha256": "6f03932e2db13bde6fccb52a38888f8ca5866b2de21c59d3c3e180bbbc13f4ae",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC2437": {
-        "bytes": 28713,
-        "sha256": "4acc09e81edbb124150bbabf218a2fef819ea5807f1e510e1af32f04795cbda8",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 27902,
+        "sha256": "8ffbd9b962745052078678843ad2ca7ea975687b72ab2c8aded7d1e81dac34b4",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC2447": {
-        "bytes": 26121,
-        "sha256": "4d56cb3b8e271caa2d5be9fb56dfd43c4f171785a05decf9ba323a1708574d9d",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 24750,
+        "sha256": "938a6515c15219ec9dc512fd672fbb27938684fec870fa90e29b6a59deb5f4bb",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC2477": {
-        "bytes": 17470,
-        "sha256": "e85891c8134128711d77d807b25212c773c588595b9f741039501deae23fcd23",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 26385,
+        "sha256": "630f3b90bbe5dae13ec38069f524bbc40638beb776b5b1e10c0457231ac6f64e",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC2506": {
-        "bytes": 24594,
-        "sha256": "a73d02c291f399fb5661a2882ef189ab033506f4a1adfdd15b6c6df145b1ac13",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 23355,
+        "sha256": "fa49fbbbacde9570b2331e02e6139dd8ab48af54b652296d54cdec75da6c3e4e",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC2516": {
-        "bytes": 12928,
-        "sha256": "dca6132858f16fb2fb95965114d926b152ff7385a1ee2e4063d3ac8bd74b6dc1",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 16535,
+        "sha256": "453414af2fab9204bbab6b0d910f20d0a8af2194a10fda3cf3a21d2ca6d1f456",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC2537": {
-        "bytes": 11793,
-        "sha256": "69970ef281e6ecc3786cbea7252d252febca18aa9b0fbf0873f7cd836e9a89c7",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7836,
+        "sha256": "6111fe4f204c97d5e57214d83817593036f42989f38ff897c1df091d1f96faa6",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC2548": {
-        "bytes": 20544,
-        "sha256": "4f3b0dcfb8827a7c749ab8c6e74988c6f092b79a89d4e3e5a9113789dc20ab30",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 16629,
+        "sha256": "d7f6a7cfe30cd81e9e672c9f1a4d6c908a6e1857878d85a9e7e87d32ae14a61c",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC2573": {
-        "bytes": 6231,
-        "sha256": "321025ff6568f4e4e64fbb4d3f066330b69cd329c46c611e3541aa7cd0c48630",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 10742,
+        "sha256": "7dd66bf0dc337754c676bb3a147438c983541b8b3aa608e418316a8a3d8d0423",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC2632": {
-        "bytes": 20349,
-        "sha256": "1e9dc2374329af60df4a022ee75f9d52ed0ae6baca95928c077c2fcf9a0cc698",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 6593,
+        "sha256": "15bec48362743a75eb44fcb0bd1a671147a46dd4ca980b7c9fe41880347a38cd",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC2682": {
-        "bytes": 19372,
-        "sha256": "6dd54aab17f6d56b7c0fb5fe25869744f4e00524ce40e5c0369efd43e629907c",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 11715,
+        "sha256": "407343d90d92bb23f8b3d557dac8686d21a0ea1034dc0964a930916ed8dd700d",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC2685": {
-        "bytes": 11262,
-        "sha256": "30ebcccd12bf0d2716b746e5dfc7cbe4bb85b7d08d61239c69a8e26cdf7db5b2",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7870,
+        "sha256": "fa22ab6eeaa5b9b67647ccdf3c2a855f6f72f1d0b6df04306d0381bf64da7caa",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC2736": {
-        "bytes": 17626,
-        "sha256": "5b766c33ab2c985363d62eafea69402a7919eb3d562c7bf7fec584cbe8f9c9ba",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 11849,
+        "sha256": "6cba9251b25932ce8fedf65b55b28093b2a3617352035ba8806dd77932834507",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC2775": {
-        "bytes": 12351,
-        "sha256": "8e9fe9cf179904cf67f8a96a6e67d9461807b72b7e38ea6ea49ef52f5accc4a2",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 8248,
+        "sha256": "bf5072f847fc744b492710eb11c812d994b0334f3efec13389f9f1d3afe220ad",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC2867": {
-        "bytes": 12050,
-        "sha256": "147a537f2fda78640c9c915dc7b0159f0d95b8d533344b61d899754a33a164e9",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 21356,
+        "sha256": "0e81a31fd6c84a4c2fb9c6d06d026724a869c88f02a52d9b43a3adeca0e27d84",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC3031": {
-        "bytes": 13389,
-        "sha256": "b9badfead6473c81e90986fc2889dbcc970a40f8a071c8277afbe837874f1316",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 9467,
+        "sha256": "bbdd40398b57f1d3a2c22e46880f6a1e95bafbe22bbbd59a12f3251d46bb8887",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC3034": {
-        "bytes": 11592,
-        "sha256": "841dec628d7536e6fed2b95d37dc3a55a571ca3060f74427ac28d8fbb49861b6",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 8074,
+        "sha256": "03f281f4ac5d3a2c0a87c5cfec5eed3980618f9844a0abc35c25e07e2fd81849",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC3115": {
-        "bytes": 12421,
-        "sha256": "3c6e87c3c92107f34ce982458a4c461eeca3c4eafb527b2bb814c91a52a05031",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 9361,
+        "sha256": "6a837590a041f59605f6040a32bba21497ec23c0b43058dea436e36de0eb2db4",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC3132": {
-        "bytes": 8539,
-        "sha256": "29f5ee47e496d74ed40a70a54eacacf2fe97d726ef0e52e3506df1d8c3f2fa77",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 13602,
+        "sha256": "bdd7ee817cc3326e01768650b08a6f1f3e25d1d5013e15321d062e1fafdabfb8",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC3172": {
-        "bytes": 9986,
-        "sha256": "8e67190d0257200f9bd9a7407c0502d0d3d81ca2a41c0b4c0edef0eb55a8594b",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7358,
+        "sha256": "8f56b578c7b1d132546d6474b680de76350135531cde24426d52311c474b7fb9",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC3195": {
-        "bytes": 7134,
-        "sha256": "b4839525d0c230a509493513bfbb1c172e86896146df8979731ab81f6f03cc5b",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 12418,
+        "sha256": "dfdd9e7c4746a801679288dcd34abedc81ea2be8af213b6af26e498e6e808364",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC3201": {
-        "bytes": 12586,
-        "sha256": "1f1b01212c79f1da2bd368f3845e608cae56266e2f1f38a9c12e406080b77587",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 24620,
+        "sha256": "dc6e709db75da31a251569f481b1ad87f772ad0348121e6bac814c356fbaa026",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC3242": {
-        "bytes": 11507,
-        "sha256": "d0b5c3c7e283a9b0d3ff3a767caa68542483e9e7693a6843a2300c4c7736adea",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 9082,
+        "sha256": "50f25e1ed2024b68a0c0d110e992c3ce95c9dbad6280be3d056a298dee9e9929",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC3351": {
-        "bytes": 11114,
-        "sha256": "115a98b99d534739aacd359256b8232ea91195c782cb08b8bdd2e52eba5fab90",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7506,
+        "sha256": "fcfebad1582f5364eb4d1ee43202aa0c94c9e35b60c96622fb0942b9b4979349",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC3368": {
-        "bytes": 10931,
-        "sha256": "583f9569d73332bab8a35dfaf563de7f8f70c4cd4638b65ce47dc06257456415",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7507,
+        "sha256": "9578d7846f7304a1ef9b01905bbda9b1ea70f5aa908bb4a59d35c648990c3b8e",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC3372": {
-        "bytes": 19785,
-        "sha256": "01a738efe96e99a061684702bfb11003c519aa620561df9d1e7a5fef3d373890",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 17711,
+        "sha256": "46317e3db4411178591ba033912e04fd4a8280491af089d898f073b90211b000",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC3379": {
-        "bytes": 11209,
-        "sha256": "b247f9977097bab41a3a7b2e00c4612d4124d0db5a7f8a970a68dd538c2d0fa4",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7556,
+        "sha256": "e004371e507104c27d9b6819a698c4dae485d510476821d7a8f6013d6618833c",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC3532": {
-        "bytes": 17107,
-        "sha256": "27558197cf93ba858591c99c30ea13a07749862ce8cf7b50446dd8726d5c4cb2",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 26306,
+        "sha256": "a4d974d0fc774d150eebf44deab26e71d27efc098f504b9ae04b5d70157d4903",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC3556": {
-        "bytes": 10810,
-        "sha256": "6ec310df9b066956e84f2a9d1d1bb161510106f59508ad792d05115a372a3dad",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7815,
+        "sha256": "1566c1e950801547864a3ba4a60bcca87ad9fbff72690c22c6e4d6d17b2dc295",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC3561": {
-        "bytes": 11656,
-        "sha256": "5354802fe283b3a2e5c251f994018285904089c4c5d3bcd3beabea7afe4668c8",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 8137,
+        "sha256": "91599604f5ecc15abe87b3c5d400176a8e10a2dde428bb8a774806baa64c885f",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC3587": {
-        "bytes": 10344,
-        "sha256": "b61daef4e3c1bc121131edf5154e0af79510da868fa9f190b8a0e3909e57de3b",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7477,
+        "sha256": "36092a486f37cb09f481f7cf1ac0cac095230c22f94a0716a8ab02747648e0dc",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC3623": {
-        "bytes": 10789,
-        "sha256": "08e81c558fb9b173f389dec4e5bb17fbf9d0933efdc10c0dc729f76c698a92b6",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7880,
+        "sha256": "820dcbab1c61306a72d5b5d5c9af93e12a9f6292759d51226e0730edafb97290",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC3626": {
-        "bytes": 10136,
-        "sha256": "3c218518cdba3c5cfe78efa9c39f89665367b17d7e2f6e2302954a51de5e7f21",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7265,
+        "sha256": "2681c4ad6c16858922fdc7a0e72379dc57b82e24888d1d070c995a00dbea7b9d",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC3627": {
-        "bytes": 10918,
-        "sha256": "c152278fe3d90fdd11ce90eb8c07594692e17c1c5843c26208bbc10414cb1678",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7906,
+        "sha256": "e17571f00abd805e0670e444323e206ae72c1a82d933de6d5aac4e15172ac38a",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC3766": {
-        "bytes": 18894,
-        "sha256": "6d40ffcdd58309e80c2dddb5909583e8dfbdbc8d0d9ff7590f25daa87afd98e6",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 26998,
+        "sha256": "0a7f412504a5c84d76a05038876aa2ed429dd5be9b47f8afaba3eefe785cd5aa",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC3918": {
-        "bytes": 12869,
-        "sha256": "141b42fce6520871ac73489f3df3b7b0a9c78e6b66706c3867c90a58596e59d0",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 23613,
+        "sha256": "09c3e07e1ac56666f97c82d565f189699c181ab7fb1fa33c3e8912316a7d62f7",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC3928": {
-        "bytes": 10695,
-        "sha256": "81520f1aead42ac784517b64b5a424c6d938ca3fc453a2cf13056afc1d9656aa",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7139,
+        "sha256": "448d884bf45c8886a888c9e8c76943c88ed3b37d2c0dc01722a216794f24c619",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC3992": {
-        "bytes": 11071,
-        "sha256": "9d6c9745a654bbc9d69491832a123a3e5fff0546d97e14662498545887564c62",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7211,
+        "sha256": "5c05bcea1d64d78e06d73308a49ef5d74b8a372882b2a125d1a4b0ab76a6bb2a",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4038": {
-        "bytes": 12304,
-        "sha256": "68ae90465ede34c8efb48d6d3539f076ca8aa0e8c2aae5553c9293c8474c6619",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 9692,
+        "sha256": "05e339a85eadbff5e0b8fbef6ce13ea2534a5eff9e4121ef623818f497dc4dfa",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4039": {
-        "bytes": 12126,
-        "sha256": "034d4907cdf8bf2aa32dff2cb40a1bab0449cd22bf5eaaf1c1e8432285b807b1",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 9560,
+        "sha256": "da9629379557c3618e17a73536e70324c8665d9970c7e78c5c34588d46b1cf2c",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4192": {
-        "bytes": 10977,
-        "sha256": "3f043b54a19d67189bc1aa6580736cbf0de8225f53b2c7299925686bd0223b5c",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7120,
+        "sha256": "c6b1aa2f965e28809edd0f690fd3fd076c977008f6cc6ced427c9bdd64c74916",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4194": {
-        "bytes": 9642,
-        "sha256": "e21447a147b8190f2003e73c958ae879acc9a5a169bef2165bce69b3b1ac0640",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 6638,
+        "sha256": "bd240a76c6970611a8c28c29d0b4825756eb6ceb19a7a638deb79c7514b8e778",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4236": {
-        "bytes": 10496,
-        "sha256": "a6e6f72699a929378cacc53fe637cb662a80697373505c33e44ae0cbe7300cbb",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7180,
+        "sha256": "4563c8202b35a4fbdcaf8bfa3e0e89496bf7a0d41277423ab90c6227336ea47b",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4244": {
-        "bytes": 11478,
-        "sha256": "cdb88d87ab8a57234c136ec3fc8db13ac40a4837c751ff0b4c185fc174215a71",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 8156,
+        "sha256": "3546fb323b9a7ad24bec015434517ee806f8071faf2d7edd4cae3af7f35ed69d",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4254": {
-        "bytes": 10954,
-        "sha256": "28a59054d94f55d4f5d79262f12e7ac1ce3820fff8913bdd2e71f87c46e92c3e",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7801,
+        "sha256": "0ebe3789b19f572c639bb9c2d5942caee9f5bf2ab2212050be324aa53bc330b7",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4258": {
-        "bytes": 12879,
-        "sha256": "15a23a8fe146dfee50a4c90209858e639046de2183e967ef2bf7eab354007c18",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 8224,
+        "sha256": "71c8d125bd9f1ef1e3b2670644d7fc8f61379827f6cd0180ddf726f157a32e8e",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4303": {
-        "bytes": 11254,
-        "sha256": "fb12e24aafa2dcd29e0c5d836cc11186e8a6c98764596b5c152aa07ffef68f80",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 8147,
+        "sha256": "e6dbab70594bc694785c69e8cba7f2f4874485c16c84b6a6b7bedeb040041adb",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4321": {
-        "bytes": 11075,
-        "sha256": "014f0778829138158ea53f5ce82ad3789a46bb4611e07a96cf88ab507cd0229b",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7937,
+        "sha256": "88446b6f04e2d2f68121d859601936b638d515dd9848b17749a6d85bd9b6535c",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4372": {
-        "bytes": 14188,
-        "sha256": "3cd1b1278cb8b8790cb3c00cc134b10f7803974af8420043af781f4572a5f2e2",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 21924,
+        "sha256": "ace4747113038219dd18f446163b6707e15d3d15a03f758b03f9d3d6dcb017f3",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4374": {
-        "bytes": 11562,
-        "sha256": "7b9ed48d4faed2c630bfa451adc8478f8390a64107a18053e7eb6b3cf364ceb9",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7794,
+        "sha256": "2258a8dbdf2f03d16e1bf4060339c4bcfcc5b1242e920e4a605d9c20cb3ad41b",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4382": {
-        "bytes": 10385,
-        "sha256": "3f1cd251661feb15461c400d5563bf9170855b606bcd08c9f44d5ad2df9cfe34",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7908,
+        "sha256": "4d2dc022965ba5aaff922264cd98e603ba2ece621e376963d0383ee1c2a8b0f3",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4406": {
-        "bytes": 11383,
-        "sha256": "197347a68b2412f66be00a3090bb27077a7a41885b468d3b9f7e5110a5c871c3",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7600,
+        "sha256": "02f53d5418fee92085a465d7656bdec5cb4b044a25b7ed11f4a5fdc7d012f0c7",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4435": {
-        "bytes": 11080,
-        "sha256": "d88ecf1842c65196ff71e44251021819413f34fcab2a6d4dc54e041a0d477470",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7620,
+        "sha256": "39e483c0d85d100c993e0db410f37ff09863d1492394936fc1cbb7ed6534e14b",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4438": {
-        "bytes": 11070,
-        "sha256": "847820a4b5497aa167496b655c4d80fbbe236ec5098889d60e0cc43340ca6498",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7603,
+        "sha256": "33aee6cc1c2318819e702c2da9f99380602f36a7b0b7c5d632a8c27e4a0dede5",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4449": {
-        "bytes": 10384,
-        "sha256": "765b1a2047edfacc22b465bf4d3fa13b51f69a116459dbdd6099276cc708fe67",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7712,
+        "sha256": "20578a0b11348206d206b4869a947053bc6ff8bc0816b054f08376e69830c840",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4472": {
-        "bytes": 11371,
-        "sha256": "f116abcb72cb112b07d1f93581753e72cc9b0ed19ef1d665d2e51e4f657349e2",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 8090,
+        "sha256": "b3b4c26b99544ba4b6c5633f4faf882c30e43a7d2a92617349a463ff63b25d0a",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4486": {
-        "bytes": 12619,
-        "sha256": "e5356f42df74904d77dde4d970adb2eba33a2fd1a73a403d0ecae248baf85df3",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 8027,
+        "sha256": "fbe67d9252233dcb5d95f6229c0cf0f2eb3713be0dada02b7df528a628c8db0e",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4501": {
-        "bytes": 11023,
-        "sha256": "0bff0e459a3055dd23a41dc31173910a12969cc20a8624291eb08397c8091c2e",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7355,
+        "sha256": "bfaaff71c74f09101dcd8b41d082b255f9cd2677f322c994dc35023515739e6e",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4548": {
-        "bytes": 11169,
-        "sha256": "f9009de5c646779a5601a2adf5b50c4d5ef1db284b3fecd32de08d3038006782",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7718,
+        "sha256": "c2a28c73a51a047ea5c9f540275542bc77b1b9cde80e62533a85ae8d12bdc4d2",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4552": {
-        "bytes": 11028,
-        "sha256": "2f528d7d3a1217930bc29df348a50c47335931bed942012057f8384c6dd85e6b",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7258,
+        "sha256": "69e7ab3a01b0ee8f420f3c99b7ebd4b47d5ebc5224959d5dcafe0411264b3513",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4559": {
-        "bytes": 11314,
-        "sha256": "d62750996e6f1cbb131ea3e9a54aee810653d923dea5649bb5a32a621b97e8d6",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7974,
+        "sha256": "120f411f676fd5ee2938fe83b0763c450d9af251dac94546bda433643b6263b7",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4565": {
-        "bytes": 11545,
-        "sha256": "169f5d7bddeafaa84b501ef6519e224668434e7b20691bd2ed593697f9e4ea57",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7424,
+        "sha256": "e514fca7f10a4b8bddcece50fd6c68b8e5ee186f05d43ff40336c0a5ab22172e",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4567": {
-        "bytes": 10775,
-        "sha256": "34ac3b1ac7fa23a997d04e5ba06880bff6b2bfbc337059f345af6c5e714ea053",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 6930,
+        "sha256": "fb5c038092bc351265694c3654e703c888de5b35278494a9b7f173a3ffb13645",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4568": {
-        "bytes": 10999,
-        "sha256": "aad26eaf27046bd8401984d7c68c15c5336095f897a371d28daa22659f7152b4",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7119,
+        "sha256": "910ee0cafb71f782cdf3fa97152af5d8f22df4f49708c10907d4eeffd2f8f347",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4569": {
-        "bytes": 11042,
-        "sha256": "602e30d39f51080677457f12c24ccae7dd5f90cabff538536af50dcebe005e11",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 8028,
+        "sha256": "e2d719df5fc99c2dfa9effe97a140c97e672aef8e427e2a5794c8e6f5b7e1253",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4579": {
-        "bytes": 10740,
-        "sha256": "4f6156b1b0adc885888e412d2629d784740652789d20f28c40f2a535903bcc73",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7183,
+        "sha256": "bec5802b31914c7156fc3589a045d895d8eb94f688f7d56f9720649ef61f31c9",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4590": {
-        "bytes": 19439,
-        "sha256": "e71181c33c4b25b95c904866e7f7a36e6977cb8a5298c23b920d4098bbe7742e",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 14706,
+        "sha256": "13a85eacce4bbadfd889ea3d2e9ce23358302726c64877f72fffdf416991bfb8",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4594": {
-        "bytes": 12602,
-        "sha256": "46f58e053ee40c1ebe3c5802202b92818eb1bab56bbde0cf7fb7503c846a401b",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 9832,
+        "sha256": "11b201099e1021ce339929839c096c2c32a12f718258ce419198f010bb05d7f7",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4609": {
-        "bytes": 19509,
-        "sha256": "e18885c371b9a6efbadcc996a1d8a54be108c8d12ef37c640d1878ea7d77abbf",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 22278,
+        "sha256": "11bd45964bb0d159541e68a20e3ebc167cbd8ade202c9d1a5942bfd7b77c212d",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4621": {
-        "bytes": 11448,
-        "sha256": "843dc5bc4ea1b3dda0c9a3bc57ce7c0084df7f714f12a0b4daec9e616c63a79e",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7222,
+        "sha256": "a899bc91c52591c0c7fa5697de23516e6aa435b911d0f81d54689b5285e37b2b",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4631": {
-        "bytes": 11287,
-        "sha256": "532a9ca950310f5d781414b05d9ecf101eba4001eeaaa224227e2597dd9119a2",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7809,
+        "sha256": "a93864b3b0adf05c4200ca6e5ab633f78a62db33f002b8ea8de3140462a8f1b4",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4649": {
-        "bytes": 11580,
-        "sha256": "620a6befeef1977f7f7a86d25a2346bc604c66eebdae83fcfab9667ba9aef1a2",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7565,
+        "sha256": "a8b55149774d8bb49733c10af9915dad083a80f6221b000663f5c7b251d1a743",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4651": {
-        "bytes": 10221,
-        "sha256": "f35a49e67d4c3115f56bf20b03b22d4eec1c3c7562441fcc29efb3a9f466c799",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 6744,
+        "sha256": "6bff4a04145d977d16c26f5ec8c117a0030f4599246bb1f6658e4f387f99b149",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4676": {
-        "bytes": 10888,
-        "sha256": "6238b63136c146553152552cefebdc475a57d4136b3ccf4238df2cd292b2c84a",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7142,
+        "sha256": "348808b35c2640834dbfc9f1b54f0377c488a03d52f8cd6cea1295b9a06e2ba2",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4697": {
-        "bytes": 11808,
-        "sha256": "8600aa89d7653300ddb641bc90dbfe7a401574d3c0e315211971075f26893127",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 8862,
+        "sha256": "9bb334ccad479750ae51df03dde2bf5b6d6a73d256a1cc3d48dfe09225456361",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4736": {
-        "bytes": 11499,
-        "sha256": "e43f6904f8f43ad3245fd312c0453364a2e18a39bd1e8c34aa27e182b61ffc9c",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 8133,
+        "sha256": "f31c7b0c9f5d399e4b6400e1288c40c075f596f96c95de139bbe0a2f4331c800",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4755": {
-        "bytes": 17378,
-        "sha256": "209e5cfd7d3c4ea4ca9e4387d0a09b317cc94e0098052b50de9cb8ce860051ce",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 25872,
+        "sha256": "3f30997ef11b5d0f5a4569815e9a9b63cc5f46ccb147686b13ac5483d9ee3840",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4826": {
-        "bytes": 10146,
-        "sha256": "4617c9e73dbcfa18cc2cf52d0927d69dcfbad63cde7713f1e01cff4c2f70b7a1",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7466,
+        "sha256": "7c8b701b68424a441b9900e9cd15d872f72c40637141022f1bb6d2ffa883e87c",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4833": {
-        "bytes": 13811,
-        "sha256": "3d33e159e86d94c8a352805c0907d2b8f3f72f5baa429164786216598b6fab65",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 23095,
+        "sha256": "58362e758143268a169f9befc786d6e0f3e74fac579b6bab27988011b167fd5f",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4889": {
-        "bytes": 12984,
-        "sha256": "2d5cba4bdc90d27112ef2a788defcec325d1cf98f14369e0132556695e9b5612",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 9631,
+        "sha256": "44e05e3a56ad362f0c2d9a3a14c48874da846564564364c605a572dc40e0d954",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4945": {
-        "bytes": 10942,
-        "sha256": "06f849f7663c70a7212eff0d23225870ba90d080cfdb84d1c74c739460596c95",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 15388,
+        "sha256": "a055d8e69e13a1a5c18d567bd5f61e0317787c08cfbcc1b67b041793aaf2cbcb",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC4990": {
-        "bytes": 10984,
-        "sha256": "c84cc53fb6dc216b69bd3e52bc92ff8d0573f9d879473c2c42da15212956fbf6",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 8723,
+        "sha256": "b0408febe6d139db3b51e390a7842881aecce1ae8d2d4e7b4e0689af03c2a7c9",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC5005": {
-        "bytes": 10624,
-        "sha256": "c56e455522861b1c4e9ef9bded7f0d44b94dcce590705ec2ce10c3b0000f2c09",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7334,
+        "sha256": "4f886cd59bf06828506e3d77630335f338ba345ee6231d1ae80ff883f4d1c8fe",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC5024": {
-        "bytes": 18974,
-        "sha256": "c314dd719a6e9c2ead59697f8ef350f692bf96576a9013c93a80247e5b2edc69",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 15168,
+        "sha256": "a9217bda327564ce8e365873b32533f3ca3a098d737bfc92b28ac50c7a29b228",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC5055": {
-        "bytes": 10988,
-        "sha256": "8895b9f4ba0faee8b81387a38cd4a39f540b875259e37c07933008d11ea1bd3c",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 8218,
+        "sha256": "a897edae0db0dbf6357da32c2c57127ceff889be1fd64a174852f294005c7c99",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC5128": {
-        "bytes": 9869,
-        "sha256": "6721fdbcbde053e8cd868d3d07eb17a0e5ac6de1ce7616e081db5ba662aa8c04",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 13304,
+        "sha256": "0c4bbb58d6d43f526463d2ac3ecf9dfe5847a14524c9c096463ba2d6d2e478fa",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC5139": {
-        "bytes": 17722,
-        "sha256": "7b81d7446c1521731e821ab17cfb241a3ac070d09fdf86376c718339714d5a8c",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 23024,
+        "sha256": "42e1aec08f1fa7f9933bc7c0fa78bc718bd42a405c6da2e0ad07b95acc3345e3",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC5194": {
-        "bytes": 12445,
-        "sha256": "a561ab3d8d923c6ceca9d72e8efe39ff74a5beb4585555f9399e9699e9d01c7f",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 8824,
+        "sha256": "ac693e30607a68d63a4601e5c6d1c79afe7218fa16228d5ce06c40e001f71fd9",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC5236": {
-        "bytes": 8269,
-        "sha256": "edef60837e9279e95376fb35e2623b17fc8f422cf27e2656852c3450194e0620",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 13298,
+        "sha256": "4797a889e2856ff3a5504aa820a1dbe79d13c5d1104e05b3be92c3c6e07a13f1",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC5248": {
-        "bytes": 10548,
-        "sha256": "320a456d50fd8591c60a20893b552852bd6a88fe213f7fe78c319c5e4e69d5ba",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7730,
+        "sha256": "4692786fc61779c21df6ca9e8ce7700dac85ce0f98093909e05950ea7b0cf7b9",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC5272": {
-        "bytes": 24098,
-        "sha256": "76c01b22006c3b70edb6dd989d2d6e9f17eb2ed7f31c0c24d5d4831c8e0ae4b1",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 18068,
+        "sha256": "fe7a1461d921878f36015488c159f756c61fbcdc0661fc9eb4a9736daaec205e",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC5286": {
-        "bytes": 11801,
-        "sha256": "9e6dec5cfe750e773810160198b482e7f5dfc72c60bb2848509e4ba32b22d5e4",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 16329,
+        "sha256": "38ccf71d9e9436525b8d02ec36235358819c8b7b9bfdf0c70805d39501ee8bf9",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC5457": {
-        "bytes": 11900,
-        "sha256": "fd436410e6d96b459b175173886cd29c8951dc0a9b98be42c787530d6ed04db6",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 8721,
+        "sha256": "b8d6c23d8574dfcca002407c0924c70653fcedcbb88ab23c015a2bdb8caccd85",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC5694": {
-        "bytes": 15550,
-        "sha256": "25239c7a0be5c7efd6b6ebf0317049438fcc6a7a9ba9def1270d7461ec2b345b",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 11946,
+        "sha256": "f7d9cb1322b52c56c42f9f2da277b7ba84498867fc92f21c590bb5c7f045ad91",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC5823": {
-        "bytes": 18881,
-        "sha256": "7280cbcc621fb342c149d8e94d5de3b96e68faf69e582fa60d8fd5c3ef25af68",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 20544,
+        "sha256": "34e9791c5b0066fed501d5d9c1a1363770ebc1c1875fbc966952bebaaa9f7910",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC5904": {
-        "bytes": 25329,
-        "sha256": "0495ac869a36c76533f35bc3133239f3e0cdcd4f2a70cd9ff5724e36d21843f1",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 21670,
+        "sha256": "42a149c6fff94ae1ef922b59097b4e3a7eb24a96b0d1c64f7877cd29481c11b7",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6025": {
-        "bytes": 15721,
-        "sha256": "4a220c19925ac65be1c67f15f266b728fb7b54ca6dfe9250cee97307da3ea0fa",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 23626,
+        "sha256": "3a9479c61a8223c6d8be520f14dcaa78cccc0b27420bbb9177c7b4c95b9e2a96",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6087": {
-        "bytes": 16492,
-        "sha256": "6127338539807d022c5f55e614c053cc9ccfedd0180272c11b1ce653186d0e39",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 26418,
+        "sha256": "3ec950d5f782ef451e53f964bbc21f65a4aaba79a069728622158b47e590bc76",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6093": {
-        "bytes": 21613,
-        "sha256": "009c8a7d05cb317a4618baed63c42d15451a65ede4d28a0457aa3c6fba4e426b",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 16577,
+        "sha256": "7fbc52705c5af98fbcb2297d30993f6f62c668b5eefb379d8e080c1cc59b1894",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6101": {
-        "bytes": 10093,
-        "sha256": "005498fe47f4128ac7a034f9206f3780a70989837c97f0d4897448a7b698dccf",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 19760,
+        "sha256": "08ebce4abdfd163b09c8ffe582def529f539185ce1badf76aab65140becc39a4",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6121": {
-        "bytes": 23440,
-        "sha256": "a47dd1b689b73f8ad3425317f7fa254b88c3d7ec3a9b96662236f5b9c3fcd264",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 17827,
+        "sha256": "6d3c7827708495cb84668fb476fdb461ebbbe2d1b8ec3f1e265f0a434904745f",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6124": {
-        "bytes": 18117,
-        "sha256": "99f564fa4d4f310ae252455c9f35b7c45dc84691e5e70bf5e3fd1669f305c6de",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 18918,
+        "sha256": "0a1f110c0b9824124ccc21a116f08cec6e9bea51e7c141cebc054fe8b3fb1c55",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6171": {
-        "bytes": 21990,
-        "sha256": "fb093aef2b36cf25179e955d5d0af59f10970e7a860b34f1df41f9140d830f7a",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 16765,
+        "sha256": "f33a758c0c5fde6602cf453e5866133ed983526e6ee9088d12871bb531516907",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6188": {
-        "bytes": 26437,
-        "sha256": "7a030c4e1d7777f8c27437ff2d22c4750b31d95d4ee7705983d38416d628eeb6",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 16800,
+        "sha256": "64d0accfc2a3ca2dc881d754ee830103d4974786a1e64c28acd8561231db5f75",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6193": {
-        "bytes": 22099,
-        "sha256": "863f0715e37aae95059e954ca183918adbd3c7f2748344cc0ba1978dbe52621d",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 14571,
+        "sha256": "7d13df683836c96cae179c0d2f8207aab0764fce5d302197b4cbed7e088e1fb1",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6205": {
-        "bytes": 24859,
-        "sha256": "fe3d0506f090a1a49db8e22c4ff4da973ae83387e723ff5cdff8be323825f228",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 20377,
+        "sha256": "a0edb0f4b6cbc141adee635dbf3b59eba93861bbfb427421ae7b00cce2cbb97c",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6218": {
-        "bytes": 24882,
-        "sha256": "b2323caba71819aaa9731eaaa0ddb00a6524fede4d97c2bb30d0d9a7e83f2168",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 21431,
+        "sha256": "fdf41177f0fe805bee6e1e7a2b6f474c3ab6d6de07fd5ba4c9e3e57301433a6f",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6231": {
-        "bytes": 22170,
-        "sha256": "bcdbaa5c462d751b0f92ab8a376a8a56f0b70a3e7927e36c837276ac91acb462",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 20521,
+        "sha256": "9aaa29e867a0e32ef58c5b36c2c0dd14f58a2828ddc751e302fcfd62a2dd178f",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6254": {
-        "bytes": 25363,
-        "sha256": "aed7404f4e03eada3c5597164613a4f09a53c88d198cc1b005db8201f91216d6",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 23216,
+        "sha256": "c831a8d1b2fc7477d2e8d8b9521b6a2cbab7801a57b74533c9e1d789ca947d90",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6266": {
-        "bytes": 17391,
-        "sha256": "8e66952111d42854d30e97afed4016ec4075d2e2c7636e6daa8e6d0bcfcce750",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 21460,
+        "sha256": "5025b909590274c4e4426a445398c84fe9c4457afea7fb930486c28e5642306c",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6273": {
-        "bytes": 25664,
-        "sha256": "76cf3c1ad82471056f4507cb9760ff8458ece62758ff1d47119a0b56e1d7f098",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 25974,
+        "sha256": "59cd6b809ea7af0b438734c6a3aa328817e9270ca49c397cd6ffa2cbc28ab17a",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6302": {
-        "bytes": 20888,
-        "sha256": "b246bf8f2e11641713c10a253827c225e8aabf773db71982a99b178ff57fc383",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 17773,
+        "sha256": "2cf9a02bb29128deb875387d48585b6b39f1a51d998017cd1064c64cd854a2b9",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6309": {
-        "bytes": 20610,
-        "sha256": "68ea84d3c549f11c869038ff61eb26d48eea648babeae14cca59b61017e7b758",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 14263,
+        "sha256": "a8a2be046b7832b8e13a4d00c841d7a3d235a7e246c13f5e898a1a8b37039ecb",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6333": {
-        "bytes": 25768,
-        "sha256": "3b24b7bb39bd729a332713ddfd70f9aa681ec239eeaf867b830491e9fe8ee860",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 23325,
+        "sha256": "25e904b2dd03b1b3ff7ccb00c8e53b2d4589e5de842a3ad194945e71f0bc3610",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6341": {
-        "bytes": 22221,
-        "sha256": "eab22df13efd6adab8509c6ac5ef87b5ab5732847e9fef0fe002e61d49f57a08",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 16561,
+        "sha256": "dc673be35f0e662d46758cfccd3739af28ef514af929fb239e970a955249bab8",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6352": {
-        "bytes": 15347,
-        "sha256": "c1b27e28c1ee399c4c947e79874514e77588d98d360922a75e0f1f22d8d6e62c",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 26721,
+        "sha256": "6a47159b218ca2d762510268085d1ec092f66874904a9f56c4eee0d2daaa0e28",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6357": {
-        "bytes": 14212,
-        "sha256": "92339b32e3b82fce012e41a61214132e4c50498b3f73ec25e2f43c6a5ca5ab94",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 15604,
+        "sha256": "9148313870655476ec3ea14ca680f09605c499790e9ada575770b402fc99d378",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6369": {
-        "bytes": 20513,
-        "sha256": "999190fc5fd71c20253bb3a6bc411a16b2b5537a0b103f833f37cc1cc16be179",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 14519,
+        "sha256": "26669f6c433dbea62d1662c089d3333fa4ae2c1abce85a87106bf45634cfbe9b",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6397": {
-        "bytes": 15643,
-        "sha256": "3fd28d6342feb7ecb73c27517cc9b1d252e889b0b1532a908a21f80123d03f20",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 30040,
+        "sha256": "477bf14e180b24fb8f6249906d30db5d83177183deb71ce290ace1566730d83a",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6402": {
-        "bytes": 22424,
-        "sha256": "88cc074591e36de7e6252577587f9326b5c7437d3d1e5d4d29f0339c62a3f8fd",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 17782,
+        "sha256": "1f42724fe769842eb8b7c0f1cfa3c8ef3bb0aca5bb1cb6331d67db6bddcb1e6d",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6405": {
-        "bytes": 25923,
-        "sha256": "2b2ed53b6a128a43311757eeec2d798cb8c126655c5a49de152c3a8c5fd75817",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 20162,
+        "sha256": "e0590193895c1027cb8283511264880d9c401e9e50700ac2b5e36aebf8796f2c",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6445": {
-        "bytes": 24468,
-        "sha256": "d631a77d9dd4794082ccaf4a96818a100cc608c2d3d7416e2cf5962b4286b82f",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 21279,
+        "sha256": "04496e204c9b9053533822853e55ebf4fb0090515f805cd252790cd05db21109",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6475": {
-        "bytes": 24042,
-        "sha256": "014312e83786bc074c9cd27a0e3aa61338ea9139924dcfd7216f17cab8262814",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 26158,
+        "sha256": "4db5b81f32094d8e5e302bf84e51632f566dbedb593d10113147d2d16bd89abb",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6494": {
-        "bytes": 26910,
-        "sha256": "b31f3f2ac6e2fe7be235c2641e25b3e5455c71c77be63c49997bdc434ee2b9c3",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 21262,
+        "sha256": "45d5e5475b826ca5efceb436dd236da6c0a8c024e89c24d78c00ed9766961954",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6514": {
-        "bytes": 23374,
-        "sha256": "df168aed2ed92d79a78a61e4f84837cfcfd2f63e85a1d6c64faed8853b8113cd",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 18340,
+        "sha256": "998deb50cb80618b9e2ffa4b8354a9367d08333a8c165b9562930f12973e73a5",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6523": {
-        "bytes": 24823,
-        "sha256": "0f166cf1172db558512a6f457010cd34389fbaa266f4d91729c90417fd9f7017",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 13495,
+        "sha256": "e180180189c36624a5ac6a143cdf731f77d0b375ce437cb937555b8393689e02",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6531": {
-        "bytes": 24895,
-        "sha256": "b73c2d634086b4d1177e8d1f3e0556ec0d45d83395595824660c41d59685b90c",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 20421,
+        "sha256": "1a767f62024cf4c05564d8a67f13b691bb7f6be704ebc2f3b2a541219c8b52a4",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6537": {
-        "bytes": 25366,
-        "sha256": "2329e0ae9b1c883db2519a085f55af00cb570ec539c5c4e027ce283c82b27d8f",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 19079,
+        "sha256": "cbc22bdb26c4111680283bf372a7ae21bcc8d05654db55e033f5d6ceb106ccd1",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6541": {
-        "bytes": 13644,
-        "sha256": "02a947ca89b2de2f24932715b6a01ae6e9fc581a1e12e46790f3262619b54267",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 24890,
+        "sha256": "147b99ba9032d2f92118a03272a4d25a40ba4ae31c59fd0935c146bb2ecce10d",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6543": {
-        "bytes": 12610,
-        "sha256": "dcc381ea53c21286e4fd6b8ef7fbe9714a4ff6d5efac7c71623aaa8defd58f76",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 8901,
+        "sha256": "4f8d701d1f5ee6faa93ab640be1b6bca9add83d7d924698cd57597283141f82f",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6611": {
-        "bytes": 26594,
-        "sha256": "7f31155b4e807adaf3a6885a5a34026be483eb4aa05d74022488e38d70fc2e8c",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 11435,
+        "sha256": "302e70a4b07f48db32bdf2f6b2edd9f5c1d2be463542e5950d5e82ade9081695",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6613": {
-        "bytes": 24154,
-        "sha256": "b9121caa44cdb4446164b343feb8c466422797e75abcf630d80e3303b9f39e81",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 20105,
+        "sha256": "be4976e910d11c71c1ff9d62bed1eaa1ea5f16b5baf5f9090a6ca04175a67604",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6618": {
-        "bytes": 20468,
-        "sha256": "0c121f8b8bfff8f3a2b990c87ec880743332e7292704a969e2d1cdc81fd56bc4",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 15403,
+        "sha256": "4e29b6b0f225f55fa20f692cf00d4edb5b30cb102e1885a1e6cfee7ea59d8085",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6626": {
-        "bytes": 25562,
-        "sha256": "e77eb4d7226c887f12bd7d3a30c07449613d665e12f5fc16f836755705f1bfab",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 28885,
+        "sha256": "70c6139dd66cfb4341fb771ee8af9f012ab080335ea81d7c4e7443f7f9945447",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6637": {
-        "bytes": 14769,
-        "sha256": "29f2c2cb92ba17e54bda19571e7f340703d486c8f56e20c897b497dc82eba160",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 25844,
+        "sha256": "5a6b6647afca9d7a3027d114ae72dff3b856be7f119048d44d301309a356e92a",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6656": {
-        "bytes": 27638,
-        "sha256": "ea7800ee871b701cc8868930b0248200880a2c5f9c9c30928e7072aeb332ba5b",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 29360,
+        "sha256": "843c8adca3ce13cf0259e6957006e1ad84136b0268b427c0212f900200e03401",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6681": {
-        "bytes": 13085,
-        "sha256": "f6a9625faeff2acb374bfc5391a758c8e7b0402e4497ba131f760f3d3e032f76",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 23139,
+        "sha256": "979caa0d77d275e72dd242dba1db2b57601a036af5cda0f779e3b704de08218a",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6694": {
-        "bytes": 26114,
-        "sha256": "afa4bbf4b515730ffb5264624687925c9aa481b29ecb3a625c283588ae0ffa1e",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 27529,
+        "sha256": "314c9d22a06eb23665123ee126cf14a2e22846e54e19e2aa09496e8d4b187a9f",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6705": {
-        "bytes": 27442,
-        "sha256": "b925214ab642cc808dadd32e28efc4caa514078b6822d9964065ee7cdc35dc06",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 33339,
+        "sha256": "405c5c47e2974340c40c4099b93c1628dbb4553d7bff77300b578505bd181608",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6715": {
-        "bytes": 12505,
-        "sha256": "93c70e1fa0d4e373a7a8d04d1109f54ab67ee37180369d8ff4e509b3c2194c7e",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 21664,
+        "sha256": "612c77de1f5af096c13320114a62b1b1e03778d51d938a65e4b680e9cad51716",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6720": {
-        "bytes": 20880,
-        "sha256": "f40a9c039a3167615709d3717cf94be8fb75c994b5ddb629c01bf1a87d66c5d7",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 15366,
+        "sha256": "a5248947ce064e0046c2a43a24a9d1295803ba1590631d2020cd734141bc6bdc",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6729": {
-        "bytes": 12497,
-        "sha256": "e73919f189dd266e540076fb721eb07851495b28cf5a27a8a7d58ec427411646",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 10289,
+        "sha256": "f33c7d7afae4688d5ccf3229a2bf2a6277a668f49b36bc7e46b33a93a032e1dc",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6741": {
-        "bytes": 25735,
-        "sha256": "34a3fd1b652ee4d8e0932617afad2d3802b8efaeb4d60792d4db2bdaf35c5012",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 26500,
+        "sha256": "20c34e4e8e6b14ed9d886e53a7a7972ff3567c4cd97986517253b336a9228e9e",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6744": {
-        "bytes": 7991,
-        "sha256": "d6703857a16c503ac840aeb49a9d2e8ff7c63032a669aefcb6c88de24380a239",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 16524,
+        "sha256": "76009a2909ef4c8f4de1e83bc714f17e21bdec1c9062b32be190ff205c46db4c",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6752": {
-        "bytes": 12858,
-        "sha256": "82fbceeb3a92d919a33b35217623dfe7067d054d497448b8f2a53e80da573590",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 26315,
+        "sha256": "8f954cadfd93b8ade26a3ed511bcc3a9a8eb95fce03b69835b2876c8663ab526",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6779": {
-        "bytes": 25184,
-        "sha256": "83da71215928b82437c65e5439dc51abe07535fd9fef5fe579f1304cd0ed52b9",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 20390,
+        "sha256": "be9f2ad1ac41f1050aa4c49d6e3398ee6e6eab642dd0462748f006291c49889f",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6809": {
-        "bytes": 12014,
-        "sha256": "0e93c930808fdd92ed2071abb2acffeb373f6a71e773cb18ae33708550f4c146",
-        "surveyId": "CDS/P/allWISE/color"
+        "bytes": 24155,
+        "sha256": "bda341a9f8c0dab921f2cc01b92475b374f1e80b6596d081ce9ad077611a4013",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6818": {
-        "bytes": 20269,
-        "sha256": "0e08bf82ee05a04c2ab5ed3877543fd445d36b3fed1a6e159c808aa3f45393b0",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 15194,
+        "sha256": "61af5272a606c05df8cb03f12a6c66a932000d2f4e18c75cd01f3a088288ce6c",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6819": {
-        "bytes": 26229,
-        "sha256": "ce69fbd584ae9cacf46e6917f86cace0e473962712e111713c2d04f015b11afa",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 22440,
+        "sha256": "1fccad6b58617480e2da5aeda956d1d04f76b87f9e292c552fe04d5aa3a2b655",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6822": {
-        "bytes": 23848,
-        "sha256": "15e2491eeb44f8e5252f0a2aedce5579c0a390ca6f1ce5cef9fbe4c247cc6e00",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 17319,
+        "sha256": "d91da6883ff7cb4a0cb04b4327bb1377cf2b75e4adc6c10951506aea2a77fb81",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6826": {
-        "bytes": 20383,
-        "sha256": "49342213a81bf39da966354191589b00931158ef13f772b674046a3c2a79fc11",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 16865,
+        "sha256": "1319c6b289bff649bd144ad3766bbaaaef715f5858950984bf56930eda89b7fe",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6838": {
-        "bytes": 27751,
-        "sha256": "8329bb757d3e14b0c862966d92aadd8afc40c280c7f0f51bbe517affbed1df1a",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 26801,
+        "sha256": "d950296b512596d4c276c83e211009d02684ca773edd7e9513f8c040800b4976",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6853": {
-        "bytes": 24096,
-        "sha256": "e64e4456d61b42554b730d0fe4bdf8bec15decbd061ca0dce53b214827a5231c",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 19522,
+        "sha256": "062e86b6554973ad4fdb8b03a5814a711f5d3885f87a1dbd5efe414c463e1759",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6864": {
-        "bytes": 18443,
-        "sha256": "e6f06d0a0ba127852ffcab601728111f7a6fc4c83401faeeaa5199cf506fb0ba",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 12380,
+        "sha256": "dc82efcbbddfedf20e66fb21418d628aebc68eae006009baddcb194233005453",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6882": {
-        "bytes": 25154,
-        "sha256": "8850c224064e3dc7e9338f8383c5f03ba985bd5303e32db1ebe58eeac16596b9",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 18975,
+        "sha256": "1e69221a29595248aa38de50d4284b3bff9f1687aeded6c0765052e01cb12964",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6888": {
-        "bytes": 28809,
-        "sha256": "31eb629731e91f247860446f59363b9a7463b7408a43070d23723b968f0fa9a1",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 25498,
+        "sha256": "52d4617f05549958fcff2ec31356e699285cedfd18c2bf94aa4fe5e087386704",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6905": {
-        "bytes": 24262,
-        "sha256": "2221c513500845233dd7333d8d78c45e1dc1c2aecfe977b9439600ff5bf7e09b",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 19037,
+        "sha256": "85252a36ee297a848518926b0bce9757bd9204fb63c3ea50e023b9943de813a9",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6913": {
-        "bytes": 19606,
-        "sha256": "003384648596e1e17f735939c2b6fc8dc74049ebbf8beb5e24b9c6b03d72b8f9",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 14024,
+        "sha256": "e60947a730e6114e8a73c02e30b76c4220fabf22b0a4cf79ccd3317bcf898431",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6934": {
-        "bytes": 20917,
-        "sha256": "da61a72a93684880a56ea26a42669af7a7a95ba648fb0773e3d3d8509c2a8563",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 15649,
+        "sha256": "7eab7ad4ff0c9854571440cea99af2b8fb7a5d761535b1bafe4769ff0a95ae7e",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6946": {
-        "bytes": 19910,
-        "sha256": "fba11ef6e9cfc050e969404f7dd63f856c8dbfb8426c0b959b781553c8ef4770",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 15554,
+        "sha256": "dea237ddc202ebcf3c0a69b193748813e94fb3d161b011c32542f059368ddeb1",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6960": {
-        "bytes": 23018,
-        "sha256": "61df6375bfebb5e78dd9091871902d64f683c2f5232f420f2a068be265e9291b",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 8747,
+        "sha256": "829088c3204a233e7ee8f2fe554161dff59f604290a83eb9a936ca467a35f5c6",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6981": {
-        "bytes": 17183,
-        "sha256": "3b7b017fbad29a5f02fc728093048f5024071a9777843add8acec08fba19b62b",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 12248,
+        "sha256": "c9706727c7201f3c006117c4a9d1e313b679235608171d5b421f40daf4a71b0d",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6992": {
-        "bytes": 28340,
-        "sha256": "270555f585334c18bfe96584fe7c9c19cd3d0ff3ce3b82667c99bb2ced4abff5",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 15160,
+        "sha256": "6eba723f73aeda9dee43c604a318ca85c056bdedfb15122c55c7b9a04c48dfe8",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6994": {
-        "bytes": 21237,
-        "sha256": "351dabd32ad6c4b80f0c5ddcafafe25ade16a0c9817b9fd2fe1f169287ec5768",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 6164,
+        "sha256": "45b53cb4ace6b637038c929aacbd25219840fe8fee563373cb36c81df1a9295d",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC6995": {
-        "bytes": 23307,
-        "sha256": "68af66c61edb52c2ca80c5fc18b13efa77c621c46a112fd8799c597468e070a9",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 21718,
+        "sha256": "5a9a62dfd67d08bdf3a3c0aef96b1a5c60bdab791d0a3efbe1a5ebae48ff052e",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC7000": {
-        "bytes": 25841,
-        "sha256": "dc61336153e49e461b864d48df6998d7e91ba787b108717d5df8d5a51be0d76f",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 12163,
+        "sha256": "95ddbc954e1cd070d879e7fc6f30b8e2867089814a768b4c035842b2ba93a61a",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC7006": {
-        "bytes": 18429,
-        "sha256": "564d98f5eca64b83cfdd4d5f03d7df16a5ba56548835dfc77e36614800637177",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 12534,
+        "sha256": "6a7e6a7e42df9af30303fcffa51f88d3d7af94585dcabc858a78dd073c3a2b05",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC7009": {
-        "bytes": 14284,
-        "sha256": "7a7b639ddc7a2e76278ead030eb7b44a654e145ba9427c88015c3883964c5709",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 10063,
+        "sha256": "6161015bcb5ef401d29f61e40b57aa4164a7e8c5f3f9a27909d5b89bc54d2d83",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC7023": {
-        "bytes": 12917,
-        "sha256": "8a7972327404e76716fdeb5bc44438a50fccab7b477719ce4253158267930c92",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 9795,
+        "sha256": "17394e3a3d1194b1a75e788109c8f235acc4f0d3697662f67f4d06d7e2e2b772",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC7078": {
-        "bytes": 23516,
-        "sha256": "524eea5972161dd12b9ddf55ec2af32ca9c7c0a10db53afdad699aa859cfa4ce",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 18662,
+        "sha256": "be6fe2a1769238eb1649d803df9fab66deab9ed3a8e216f7019b976e05ba7e4e",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC7089": {
-        "bytes": 21576,
-        "sha256": "e0c8c45f27c364fa7afe5025b24cb923094a2b15a48a5db03951595f1adccf8f",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 17033,
+        "sha256": "c2e7a2bebfbfef6d1841e34409121ee1da3dadb636b1a2cc0c31c140c80b6d3e",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC7092": {
-        "bytes": 28072,
-        "sha256": "5c18da3682be9123bfa31d7b587ce3e7b9821a49dce28ac3a830fdf8f743116b",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 22415,
+        "sha256": "88cf8f73c67e6d1c430e9a3c2faa1841a890a7ec853f044563a8e2dc3b065095",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC7099": {
-        "bytes": 20329,
-        "sha256": "ea97051081f72d2eb48cebcb00e352fd305b1c176c792190045a277c0a505963",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 15452,
+        "sha256": "c1ebbd09fa072e526cc3c148226dbd0550fc9d9a04944289b0a27558f2f10acb",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC7243": {
-        "bytes": 25837,
-        "sha256": "3732ef2db8dea4ccad56e6e75894f27f56c8a60c118c2cc7bb049d9e56bdc23e",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 23615,
+        "sha256": "3db6aae8da84740d613e820476d56edd2086ce5af85ec0a088942eead1b470d1",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC7293": {
-        "bytes": 14173,
-        "sha256": "43dcc857700af1b5b1958f48e4bfce2ac0488e4b55b8794bdc3b150a2a8df694",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 11032,
+        "sha256": "55d5eeaf38ed06b5ccf42a6a455f8b9a97f666606092a1d72ac3823d8199cff8",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC7331": {
-        "bytes": 16013,
-        "sha256": "7b69e35fd07086fa5212b4837328f5ec34a8360558193db55784ea0c406c49c9",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 11639,
+        "sha256": "b6bbb38aff8553879dbd993ac0b31e80f7ce888aae1fe7e5a8acb406f83ea165",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC7479": {
-        "bytes": 11415,
-        "sha256": "5e70fabd632ab45e288070ef1ac1e4fb1d405ec9879fe875a8355a82af6170dc",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7343,
+        "sha256": "a16fe6a0b0863881f0fbafbdc444f44a9fd4a6319ec49d74299bc1c432afc634",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC7635": {
-        "bytes": 22654,
-        "sha256": "8ee00578a0f25402d881836debd782de791cd3c718acb7a98b91b357b2a44729",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 19203,
+        "sha256": "6224e632e6e31c5f7534f53d397730e9f29b9b9a48578f9f695b2eae45242b4b",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC7654": {
-        "bytes": 24443,
-        "sha256": "0a71a2306e1c608819cb7fa539a4752ce59a73bd9ec4477293e914a24ae9bd3a",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 22564,
+        "sha256": "0ca0ba3fd3095b85d75257b12be9b294b24f432ee53c0e4d0b4e1133743a7012",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC7662": {
-        "bytes": 15890,
-        "sha256": "5ef20f481c064e8f8ea4543223b97a6ac2b81c011047af10c3a6c40f6cde6b7f",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 11596,
+        "sha256": "9097761f2295664aa9b8e68391a114f9e9b9ad3189fd59c98a7ddfd0e1829059",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "NGC7814": {
-        "bytes": 11757,
-        "sha256": "ceb42e7a5312ec3a8e84c38efe0d7c254f36daaa62a418b57d5680bcd54f6ad4",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 8770,
+        "sha256": "8ca48ede456621836402d45c99959c031531f91cbeaac392376d423805bc0724",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "PGC000143": {
-        "bytes": 12093,
-        "sha256": "13b7dbac66153e460dad2465ce055d3bb4e95b909f8ec3dca6db3e130a0192d2",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 9025,
+        "sha256": "40d5df2167970a108b90a831e6a218f3bb575403a80d22d07e78f451180463b7",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "PGC029653": {
-        "bytes": 12106,
-        "sha256": "0ca6017ccd50a830d9af407a764b7a66e8f76a511c22dcd428b6229caf066e93",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 9161,
+        "sha256": "7e63afdeb5137025a51e86e5262167d3e2db781cc48bdb4312b1d472066f547c",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "PGC088608": {
-        "bytes": 12765,
-        "sha256": "e42b394b9aa02ed3ef37c788c0ebd41ac7b96415be14204b4dea2e77fba36463",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 7880,
+        "sha256": "4a6678a158e4ae92cd1e9f862a65fefd2ec073ddea2f1d539c0d8014f147ff55",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "UGC05373": {
-        "bytes": 11941,
-        "sha256": "db92b03f60e414a6c2c3886a3c970fff8e5190b78f6565d15ae8648bb1b329e6",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 8204,
+        "sha256": "a089f0a5aa8fede21b6d7e1ddf8d00838ffa664305f72172cd60224773bf5027",
+        "surveyId": "CDS/P/DSS2/color"
       },
       "UGC05470": {
-        "bytes": 14720,
-        "sha256": "a57679656a799926ad74fef75bc0a24e01dca0392d3bc50e2caac4ad6adf1288",
-        "surveyId": "CDS/P/PanSTARRS/DR1/color-i-r-g"
+        "bytes": 9472,
+        "sha256": "7fb93cf618efea7587decfef03d9f7e3214372c6724bb61c7a52b6fa927c01d3",
+        "surveyId": "CDS/P/DSS2/color"
       }
     },
     "milkyWay": {

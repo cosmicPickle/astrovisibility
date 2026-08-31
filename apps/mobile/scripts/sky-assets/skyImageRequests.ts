@@ -4,12 +4,9 @@ import path from 'node:path';
 export const SKY_IMAGE_SERVICE_ORIGIN =
   'https://alasky.cds.unistra.fr' as const;
 
-export const PAN_STARRS_COLOR_SURVEY_ID =
-  'CDS/P/PanSTARRS/DR1/color-i-r-g' as const;
-export const ALL_WISE_COLOR_SURVEY_ID = 'CDS/P/allWISE/color' as const;
+export const DSS2_COLOR_SURVEY_ID = 'CDS/P/DSS2/color' as const;
 
-type DsoSurveyId =
-  typeof PAN_STARRS_COLOR_SURVEY_ID | typeof ALL_WISE_COLOR_SURVEY_ID;
+type DsoSurveyId = typeof DSS2_COLOR_SURVEY_ID;
 
 interface ImageCatalogueTarget {
   declinationJ2000Degrees: number;
@@ -87,14 +84,6 @@ const fieldOfViewForTarget = (target: ImageCatalogueTarget) => {
   return Number(clamp(largestDimensionDegrees * 1.25, 0.25, 12).toFixed(3));
 };
 
-const surveyForTarget = (
-  target: ImageCatalogueTarget,
-  fieldOfViewDegrees: number,
-): DsoSurveyId =>
-  target.declinationJ2000Degrees - fieldOfViewDegrees / 2 >= -30
-    ? PAN_STARRS_COLOR_SURVEY_ID
-    : ALL_WISE_COLOR_SURVEY_ID;
-
 export const buildDsoImageRequests = (
   catalogue: ImageCatalogue,
 ): readonly DsoImageRequest[] =>
@@ -109,7 +98,7 @@ export const buildDsoImageRequests = (
         fieldOfViewDegrees,
         widthPixels: 256 as const,
         heightPixels: 256 as const,
-        surveyId: surveyForTarget(target, fieldOfViewDegrees),
+        surveyId: DSS2_COLOR_SURVEY_ID,
       };
     })
     .sort((left, right) => left.targetId.localeCompare(right.targetId, 'en'));

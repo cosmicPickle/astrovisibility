@@ -6,6 +6,7 @@ import {
   createInitialPlanetariumCamera,
   createPlanetariumCamera,
   createPlanetariumCameraFromBasis,
+  createPlanetariumProjectionContext,
   createEquatorialMountFrame,
   createEquatorialPlanetariumCamera,
   densifyHorizontalPath,
@@ -14,6 +15,8 @@ import {
   MAXIMUM_PLANETARIUM_FIELD_OF_VIEW_DEGREES,
   MINIMUM_PLANETARIUM_FIELD_OF_VIEW_DEGREES,
   projectHorizontalDirection,
+  projectUnitVectorToCanvas,
+  horizontalDirectionToVector,
   unprojectCanvasPoint,
 } from './planetariumProjection';
 
@@ -48,6 +51,31 @@ describe('planetarium spherical camera', () => {
         canvas,
       ),
     ).toEqual({ visible: true, xPixels: 200, yPixels: 400 });
+  });
+
+  it('projects prepared unit vectors exactly like horizontal directions', () => {
+    const camera = createPlanetariumCamera({
+      centerAltitudeDegrees: 37,
+      centerAzimuthDegrees: 341,
+      fieldOfViewDegrees: 132,
+    });
+    const context = createPlanetariumProjectionContext(camera, canvas);
+
+    for (const direction of [
+      { altitudeDegrees: -12, azimuthDegrees: 4 },
+      { altitudeDegrees: 37, azimuthDegrees: 341 },
+      { altitudeDegrees: 82, azimuthDegrees: 170 },
+      { altitudeDegrees: 5, azimuthDegrees: 225 },
+    ]) {
+      const expected = projectHorizontalDirection(direction, camera, canvas);
+      const prepared = projectUnitVectorToCanvas(
+        horizontalDirectionToVector(direction),
+        context,
+      );
+      expect(prepared.visible).toBe(expected.visible);
+      expect(prepared.xPixels).toBeCloseTo(expected.xPixels, 8);
+      expect(prepared.yPixels).toBeCloseTo(expected.yPixels, 8);
+    }
   });
 
   it('uses Stellarium-compatible stereographic field-of-view limits', () => {

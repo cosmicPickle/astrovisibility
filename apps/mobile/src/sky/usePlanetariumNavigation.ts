@@ -13,7 +13,10 @@ import {
   type PlanetariumCamera,
 } from './planetariumProjection';
 
-const CAMERA_PREVIEW_UPDATE_INTERVAL = 1;
+// Resident sky/catalogue caches have a full-screen overscan. Sampling their JS
+// refresh avoids a bridge call for every native gesture event while the shared
+// camera itself still updates on every event.
+const CAMERA_PREVIEW_UPDATE_INTERVAL = 4;
 
 export function usePlanetariumNavigation({
   cameraState,
@@ -87,7 +90,7 @@ export function usePlanetariumNavigation({
         panBaseline.set(camera.get());
         panStartX.set(event.x);
         panStartY.set(event.y);
-        previewUpdateCount.set(CAMERA_PREVIEW_UPDATE_INTERVAL - 1);
+        previewUpdateCount.set(0);
       })
       .onUpdate((event) => {
         if (pinchActive.get() || panSuppressedAfterPinch.get()) return;
@@ -136,7 +139,7 @@ export function usePlanetariumNavigation({
         panSuppressedAfterPinch.set(true);
         pinchCommitted.set(false);
         pinchBaseline.set(camera.get());
-        previewUpdateCount.set(CAMERA_PREVIEW_UPDATE_INTERVAL - 1);
+        previewUpdateCount.set(0);
       })
       .onUpdate((event) => {
         const nextCamera = applyPlanetariumZoom(
