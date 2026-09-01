@@ -1,5 +1,69 @@
 # Active Tasks
 
+## Shared celestial time transform
+
+**Started:** 2026-09-01 14:45 +03:00 (Europe/Sofia)
+
+**Branch**
+
+- `feature/atlas-shared-time-transform`, created from `main` at `84171fd`.
+- Remain on this branch for implementation, commits, and Android test builds
+  until the product owner explicitly accepts, rejects, merges, or switches it.
+
+**Controlling specifications**
+
+- `astro-visibility-spec.md`
+- `docs/superpowers/specs/mobile/2026-09-01-1445-shared-celestial-time-transform.md`
+- `docs/superpowers/plans/2026-09-01-1445-shared-celestial-time-transform.md`
+- `docs/superpowers/specs/mobile/2026-08-20-0942-stellarium-sky-engine-rewrite.md`
+
+**Objective and acceptance**
+
+Keep all celestial geometry fixed in J2000 and rotate/project it from one
+shared scene timestamp on the Skia/UI path. Enable real-time observing-time
+movement with stars, targets, constellations, Milky Way, DSO imagery, and a
+selected trajectory, without rebuilding complete celestial arrays through
+React or changing astronomical, catalogue, obstruction, or visual behavior.
+Meet the numerical and device-performance budgets in the focused spec.
+
+**Checklist**
+
+- [x] Create the dedicated branch from current local/main and record branch
+      ownership.
+- [x] Write the staged focused specification and implementation plan.
+- [x] Add failing authoritative equivalence tests for the window-scoped shared
+      celestial transform.
+- [x] Implement the worklet-safe forward/inverse time-transform foundation.
+- [ ] Benchmark the shared transform over the production celestial-data counts.
+- [ ] Prepare immutable J2000 catalogue, star, constellation, Milky Way, and
+      cached DSO mesh geometry.
+- [ ] Introduce shared render time and migrate celestial background layers.
+- [ ] Replace the star frame hot path as required by measurements.
+- [ ] Move catalogue marks/residency/hit testing to stable J2000 behavior.
+- [ ] Connect live slider preview with exact release/window semantics.
+- [ ] Run mandatory quality gates and inspect the final diff/security surface.
+- [ ] Build branch-only release APKs when requested and complete representative,
+      constrained, and physical-device visual/performance QA.
+- [ ] Present measured results for explicit product-owner readiness decision.
+
+**Current step**
+
+Stage 1 foundation passes authoritative forward and inverse fixtures across
+ordinary and 25-hour windows, northern and southern observers, pole-near
+coordinates, and normal refraction. Format, typecheck, lint, 14 focused
+astronomy tests, catalogue/sky-asset validation, and the Android Expo export
+pass. Next, benchmark the production point counts and begin Stage 2 immutable
+J2000 asset preparation without changing a rendered layer yet.
+
+**Blockers and decisions**
+
+- The owner approved the shared J2000/time-transform architecture and staged
+  implementation on 2026-09-01.
+- No density, imagery, trajectory, panorama/mask, or catalogue functionality may
+  be removed for performance. Report any proposed compromise before acting.
+- Physical-device proof requires a connected representative Android device;
+  emulator measurements remain diagnostic only.
+
 ## Registered sky background
 
 **Started:** 2026-08-29 18:51 +03:00 (Europe/Sofia)
