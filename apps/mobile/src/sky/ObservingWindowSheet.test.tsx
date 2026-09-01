@@ -158,10 +158,86 @@ describe('ObservingWindowSheet', () => {
       measuredSlider.props.onResponderGrant({}, { dx: 0 });
       measuredSlider.props.onResponderMove({}, { dx: 30 });
       measuredSlider.props.onResponderMove({}, { dx: -10 });
+      measuredSlider.props.onResponderRelease({}, { dx: -10 });
     });
 
-    expect(screen.getByText(/23:00/)).toBeTruthy();
-    expect(onChange).not.toHaveBeenCalled();
+    expect(onChange).toHaveBeenLastCalledWith({
+      sceneTimestampUtc: '2026-08-21T20:00:00.000Z',
+      window,
+    });
+  });
+
+  it('samples the date label while preserving every live atlas preview', async () => {
+    const onPreview = jest.fn();
+    const { screen } = await renderSheet({ onPreview });
+    const slider = screen.getByLabelText('Time of day');
+
+    await act(async () => {
+      slider.props.onLayout({ nativeEvent: { layout: { width: 240 } } });
+      slider.props.onResponderGrant({}, { dx: 0 });
+      slider.props.onResponderMove({}, { dx: 20 });
+      slider.props.onResponderMove({}, { dx: 80 });
+    });
+
+    expect(onPreview).toHaveBeenCalledTimes(2);
+    expect(onPreview).toHaveBeenLastCalledWith('2026-08-22T05:00:00.000Z');
+    expect(screen.getByText(/02:00/)).toBeTruthy();
+    expect(screen.queryByText(/08:00/)).toBeNull();
+  });
+
+  it('keeps the active drag continuous when preview state rerenders the sheet', async () => {
+    const firstPreview = jest.fn();
+    const secondPreview = jest.fn();
+    const onChange = jest.fn();
+    const { screen } = await renderSheet({ onChange, onPreview: firstPreview });
+    const slider = screen.getByLabelText('Time of day');
+
+    await act(async () => {
+      slider.props.onLayout({ nativeEvent: { layout: { width: 240 } } });
+    });
+    const measuredSlider = screen.getByLabelText('Time of day');
+    const responderMove = measuredSlider.props.onResponderMove;
+    await act(async () => {
+      measuredSlider.props.onResponderGrant({}, { dx: 0 });
+      responderMove({}, { dx: 60 });
+    });
+
+    await act(async () => {
+      screen.rerender(
+        <SafeAreaProvider
+          initialMetrics={{
+            frame: { x: 0, y: 0, width: 390, height: 844 },
+            insets: { top: 24, left: 0, right: 0, bottom: 24 },
+          }}
+        >
+          <ObservingWindowSheet
+            clock={() => '2026-08-20T10:15:00.000Z'}
+            observer={observer}
+            onChange={onChange}
+            onPreview={secondPreview}
+            onClose={jest.fn()}
+            sceneTimestampUtc="2026-08-21T21:00:00.000Z"
+            timeZoneId="Europe/Sofia"
+            visible
+            window={window}
+          />
+        </SafeAreaProvider>,
+      );
+    });
+
+    const rerenderedSlider = screen.getByLabelText('Time of day');
+    expect(rerenderedSlider.props.onResponderMove).toBe(responderMove);
+    await act(async () => {
+      rerenderedSlider.props.onResponderMove({}, { dx: 120 });
+      rerenderedSlider.props.onResponderRelease({}, { dx: 120 });
+    });
+
+    expect(secondPreview).toHaveBeenLastCalledWith('2026-08-22T08:59:00.000Z');
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenLastCalledWith({
+      sceneTimestampUtc: '2026-08-22T08:59:00.000Z',
+      window,
+    });
   });
 
   it('centres the slider thumb vertically on its track', async () => {
@@ -171,7 +247,9 @@ describe('ObservingWindowSheet', () => {
     );
 
     expect(style.top).toBe('50%');
-    expect(style.transform).toEqual([{ translateY: -11 }]);
+    expect(style.transform).toEqual(
+      expect.arrayContaining([{ translateY: -11 }]),
+    );
     expect(
       StyleSheet.flatten(screen.getByTestId('time-slider-track').props.style)
         .height,

@@ -1,8 +1,11 @@
 import { equatorialJ2000ToHorizontal } from './horizontalCoordinates';
 import {
+  createCelestialObservedFrame,
   createCelestialTimeTransform,
   equatorialJ2000ToUnitVector,
   observedHorizontalVectorToJ2000,
+  normalRefractionDegrees,
+  projectPreparedJ2000ToObservedHorizontalVector,
   projectJ2000ToObservedHorizontalVector,
 } from './celestialTimeTransform';
 
@@ -87,6 +90,82 @@ const coordinates = [
 ] as const;
 
 describe('celestial time transform', () => {
+  it('keeps lookup refraction inside the renderer angular budget', () => {
+    const exactRefractionDegrees = (altitudeDegrees: number) => {
+      const boundedAltitudeDegrees = Math.max(-1, altitudeDegrees);
+      let refractionDegrees =
+        1.02 /
+        Math.tan(
+          (boundedAltitudeDegrees + 10.3 / (boundedAltitudeDegrees + 5.11)) *
+            (Math.PI / 180),
+        ) /
+        60;
+      if (altitudeDegrees < -1) {
+        refractionDegrees *= (altitudeDegrees + 90) / 89;
+      }
+      return refractionDegrees;
+    };
+    let maximumErrorDegrees = 0;
+    for (
+      let altitudeDegrees = -90;
+      altitudeDegrees <= 90;
+      altitudeDegrees += 0.001
+    ) {
+      maximumErrorDegrees = Math.max(
+        maximumErrorDegrees,
+        Math.abs(
+          normalRefractionDegrees(altitudeDegrees) -
+            exactRefractionDegrees(altitudeDegrees),
+        ),
+      );
+    }
+
+    expect(maximumErrorDegrees).toBeLessThan(MAXIMUM_PREVIEW_ERROR_DEGREES);
+  });
+
+  it('projects prepared J2000 vectors through one shared frame without changing coordinates', () => {
+    const transform = createCelestialTimeTransform({
+      observer: {
+        elevationMetersAboveMeanSeaLevel: 550,
+        latitudeDegreesNorth: 42.7,
+        longitudeDegreesEast: 23.3,
+      },
+      window: {
+        startTimestampUtc: '2026-08-20T09:00:00.000Z',
+        endTimestampUtc: '2026-08-21T09:00:00.000Z',
+      },
+    });
+    const timestampMilliseconds = Date.parse('2026-08-20T21:17:00.000Z');
+    const frame = createCelestialObservedFrame(
+      transform,
+      timestampMilliseconds,
+    );
+
+    for (const coordinate of [
+      { rightAscensionJ2000Hours: 0, declinationJ2000Degrees: 0 },
+      { rightAscensionJ2000Hours: 6.7525, declinationJ2000Degrees: -16.7161 },
+      { rightAscensionJ2000Hours: 23.99, declinationJ2000Degrees: 89.5 },
+    ]) {
+      const vector = equatorialJ2000ToUnitVector(coordinate);
+      const expected = projectJ2000ToObservedHorizontalVector(
+        vector,
+        transform,
+        timestampMilliseconds,
+      );
+      const actual = projectPreparedJ2000ToObservedHorizontalVector(
+        vector,
+        frame,
+      );
+
+      expect(
+        Math.hypot(
+          actual.x - expected.x,
+          actual.y - expected.y,
+          actual.z - expected.z,
+        ),
+      ).toBeLessThanOrEqual(1e-12);
+    }
+  });
   it.each(cases)(
     'matches the authoritative observed-horizontal adapter throughout a window',
     ({ observer, timestampsUtc }) => {

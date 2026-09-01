@@ -1,6 +1,6 @@
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { ReactElement } from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Alert, PanResponder, Pressable, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import type { CatalogueTarget } from '../../scripts/catalogue/catalogueImporter';
@@ -318,6 +318,11 @@ describe('SkyViewScreen', () => {
     selectedTrajectoryCache.clear();
   });
 
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
   it('shows a deliberate loading failure and retries local data', async () => {
     const failedController: SkyViewController = {
       load: jest
@@ -625,6 +630,56 @@ describe('SkyViewScreen', () => {
         endTimestampUtc: expect.any(String),
       }),
     );
+  });
+
+  it('defers React control refreshes until live time movement pauses', async () => {
+    const panResponder = jest.spyOn(PanResponder, 'create').mockImplementation(
+      (handlers) =>
+        ({
+          panHandlers: {
+            onResponderGrant: handlers.onPanResponderGrant,
+            onResponderMove: handlers.onPanResponderMove,
+            onResponderRelease: handlers.onPanResponderRelease,
+            onResponderTerminate: handlers.onPanResponderTerminate,
+          },
+        }) as ReturnType<typeof PanResponder.create>,
+    );
+    const renderSky = jest.fn(renderer);
+    const screen = await renderWithSafeArea(
+      <SkyViewScreen
+        controller={controller()}
+        navigation={navigation()}
+        profileId={profile.id}
+        renderSky={renderSky}
+      />,
+    );
+    await waitFor(() => screen.getByText(profile.name));
+    await fireEvent.press(screen.getByLabelText('Sky time'));
+    const slider = screen.getByLabelText('Time of day');
+    const initialControlTime =
+      renderSky.mock.lastCall![0].controlTimeMilliseconds;
+
+    jest.useFakeTimers();
+    await act(async () => {
+      slider.props.onLayout({ nativeEvent: { layout: { width: 240 } } });
+      slider.props.onResponderGrant({}, { dx: 0 });
+      slider.props.onResponderMove({}, { dx: 60 });
+    });
+
+    expect(renderSky.mock.lastCall![0].controlTimeMilliseconds).toBe(
+      initialControlTime,
+    );
+    expect(renderSky.mock.lastCall![0].sceneTimeMilliseconds.get()).not.toBe(
+      initialControlTime,
+    );
+
+    await act(async () => {
+      jest.advanceTimersByTime(200);
+    });
+    expect(renderSky.mock.lastCall![0].controlTimeMilliseconds).toBe(
+      renderSky.mock.lastCall![0].sceneTimeMilliseconds.get(),
+    );
+    panResponder.mockRestore();
   });
 
   it('restores a list-selected target and observing window for trajectory inspection', async () => {

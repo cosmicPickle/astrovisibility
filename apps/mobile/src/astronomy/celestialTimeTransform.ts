@@ -31,6 +31,20 @@ export type CelestialTimeTransform = Readonly<{
   startTimestampMilliseconds: number;
 }>;
 
+export type CelestialObservedFrame = Readonly<{
+  j2000ToGeometricHorizontal: readonly [
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+  ];
+}>;
+
 const DEGREES_TO_RADIANS = Math.PI / 180;
 const RADIANS_TO_DEGREES = 180 / Math.PI;
 const SIDEREAL_HOURS_PER_UTC_DAY = 24.06570982441908;
@@ -79,8 +93,7 @@ const normalizeUnitVector = (vector: UnitVector3): UnitVector3 => {
   };
 };
 
-const normalRefractionDegrees = (geometricAltitudeDegrees: number) => {
-  'worklet';
+const exactNormalRefractionDegrees = (geometricAltitudeDegrees: number) => {
   if (geometricAltitudeDegrees < -90 || geometricAltitudeDegrees > 90) {
     return 0;
   }
@@ -96,6 +109,46 @@ const normalRefractionDegrees = (geometricAltitudeDegrees: number) => {
     refractionDegrees *= (geometricAltitudeDegrees + 90) / 89;
   }
   return refractionDegrees;
+};
+
+const REFRACTION_LOOKUP_START_DEGREES = -1;
+const REFRACTION_LOOKUP_STEP_DEGREES = 0.1;
+const normalRefractionLookupDegrees = Array.from(
+  {
+    length:
+      (90 - REFRACTION_LOOKUP_START_DEGREES) / REFRACTION_LOOKUP_STEP_DEGREES +
+      1,
+  },
+  (_, index) =>
+    exactNormalRefractionDegrees(
+      REFRACTION_LOOKUP_START_DEGREES + index * REFRACTION_LOOKUP_STEP_DEGREES,
+    ),
+);
+
+export const normalRefractionDegrees = (geometricAltitudeDegrees: number) => {
+  'worklet';
+  if (geometricAltitudeDegrees < -90 || geometricAltitudeDegrees > 90) {
+    return 0;
+  }
+  if (geometricAltitudeDegrees < REFRACTION_LOOKUP_START_DEGREES) {
+    return (
+      normalRefractionLookupDegrees[0]! * ((geometricAltitudeDegrees + 90) / 89)
+    );
+  }
+  const lookupOffset =
+    (geometricAltitudeDegrees - REFRACTION_LOOKUP_START_DEGREES) /
+    REFRACTION_LOOKUP_STEP_DEGREES;
+  const lowerIndex = Math.floor(lookupOffset);
+  if (lowerIndex >= normalRefractionLookupDegrees.length - 1) {
+    return normalRefractionLookupDegrees[
+      normalRefractionLookupDegrees.length - 1
+    ]!;
+  }
+  const progress = lookupOffset - lowerIndex;
+  const lower = normalRefractionLookupDegrees[lowerIndex]!;
+  return (
+    lower + (normalRefractionLookupDegrees[lowerIndex + 1]! - lower) * progress
+  );
 };
 
 const geometricAltitudeFromObservedDegrees = (
@@ -127,28 +180,6 @@ const assertTimestampInWindow = (
   ) {
     throw new RangeError('Timestamp must be inside the observing window');
   }
-};
-
-const equatorialOfDateVector = (
-  j2000Vector: UnitVector3,
-  transform: CelestialTimeTransform,
-) => {
-  'worklet';
-  const matrix = transform.j2000ToEquatorialOfDate;
-  return {
-    x:
-      matrix[0] * j2000Vector.x +
-      matrix[1] * j2000Vector.y +
-      matrix[2] * j2000Vector.z,
-    y:
-      matrix[3] * j2000Vector.x +
-      matrix[4] * j2000Vector.y +
-      matrix[5] * j2000Vector.z,
-    z:
-      matrix[6] * j2000Vector.x +
-      matrix[7] * j2000Vector.y +
-      matrix[8] * j2000Vector.z,
-  };
 };
 
 const localSiderealRadiansAt = (
@@ -241,31 +272,61 @@ export const createCelestialTimeTransform = (input: {
   };
 };
 
-export const projectJ2000ToObservedHorizontalVector = (
-  rawJ2000Vector: UnitVector3,
+export const createCelestialObservedFrame = (
   transform: CelestialTimeTransform,
   timestampMilliseconds: number,
-): UnitVector3 => {
+): CelestialObservedFrame => {
   'worklet';
   assertTimestampInWindow(timestampMilliseconds, transform);
-  const j2000Vector = normalizeUnitVector(rawJ2000Vector);
-  const equatorial = equatorialOfDateVector(j2000Vector, transform);
   const siderealRadians = localSiderealRadiansAt(
     transform,
     timestampMilliseconds,
   );
   const sinSidereal = Math.sin(siderealRadians);
   const cosSidereal = Math.cos(siderealRadians);
-  const meridianComponent =
-    cosSidereal * equatorial.x + sinSidereal * equatorial.y;
+  const matrix = transform.j2000ToEquatorialOfDate;
+  const meridianX = cosSidereal * matrix[0] + sinSidereal * matrix[3];
+  const meridianY = cosSidereal * matrix[1] + sinSidereal * matrix[4];
+  const meridianZ = cosSidereal * matrix[2] + sinSidereal * matrix[5];
+  return {
+    j2000ToGeometricHorizontal: [
+      -sinSidereal * matrix[0] + cosSidereal * matrix[3],
+      -sinSidereal * matrix[1] + cosSidereal * matrix[4],
+      -sinSidereal * matrix[2] + cosSidereal * matrix[5],
+      transform.cosObserverLatitude * meridianX +
+        transform.sinObserverLatitude * matrix[6],
+      transform.cosObserverLatitude * meridianY +
+        transform.sinObserverLatitude * matrix[7],
+      transform.cosObserverLatitude * meridianZ +
+        transform.sinObserverLatitude * matrix[8],
+      -transform.sinObserverLatitude * meridianX +
+        transform.cosObserverLatitude * matrix[6],
+      -transform.sinObserverLatitude * meridianY +
+        transform.cosObserverLatitude * matrix[7],
+      -transform.sinObserverLatitude * meridianZ +
+        transform.cosObserverLatitude * matrix[8],
+    ],
+  };
+};
+
+export const projectPreparedJ2000ToObservedHorizontalVector = (
+  j2000UnitVector: UnitVector3,
+  frame: CelestialObservedFrame,
+): UnitVector3 => {
+  'worklet';
+  const matrix = frame.j2000ToGeometricHorizontal;
   const geometricEast =
-    -sinSidereal * equatorial.x + cosSidereal * equatorial.y;
+    matrix[0] * j2000UnitVector.x +
+    matrix[1] * j2000UnitVector.y +
+    matrix[2] * j2000UnitVector.z;
   const geometricUp =
-    transform.cosObserverLatitude * meridianComponent +
-    transform.sinObserverLatitude * equatorial.z;
+    matrix[3] * j2000UnitVector.x +
+    matrix[4] * j2000UnitVector.y +
+    matrix[5] * j2000UnitVector.z;
   const geometricNorth =
-    -transform.sinObserverLatitude * meridianComponent +
-    transform.cosObserverLatitude * equatorial.z;
+    matrix[6] * j2000UnitVector.x +
+    matrix[7] * j2000UnitVector.y +
+    matrix[8] * j2000UnitVector.z;
   const geometricAltitudeDegrees =
     Math.asin(Math.max(-1, Math.min(1, geometricUp))) * RADIANS_TO_DEGREES;
   const observedAltitudeRadians =
@@ -278,11 +339,25 @@ export const projectJ2000ToObservedHorizontalVector = (
   }
   const observedHorizontalScale =
     Math.cos(observedAltitudeRadians) / geometricHorizontalRadius;
-  return normalizeUnitVector({
+  return {
     x: geometricEast * observedHorizontalScale,
     y: Math.sin(observedAltitudeRadians),
     z: geometricNorth * observedHorizontalScale,
-  });
+  };
+};
+
+export const projectJ2000ToObservedHorizontalVector = (
+  rawJ2000Vector: UnitVector3,
+  transform: CelestialTimeTransform,
+  timestampMilliseconds: number,
+): UnitVector3 => {
+  'worklet';
+  assertTimestampInWindow(timestampMilliseconds, transform);
+  const j2000Vector = normalizeUnitVector(rawJ2000Vector);
+  return projectPreparedJ2000ToObservedHorizontalVector(
+    j2000Vector,
+    createCelestialObservedFrame(transform, timestampMilliseconds),
+  );
 };
 
 export const observedHorizontalVectorToJ2000 = (

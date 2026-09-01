@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useSharedValue, type SharedValue } from 'react-native-reanimated';
 import {
   createAstronomicalDarknessIntervals,
@@ -179,6 +186,8 @@ const registeredCelestialDsoImages = createRegisteredCelestialDsoImages(
   }),
 );
 
+const CONTROL_PREVIEW_SETTLE_MILLISECONDS = 200;
+
 export const skyViewController: SkyViewController = {
   async load(profileId, requestedTimestampUtc) {
     const nowTimestampUtc = requestedTimestampUtc ?? new Date().toISOString();
@@ -277,7 +286,9 @@ export const SkyViewScreen = ({
     null,
   );
   const sceneTimeMilliseconds = useSharedValue(0);
-  const lastControlPreviewMilliseconds = useRef(0);
+  const controlPreviewTimeout = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const [error, setError] = useState(false);
   const [selectedTarget, setSelectedTarget] = useState<CatalogueTarget | null>(
     null,
@@ -388,6 +399,15 @@ export const SkyViewScreen = ({
     profileId,
     sceneTimeMilliseconds,
   ]);
+
+  useEffect(
+    () => () => {
+      if (controlPreviewTimeout.current !== null) {
+        clearTimeout(controlPreviewTimeout.current);
+      }
+    },
+    [],
+  );
 
   const selectedEquipment = useMemo(
     () =>
@@ -698,32 +718,44 @@ export const SkyViewScreen = ({
     }
   };
 
-  const applyObservingTime = ({
-    sceneTimestampUtc: nextSceneTimestampUtc,
-    window,
-  }: ObservingWindowChange) => {
-    const windowChanged =
-      window.startTimestampUtc !== observingWindow?.startTimestampUtc ||
-      window.endTimestampUtc !== observingWindow?.endTimestampUtc;
-    setSceneTimestampUtc(nextSceneTimestampUtc);
-    setControlTimestampUtc(nextSceneTimestampUtc);
-    sceneTimeMilliseconds.set(Date.parse(nextSceneTimestampUtc));
-    setObservingWindow(window);
-    setInspectedMarker(null);
-    if (windowChanged && selectedTarget) {
-      setTrajectory(null);
-      setTrajectoryStatus('calculating');
-    }
-  };
-
-  const previewObservingTime = (nextSceneTimestampUtc: string) => {
-    sceneTimeMilliseconds.set(Date.parse(nextSceneTimestampUtc));
-    const nowMilliseconds = Date.now();
-    if (nowMilliseconds - lastControlPreviewMilliseconds.current >= 100) {
-      lastControlPreviewMilliseconds.current = nowMilliseconds;
+  const applyObservingTime = useCallback(
+    ({
+      sceneTimestampUtc: nextSceneTimestampUtc,
+      window,
+    }: ObservingWindowChange) => {
+      if (controlPreviewTimeout.current !== null) {
+        clearTimeout(controlPreviewTimeout.current);
+        controlPreviewTimeout.current = null;
+      }
+      const windowChanged =
+        window.startTimestampUtc !== observingWindow?.startTimestampUtc ||
+        window.endTimestampUtc !== observingWindow?.endTimestampUtc;
+      setSceneTimestampUtc(nextSceneTimestampUtc);
       setControlTimestampUtc(nextSceneTimestampUtc);
-    }
-  };
+      sceneTimeMilliseconds.set(Date.parse(nextSceneTimestampUtc));
+      setObservingWindow(window);
+      setInspectedMarker(null);
+      if (windowChanged && selectedTarget) {
+        setTrajectory(null);
+        setTrajectoryStatus('calculating');
+      }
+    },
+    [observingWindow, sceneTimeMilliseconds, selectedTarget],
+  );
+
+  const previewObservingTime = useCallback(
+    (nextSceneTimestampUtc: string) => {
+      sceneTimeMilliseconds.set(Date.parse(nextSceneTimestampUtc));
+      if (controlPreviewTimeout.current !== null) {
+        clearTimeout(controlPreviewTimeout.current);
+      }
+      controlPreviewTimeout.current = setTimeout(() => {
+        controlPreviewTimeout.current = null;
+        startTransition(() => setControlTimestampUtc(nextSceneTimestampUtc));
+      }, CONTROL_PREVIEW_SETTLE_MILLISECONDS);
+    },
+    [sceneTimeMilliseconds],
+  );
 
   const confirmDeletePanoramaAndMask = (recreate: boolean) => {
     if (!data) return;

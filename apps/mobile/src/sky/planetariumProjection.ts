@@ -642,9 +642,9 @@ export const angularSeparationDegrees = (
   );
 };
 
-export const angularSizeDegreesToPixelsAtDirection = (
+export const angularSizeDegreesToPixelsAtUnitVector = (
   angularSizeDegrees: number,
-  direction: HorizontalDirectionDegrees,
+  directionVector: Vector3,
   camera: PlanetariumCamera,
   canvas: CanvasSizePixels,
 ) => {
@@ -652,7 +652,6 @@ export const angularSizeDegreesToPixelsAtDirection = (
   if (!Number.isFinite(angularSizeDegrees) || angularSizeDegrees < 0) {
     throw new RangeError('angularSizeDegrees must be finite and non-negative');
   }
-  const directionVector = horizontalDirectionToVector(direction);
   const cosineFromCameraCenter = clamp(
     dot(directionVector, camera.forward),
     -1,
@@ -665,6 +664,19 @@ export const angularSizeDegreesToPixelsAtDirection = (
       Math.max(1e-7, 1 + cosineFromCameraCenter))
   );
 };
+
+export const angularSizeDegreesToPixelsAtDirection = (
+  angularSizeDegrees: number,
+  direction: HorizontalDirectionDegrees,
+  camera: PlanetariumCamera,
+  canvas: CanvasSizePixels,
+): number =>
+  angularSizeDegreesToPixelsAtUnitVector(
+    angularSizeDegrees,
+    horizontalDirectionToVector(direction),
+    camera,
+    canvas,
+  );
 
 export const densifyHorizontalPath = (
   directions: readonly HorizontalDirectionDegrees[],

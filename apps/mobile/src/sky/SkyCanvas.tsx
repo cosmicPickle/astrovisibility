@@ -42,9 +42,10 @@ import {
   projectJ2000ToObservedHorizontalVector,
   type CelestialTimeTransform,
 } from '../astronomy/celestialTimeTransform';
-import type {
-  RegisteredCelestialDsoImage,
-  RegisteredCelestialSky,
+import {
+  selectCelestialAtlasMeshesForFieldOfView,
+  type RegisteredCelestialDsoImage,
+  type RegisteredCelestialSky,
 } from './celestialSkyGeometry';
 import {
   selectCelestialResidentTargets,
@@ -470,6 +471,10 @@ export const SkyCanvas = ({
             panoramaTiles={maskPresentation?.panorama?.tiles ?? []}
             registeredCelestialSky={{
               ...registeredCelestialSky,
+              atlasMeshes: selectCelestialAtlasMeshesForFieldOfView(
+                registeredCelestialSky,
+                residentCameraState.fieldOfViewDegrees,
+              ),
               constellations: visibleCelestialConstellations,
             }}
             registeredCelestialStarBatches={registeredCelestialStarBatches}

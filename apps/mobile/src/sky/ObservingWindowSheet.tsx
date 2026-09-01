@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   PanResponder,
   Pressable,
@@ -6,6 +6,10 @@ import {
   View,
   type LayoutChangeEvent,
 } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+} from 'react-native-reanimated';
 import {
   Defs,
   LinearGradient as SvgLinearGradient,
@@ -41,10 +45,12 @@ import { AppText } from '../components/ui/AppText';
 import { ModalSheet } from '../components/ui/ModalSheet';
 import { colors, layout } from '../theme/tokens';
 import { MoonPhaseIcon } from './MoonPhaseIcon';
+import { useLatestValue } from './useLatestValue';
 
 const MINUTES_PER_DAY = 24 * 60;
 const MAX_SLIDER_MINUTE = MINUTES_PER_DAY - 1;
 const SLIDER_STEP_MINUTES = 15;
+const DRAG_LABEL_REFRESH_MOVE_COUNT = 15;
 
 export interface ObservingWindowChange {
   sceneTimestampUtc: string;
@@ -156,10 +162,33 @@ const TimeOfDaySlider = ({
   valueMinute: number;
   window: ObservingWindow;
 }) => {
-  const [widthPixels, setWidthPixels] = useState(1);
   const [conditionsVisible, setConditionsVisible] = useState(false);
   const boundedValue = clampSliderMinute(valueMinute);
   const [dragMinute, setDragMinute] = useState<number | null>(null);
+  const dragActive = useSharedValue(false);
+  const dragStartMinute = useSharedValue(boundedValue);
+  const dragMovesSinceLabelRefresh = useSharedValue(0);
+  const sliderMinute = useSharedValue(boundedValue);
+  const sliderWidthPixels = useSharedValue(1);
+  const getGestureContext = useLatestValue({
+    civilDate,
+    onCommit,
+    onPreview,
+    timeZoneId,
+    valueMinute: boundedValue,
+  });
+  useEffect(() => {
+    if (!dragActive.get()) sliderMinute.set(boundedValue);
+  }, [boundedValue, dragActive, sliderMinute]);
+  const animatedThumbStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateX:
+          (sliderMinute.get() / MINUTES_PER_DAY) * sliderWidthPixels.get() - 11,
+      },
+      { translateY: -11 },
+    ],
+  }));
   const draftMinute = dragMinute ?? boundedValue;
   const conditionTrack = useMemo(
     () => createSkyConditionTrack({ observer, timeZoneId, window }),
@@ -175,37 +204,70 @@ const TimeOfDaySlider = ({
       minuteOfTrack: clampSliderMinute(minuteOfTrack),
       timeZoneId,
     });
-  const updateDraftFromDrag = (dragDeltaXPixels: number) => {
-    const nextValue = clampSliderMinute(
-      boundedValue + (dragDeltaXPixels / widthPixels) * MINUTES_PER_DAY,
-    );
-    setDragMinute(nextValue);
-    onPreview?.(timestampAt(nextValue));
-    return nextValue;
-  };
-  const finishDrag = (dragDeltaXPixels: number) => {
-    const finalDraftMinute = updateDraftFromDrag(dragDeltaXPixels);
-    setDragMinute(null);
-    onCommit(timestampAt(finalDraftMinute));
-  };
   const responder = useMemo(
-    () =>
-      PanResponder.create({
+    () => {
+      const updateDraftFromDrag = (dragDeltaXPixels: number) => {
+        const context = getGestureContext();
+        const nextValue = clampSliderMinute(
+          dragStartMinute.get() +
+            (dragDeltaXPixels / sliderWidthPixels.get()) * MINUTES_PER_DAY,
+        );
+        const timestampUtc = resolveNoonCenteredSliderTimestamp({
+          civilDate: context.civilDate,
+          minuteOfTrack: nextValue,
+          timeZoneId: context.timeZoneId,
+        });
+        sliderMinute.set(nextValue);
+        const movesSinceLabelRefresh = dragMovesSinceLabelRefresh.get() + 1;
+        dragMovesSinceLabelRefresh.set(movesSinceLabelRefresh);
+        if (
+          movesSinceLabelRefresh === 1 ||
+          movesSinceLabelRefresh >= DRAG_LABEL_REFRESH_MOVE_COUNT
+        ) {
+          if (movesSinceLabelRefresh >= DRAG_LABEL_REFRESH_MOVE_COUNT) {
+            dragMovesSinceLabelRefresh.set(1);
+          }
+          setDragMinute(nextValue);
+        }
+        context.onPreview?.(timestampUtc);
+        return { context, timestampUtc };
+      };
+      const finishDrag = (dragDeltaXPixels: number) => {
+        const { context, timestampUtc } = updateDraftFromDrag(dragDeltaXPixels);
+        dragActive.set(false);
+        setDragMinute(null);
+        context.onCommit(timestampUtc);
+      };
+      return PanResponder.create({
         onStartShouldSetPanResponder: () => true,
         onMoveShouldSetPanResponder: () => true,
-        onPanResponderGrant: () => setDragMinute(boundedValue),
+        onPanResponderGrant: () => {
+          const context = getGestureContext();
+          dragActive.set(true);
+          dragStartMinute.set(context.valueMinute);
+          sliderMinute.set(context.valueMinute);
+          dragMovesSinceLabelRefresh.set(0);
+        },
         onPanResponderMove: (_, gestureState) =>
           updateDraftFromDrag(gestureState.dx),
         onPanResponderRelease: (_, gestureState) => finishDrag(gestureState.dx),
         onPanResponderTerminate: (_, gestureState) =>
           finishDrag(gestureState.dx),
-      }),
-    // Gesture mapping must track both the measured width and active civil day.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [boundedValue, civilDate, onCommit, onPreview, timeZoneId, widthPixels],
+      });
+    },
+    // All changing gesture inputs live behind one stable getter so React preview
+    // renders cannot
+    // replace the responder while the native gesture is active.
+    [
+      dragActive,
+      dragMovesSinceLabelRefresh,
+      dragStartMinute,
+      getGestureContext,
+      sliderMinute,
+      sliderWidthPixels,
+    ],
   );
   const timestampUtc = timestampAt(draftMinute);
-  const percent = (draftMinute / MINUTES_PER_DAY) * 100;
   const conditionIndex = Math.min(
     conditionTrack.length - 1,
     Math.round((draftMinute / MINUTES_PER_DAY) * (conditionTrack.length - 1)),
@@ -308,9 +370,9 @@ const TimeOfDaySlider = ({
                 : 0;
           onCommit(timestampAt(draftMinute + delta));
         }}
-        onLayout={(event: LayoutChangeEvent) =>
-          setWidthPixels(Math.max(1, event.nativeEvent.layout.width))
-        }
+        onLayout={(event: LayoutChangeEvent) => {
+          sliderWidthPixels.set(Math.max(1, event.nativeEvent.layout.width));
+        }}
         style={styles.sliderTouchTrack}
         {...responder.panHandlers}
       >
@@ -334,8 +396,8 @@ const TimeOfDaySlider = ({
               width="100%"
             />
           </Svg>
-          <View
-            style={[styles.sliderThumb, { left: `${percent}%` }]}
+          <Animated.View
+            style={[styles.sliderThumb, animatedThumbStyle]}
             testID="time-slider-thumb"
           />
         </View>
@@ -668,10 +730,9 @@ const styles = StyleSheet.create({
     borderRadius: 11,
     borderWidth: 3,
     height: 22,
-    marginLeft: -11,
+    left: 0,
     position: 'absolute',
     top: '50%',
-    transform: [{ translateY: -11 }],
     width: 22,
   },
   sliderTouchTrack: {

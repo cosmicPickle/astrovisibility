@@ -1,6 +1,7 @@
 import {
   createRegisteredCelestialDsoImages,
   registeredCelestialSky,
+  selectCelestialAtlasMeshesForFieldOfView,
 } from './celestialSkyGeometry';
 
 describe('fixed J2000 celestial geometry', () => {
@@ -14,6 +15,27 @@ describe('fixed J2000 celestial geometry', () => {
         0,
       ),
     ).toBe(3_528);
+    expect(registeredCelestialSky.wideAtlasMeshes).toHaveLength(72);
+    expect(
+      registeredCelestialSky.wideAtlasMeshes.reduce(
+        (total, mesh) => total + mesh.directionVectors.length,
+        0,
+      ),
+    ).toBe(648);
+    expect(registeredCelestialSky.wideAtlasMeshes[0]).toMatchObject({
+      columnCount: 3,
+      rowCount: 3,
+      indices: expect.any(Array),
+    });
+    expect(registeredCelestialSky.wideAtlasMeshes[0]!.indices).toHaveLength(24);
+    expect(
+      registeredCelestialSky.wideAtlasMeshes[0]!.directionVectors[0],
+    ).toEqual(registeredCelestialSky.atlasMeshes[0]!.directionVectors[0]);
+    expect(
+      registeredCelestialSky.wideAtlasMeshes[0]!.texturePointsPixels.at(-1),
+    ).toEqual(
+      registeredCelestialSky.atlasMeshes[0]!.texturePointsPixels.at(-1),
+    );
     expect(
       registeredCelestialSky.stars.every(
         ({ j2000UnitVector }) =>
@@ -26,6 +48,15 @@ describe('fixed J2000 celestial geometry', () => {
           ) < 1e-12,
       ),
     ).toBe(true);
+  });
+
+  it('uses reduced geometry only where wide views cannot resolve extra subdivisions', () => {
+    expect(
+      selectCelestialAtlasMeshesForFieldOfView(registeredCelestialSky, 100),
+    ).toBe(registeredCelestialSky.wideAtlasMeshes);
+    expect(
+      selectCelestialAtlasMeshesForFieldOfView(registeredCelestialSky, 74.99),
+    ).toBe(registeredCelestialSky.atlasMeshes);
   });
 
   it('caches complete DSO mesh topology as fixed J2000 vectors', () => {

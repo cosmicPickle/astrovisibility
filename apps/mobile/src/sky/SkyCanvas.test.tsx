@@ -137,6 +137,7 @@ const commonProps = {
     atlasMeshes: [],
     constellations: [],
     stars: [],
+    wideAtlasMeshes: [],
   },
   registeredCelestialDsoImages: [],
   celestialTargets: [],

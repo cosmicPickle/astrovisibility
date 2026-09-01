@@ -45,26 +45,31 @@ Meet the numerical and device-performance budgets in the focused spec.
 - [x] Build the branch-only release APK at
       `tmp/artifacts/android/app-release.apk`.
 - [x] Complete representative and constrained Android emulator visual QA.
+- [x] Fix the reported celestial-image projection-boundary background flashing.
+- [x] Fix live time-slider gesture rollback and reduce preview-path React work.
+- [x] Complete the specified batched catalogue-mark renderer and remeasure it.
+- [x] Repeat focused automated checks and representative Android emulator visual
+      QA.
 - [ ] Complete physical-device performance QA.
 - [ ] Present measured results for explicit product-owner readiness decision.
 
 **Current step**
 
-Stages 1 through 5 and the code/build plus emulator-visual portion of Stage 6
-are implemented. One
-shared UTC-millisecond value now moves fixed J2000 stars, catalogue marks,
-constellations, the Milky Way, and DSO meshes on the Skia worklet path. Fixed
-J2000 catalogue and star queries publish bounded residents without rebuilding
-the full horizontal catalogue during previews; exact counts and labels refresh
-on release. Star rendering uses Skia point batches instead of rebuilding circle
-paths. Format, typecheck, lint, all 412 tests, production catalogue/asset
-validation, Expo Android export, and a fresh 193,106,809-byte release APK pass.
-The exact release APK also passes representative 1080x2400/420 dpi and
-constrained 720x1280/320 dpi emulator inspection. Static pan, native pinch
-zoom, close-zoom Andromeda imagery, live time movement, selected-arc/current
-marker registration, and the compact/expanded observing-window layouts were
-exercised without a crash or stale celestial frame. The remaining acceptance
-step is physical-device frame-pacing verification.
+The three reported release blockers are corrected. Celestial imagery now culls
+projection-antipode triangles and omits off-screen mesh allocations, so the
+background did not flash in eight captured frames across a three-second time
+drag. The time-slider responder and gesture start remain stable across parent
+renders; its thumb and shared scene timestamp update on every move while React
+text/catalogue work is sampled and settled after motion, preventing stale
+previews from rolling the drag backward. Catalogue outlines are batched into
+four Skia paths, stars share one projection pass, and wide-view sky LOD limits
+the default view to useful star bands plus 648 Milky Way vertices while retaining
+the full atlas below 75 degrees. On the software-rendered Pixel 8 API 36 emulator,
+the same three-second full-day drag improved from 130 frames / 38 ms median /
+61 ms p95 to 183 frames / 29 ms median / 42 ms p95. GPU median remained 3 ms.
+Format, typecheck, lint, all 82 suites and 422 tests, catalogue/asset validation,
+Expo Android export, and a fresh 193,121,165-byte release APK pass. The branch is
+ready for the required physical-device measurement and product-owner review.
 
 **Blockers and decisions**
 
@@ -78,6 +83,11 @@ step is physical-device frame-pacing verification.
   established location and has completed the available visual QA. No physical
   Android device is attached, so the S24 Ultra 60 Hz target and representative
   mid-range 50 fps p95/no-stall budget remain unverified.
+- The representative 1080x2400 post-fix emulator pass completed. A subsequent
+  forced 720x1280 rerun was blocked when the AVD system server stopped answering
+  `adb shell` and screenshot commands, including after a cold restart. The
+  emulator process was stopped; earlier constrained layout QA remains recorded,
+  but this exact post-fix build has not produced a new constrained screenshot.
 
 ## Registered sky background
 

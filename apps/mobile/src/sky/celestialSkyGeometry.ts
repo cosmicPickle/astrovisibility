@@ -8,6 +8,7 @@ import {
 import {
   createEquatorialAtlasTiles,
   createEquatorialCutoutMesh,
+  createGridIndices,
   type EquatorialDirection,
   type EquatorialImageMesh,
 } from './registeredSkyGeometry';
@@ -75,7 +76,18 @@ export interface RegisteredCelestialSky {
   atlasMeshes: CelestialImageMesh[];
   constellations: RegisteredCelestialConstellation[];
   stars: RegisteredCelestialStar[];
+  wideAtlasMeshes: CelestialImageMesh[];
 }
+
+const WIDE_ATLAS_FIELD_OF_VIEW_THRESHOLD_DEGREES = 75;
+
+export const selectCelestialAtlasMeshesForFieldOfView = (
+  sky: RegisteredCelestialSky,
+  fieldOfViewDegrees: number,
+) =>
+  fieldOfViewDegrees >= WIDE_ATLAS_FIELD_OF_VIEW_THRESHOLD_DEGREES
+    ? sky.wideAtlasMeshes
+    : sky.atlasMeshes;
 
 const angularSeparationDegrees = (left: UnitVector3, right: UnitVector3) => {
   const dot = Math.max(
@@ -109,13 +121,38 @@ const prepareCelestialMesh = (
 const stars = starsJson as unknown as RegisteredStarRow[];
 const constellations = constellationsJson as RegisteredConstellationSource[];
 
+const atlasMeshes = createEquatorialAtlasTiles({
+  heightPixels: 1024,
+  rightAscensionAtLeftEdgeHours: 6,
+  rightAscensionIncreasesToRight: false,
+  widthPixels: 2048,
+}).map(prepareCelestialMesh);
+
+const WIDE_ATLAS_SAMPLE_INDICES = [0, 3, 6] as const;
+const wideAtlasMeshes = atlasMeshes.map((mesh): CelestialImageMesh => {
+  const sourceColumnCount = mesh.columnCount;
+  const sampledIndices = WIDE_ATLAS_SAMPLE_INDICES.flatMap((row) =>
+    WIDE_ATLAS_SAMPLE_INDICES.map((column) => row * sourceColumnCount + column),
+  );
+  return {
+    ...mesh,
+    columnCount: WIDE_ATLAS_SAMPLE_INDICES.length,
+    directionVectors: sampledIndices.map(
+      (index) => mesh.directionVectors[index]!,
+    ),
+    indices: createGridIndices(
+      WIDE_ATLAS_SAMPLE_INDICES.length,
+      WIDE_ATLAS_SAMPLE_INDICES.length,
+    ),
+    rowCount: WIDE_ATLAS_SAMPLE_INDICES.length,
+    texturePointsPixels: sampledIndices.map(
+      (index) => mesh.texturePointsPixels[index]!,
+    ),
+  };
+});
+
 export const registeredCelestialSky: RegisteredCelestialSky = {
-  atlasMeshes: createEquatorialAtlasTiles({
-    heightPixels: 1024,
-    rightAscensionAtLeftEdgeHours: 6,
-    rightAscensionIncreasesToRight: false,
-    widthPixels: 2048,
-  }).map(prepareCelestialMesh),
+  atlasMeshes,
   constellations: constellations.map((constellation) => ({
     id: constellation.id,
     labelJ2000UnitVector: equatorialJ2000ToUnitVector(constellation.label),
@@ -142,6 +179,7 @@ export const registeredCelestialSky: RegisteredCelestialSky = {
       magnitude,
     }),
   ),
+  wideAtlasMeshes,
 };
 
 export const createRegisteredCelestialDsoImages = (

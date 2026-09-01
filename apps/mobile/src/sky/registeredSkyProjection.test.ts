@@ -161,7 +161,7 @@ describe('registered star density', () => {
   ];
   const canvas = { widthPixels: 390, heightPixels: 780 };
 
-  it('limits wide views to a bright foundation plus one faint prefetch band', () => {
+  it('limits wide views to the bright foundation without projecting hidden faint bands', () => {
     const batches = selectRegisteredStarBatches(
       stars,
       createPlanetariumCamera({
@@ -173,7 +173,7 @@ describe('registered star density', () => {
     );
     expect(
       batches.flatMap(({ directions }) => directions).map(({ id }) => id),
-    ).toEqual(['bright', 'wide-fade']);
+    ).toEqual(['bright']);
     expect(
       batches
         .filter((batch) => getRegisteredStarBatchOpacity(batch, 100) >= 0.1)
@@ -188,7 +188,7 @@ describe('registered star density', () => {
       createPlanetariumCamera({
         centerAltitudeDegrees: 32,
         centerAzimuthDegrees: 2,
-        fieldOfViewDegrees: 80,
+        fieldOfViewDegrees: 47,
       }),
       canvas,
     );
@@ -197,15 +197,15 @@ describe('registered star density', () => {
     );
 
     expect(enteringBatch).toBeDefined();
-    expect(getRegisteredStarBatchOpacity(enteringBatch!, 70)).toBe(0);
-    expect(getRegisteredStarBatchOpacity(enteringBatch!, 55)).toBeGreaterThan(
+    expect(getRegisteredStarBatchOpacity(enteringBatch!, 45)).toBe(0);
+    expect(getRegisteredStarBatchOpacity(enteringBatch!, 37)).toBeGreaterThan(
       0,
     );
-    expect(getRegisteredStarBatchOpacity(enteringBatch!, 55)).toBeLessThan(1);
-    expect(getRegisteredStarBatchOpacity(enteringBatch!, 40)).toBe(1);
+    expect(getRegisteredStarBatchOpacity(enteringBatch!, 37)).toBeLessThan(1);
+    expect(getRegisteredStarBatchOpacity(enteringBatch!, 30)).toBe(1);
   });
 
-  it('prefetches but hides the faintest band until a closer view', () => {
+  it('does not prefetch the faintest band until a closer view', () => {
     const batches = selectRegisteredStarBatches(
       stars,
       createPlanetariumCamera({
@@ -216,17 +216,13 @@ describe('registered star density', () => {
       canvas,
     );
     const directions = batches.flatMap(({ directions }) => directions);
-    expect(directions).toHaveLength(5);
+    expect(directions).toHaveLength(4);
     expect(directions.map(({ id }) => id)).not.toContain('beyond-limit');
     const dimBatch = batches.find(({ directions: batchDirections }) =>
       batchDirections.some(({ id }) => id === 'dim'),
     );
-    expect(dimBatch).toBeDefined();
-    expect(getRegisteredStarBatchOpacity(dimBatch!, 15)).toBe(0);
-    expect(getRegisteredStarBatchOpacity(dimBatch!, 10)).toBeGreaterThan(0);
-    expect(getRegisteredStarBatchOpacity(dimBatch!, 10)).toBeLessThan(1);
-    expect(getRegisteredStarBatchOpacity(dimBatch!, 7)).toBe(1);
-    expect(new Set(batches.map(({ color }) => color)).size).toBe(3);
+    expect(dimBatch).toBeUndefined();
+    expect(new Set(batches.map(({ color }) => color)).size).toBe(2);
     expect(
       batches.every(
         ({ haloRadiusPixels, radiusPixels }) => haloRadiusPixels > radiusPixels,
