@@ -55,6 +55,7 @@ type ObservingWindowSheetProps = {
   clock?: () => string;
   observer: ObserverLocation;
   onChange: (change: ObservingWindowChange) => void;
+  onPreview?: (sceneTimestampUtc: string) => void;
   onClose: () => void;
   sceneTimestampUtc: string;
   timeZoneId: string;
@@ -133,6 +134,7 @@ const TimeOfDaySlider = ({
   observer,
   onChooseDate,
   onCommit,
+  onPreview,
   onNextDay,
   onPreviousDay,
   onReturnToNow,
@@ -145,6 +147,7 @@ const TimeOfDaySlider = ({
   observer: ObserverLocation;
   onChooseDate: () => void;
   onCommit: (timestampUtc: string) => void;
+  onPreview?: (timestampUtc: string) => void;
   onNextDay: () => void;
   onPreviousDay: () => void;
   onReturnToNow: () => void;
@@ -177,6 +180,7 @@ const TimeOfDaySlider = ({
       boundedValue + (dragDeltaXPixels / widthPixels) * MINUTES_PER_DAY,
     );
     setDragMinute(nextValue);
+    onPreview?.(timestampAt(nextValue));
     return nextValue;
   };
   const finishDrag = (dragDeltaXPixels: number) => {
@@ -198,7 +202,7 @@ const TimeOfDaySlider = ({
       }),
     // Gesture mapping must track both the measured width and active civil day.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [boundedValue, civilDate, onCommit, timeZoneId, widthPixels],
+    [boundedValue, civilDate, onCommit, onPreview, timeZoneId, widthPixels],
   );
   const timestampUtc = timestampAt(draftMinute);
   const percent = (draftMinute / MINUTES_PER_DAY) * 100;
@@ -416,6 +420,7 @@ const VisibleObservingWindowSheet = ({
   clock = () => new Date().toISOString(),
   observer,
   onChange,
+  onPreview,
   onClose,
   sceneTimestampUtc,
   timeZoneId,
@@ -582,6 +587,7 @@ const VisibleObservingWindowSheet = ({
             window: localWindow,
           })
         }
+        onPreview={onPreview}
         onNextDay={() => changeCivilDay(1)}
         onPreviousDay={() => changeCivilDay(-1)}
         onReturnToNow={returnToCurrentTime}

@@ -34,26 +34,32 @@ Meet the numerical and device-performance budgets in the focused spec.
 - [x] Add failing authoritative equivalence tests for the window-scoped shared
       celestial transform.
 - [x] Implement the worklet-safe forward/inverse time-transform foundation.
-- [ ] Benchmark the shared transform over the production celestial-data counts.
-- [ ] Prepare immutable J2000 catalogue, star, constellation, Milky Way, and
+- [x] Benchmark the shared transform over the production celestial-data counts.
+- [x] Prepare immutable J2000 catalogue, star, constellation, Milky Way, and
       cached DSO mesh geometry.
-- [ ] Introduce shared render time and migrate celestial background layers.
-- [ ] Replace the star frame hot path as required by measurements.
-- [ ] Move catalogue marks/residency/hit testing to stable J2000 behavior.
-- [ ] Connect live slider preview with exact release/window semantics.
-- [ ] Run mandatory quality gates and inspect the final diff/security surface.
-- [ ] Build branch-only release APKs when requested and complete representative,
-      constrained, and physical-device visual/performance QA.
+- [x] Introduce shared render time and migrate celestial background layers.
+- [x] Replace the star frame hot path as required by measurements.
+- [x] Move catalogue marks/residency/hit testing to stable J2000 behavior.
+- [x] Connect live slider preview with exact release/window semantics.
+- [x] Run mandatory quality gates and inspect the final diff/security surface.
+- [x] Build the branch-only release APK at
+      `tmp/artifacts/android/app-release.apk`.
+- [ ] Complete representative, constrained, and physical-device
+      visual/performance QA.
 - [ ] Present measured results for explicit product-owner readiness decision.
 
 **Current step**
 
-Stage 1 foundation passes authoritative forward and inverse fixtures across
-ordinary and 25-hour windows, northern and southern observers, pole-near
-coordinates, and normal refraction. Format, typecheck, lint, 14 focused
-astronomy tests, catalogue/sky-asset validation, and the Android Expo export
-pass. Next, benchmark the production point counts and begin Stage 2 immutable
-J2000 asset preparation without changing a rendered layer yet.
+Stages 1 through 5 and the code/build portion of Stage 6 are implemented. One
+shared UTC-millisecond value now moves fixed J2000 stars, catalogue marks,
+constellations, the Milky Way, and DSO meshes on the Skia worklet path. Fixed
+J2000 catalogue and star queries publish bounded residents without rebuilding
+the full horizontal catalogue during previews; exact counts and labels refresh
+on release. Star rendering uses Skia point batches instead of rebuilding circle
+paths. Format, typecheck, lint, all 412 tests, production catalogue/asset
+validation, Expo Android export, and a fresh 193,106,809-byte release APK pass.
+The remaining step is rendered interaction and frame-pacing verification on an
+Android surface.
 
 **Blockers and decisions**
 
@@ -62,7 +68,9 @@ J2000 asset preparation without changing a rendered layer yet.
 - No density, imagery, trajectory, panorama/mask, or catalogue functionality may
   be removed for performance. Report any proposed compromise before acting.
 - Physical-device proof requires a connected representative Android device;
-  emulator measurements remain diagnostic only.
+  emulator measurements remain diagnostic only. On 2026-09-01 no Android
+  device was attached and `C:\Android\emulator\emulator.exe -list-avds`
+  returned no configured AVD, so the required visual QA is blocked.
 
 ## Registered sky background
 

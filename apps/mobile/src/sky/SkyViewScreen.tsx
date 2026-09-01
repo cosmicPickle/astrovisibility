@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSharedValue, type SharedValue } from 'react-native-reanimated';
 import {
   createAstronomicalDarknessIntervals,
   intersectTimeIntervals,
@@ -17,6 +18,10 @@ import {
   createWindowHorizontalProjector,
   equatorialJ2000ToHorizontal,
 } from '../astronomy/horizontalCoordinates';
+import {
+  createCelestialTimeTransform,
+  type CelestialTimeTransform,
+} from '../astronomy/celestialTimeTransform';
 import {
   calculateObstructionAwareTrajectory,
   createVisibilityCalculationCacheKey,
@@ -84,14 +89,18 @@ import {
 } from './MaskAppearanceControls';
 import { createCelestialEquatorGuide } from './planetariumGuides';
 import { SkyCanvas } from './SkyCanvas';
+import {
+  createRegisteredCelestialDsoImages,
+  registeredCelestialSky,
+  type RegisteredCelestialDsoImage,
+  type RegisteredCelestialSky,
+} from './celestialSkyGeometry';
 import dsoImageMetadataJson from './generated/dso-images.json';
 import { dsoImageAssets } from './registeredSkyAssets';
 import {
-  createRegisteredDsoProjection,
-  createRegisteredSkyProjection,
-  type RegisteredDsoImage,
-  type RegisteredSkyProjection,
-} from './registeredSkyProjection';
+  createCelestialCatalogue,
+  type CelestialCatalogueTarget,
+} from './celestialCatalogue';
 
 export interface SkyViewData {
   catalogueTargets: CatalogueTarget[];
@@ -147,9 +156,13 @@ export interface SkyRendererProps {
     panorama: ActivePanorama | null;
   } | null;
   minimumTargetCount: number;
-  registeredSky: RegisteredSkyProjection;
-  registeredDsoImages: readonly RegisteredDsoImage[];
   constellationOpacityPercent: number;
+  celestialTimeTransform: CelestialTimeTransform;
+  sceneTimeMilliseconds: SharedValue<number>;
+  registeredCelestialSky: RegisteredCelestialSky;
+  registeredCelestialDsoImages: readonly RegisteredCelestialDsoImage[];
+  celestialTargets: readonly CelestialCatalogueTarget[];
+  controlTimeMilliseconds: number;
 }
 
 const dsoImageMetadata = dsoImageMetadataJson as {
@@ -158,6 +171,13 @@ const dsoImageMetadata = dsoImageMetadataJson as {
   rightAscensionJ2000Hours: number;
   targetId: string;
 }[];
+
+const registeredCelestialDsoImages = createRegisteredCelestialDsoImages(
+  dsoImageMetadata.flatMap((metadata) => {
+    const source = dsoImageAssets[metadata.targetId];
+    return source === undefined ? [] : [{ ...metadata, source }];
+  }),
+);
 
 export const skyViewController: SkyViewController = {
   async load(profileId, requestedTimestampUtc) {
@@ -253,6 +273,11 @@ export const SkyViewScreen = ({
   const [sceneTimestampUtc, setSceneTimestampUtc] = useState<string | null>(
     null,
   );
+  const [controlTimestampUtc, setControlTimestampUtc] = useState<string | null>(
+    null,
+  );
+  const sceneTimeMilliseconds = useSharedValue(0);
+  const lastControlPreviewMilliseconds = useRef(0);
   const [error, setError] = useState(false);
   const [selectedTarget, setSelectedTarget] = useState<CatalogueTarget | null>(
     null,
@@ -306,14 +331,17 @@ export const SkyViewScreen = ({
         setData(loadedData);
         setObservingWindow(createDefaultObservingWindow(loadedData));
         setSceneTimestampUtc(loadedData.timestampUtc);
+        setControlTimestampUtc(loadedData.timestampUtc);
+        sceneTimeMilliseconds.set(Date.parse(loadedData.timestampUtc));
       } catch {
         setData(null);
         setObservingWindow(null);
         setSceneTimestampUtc(null);
+        setControlTimestampUtc(null);
         setError(true);
       }
     },
-    [controller, profileId],
+    [controller, profileId, sceneTimeMilliseconds],
   );
 
   useEffect(() => {
@@ -326,6 +354,8 @@ export const SkyViewScreen = ({
           setError(false);
           setData(loadedData);
           setSceneTimestampUtc(loadedData.timestampUtc);
+          setControlTimestampUtc(loadedData.timestampUtc);
+          sceneTimeMilliseconds.set(Date.parse(loadedData.timestampUtc));
           setObservingWindow(
             initialObservingWindow ?? createDefaultObservingWindow(loadedData),
           );
@@ -344,13 +374,20 @@ export const SkyViewScreen = ({
           setData(null);
           setObservingWindow(null);
           setSceneTimestampUtc(null);
+          setControlTimestampUtc(null);
           setError(true);
         },
       );
     return () => {
       active = false;
     };
-  }, [controller, initialObservingWindow, initialSelectedTargetId, profileId]);
+  }, [
+    controller,
+    initialObservingWindow,
+    initialSelectedTargetId,
+    profileId,
+    sceneTimeMilliseconds,
+  ]);
 
   const selectedEquipment = useMemo(
     () =>
@@ -389,6 +426,10 @@ export const SkyViewScreen = ({
         : [],
     [atlasCatalogueTargets, data, sceneTimestampUtc],
   );
+  const celestialTargets = useMemo(
+    () => createCelestialCatalogue(atlasCatalogueTargets),
+    [atlasCatalogueTargets],
+  );
   const visibleSuitableTargetCount = useMemo(() => {
     if (!data) return 0;
     const discoverableTargetIds = new Set(
@@ -415,35 +456,24 @@ export const SkyViewScreen = ({
   }, [data, discoverableCatalogueTargets, projectedTargets]);
   const celestialEquatorDirections = useMemo(
     () =>
-      data && sceneTimestampUtc
+      data && controlTimestampUtc
         ? createCelestialEquatorGuide({
             observer: observerForProfile(data.profile),
-            timestampUtc: sceneTimestampUtc,
+            timestampUtc: controlTimestampUtc,
           })
         : [],
-    [data, sceneTimestampUtc],
+    [controlTimestampUtc, data],
   );
-  const registeredSky = useMemo(
+  const celestialTimeTransform = useMemo(
     () =>
-      data && sceneTimestampUtc
-        ? createRegisteredSkyProjection({
+      data && observingWindow
+        ? createCelestialTimeTransform({
             observer: observerForProfile(data.profile),
-            timestampUtc: sceneTimestampUtc,
+            window: observingWindow,
           })
-        : { atlasMeshes: [], constellations: [], stars: [] },
-    [data, sceneTimestampUtc],
+        : null,
+    [data, observingWindow],
   );
-  const registeredDsoImages = useMemo<RegisteredDsoImage[]>(() => {
-    if (!data || !sceneTimestampUtc) return [];
-    return createRegisteredDsoProjection({
-      definitions: dsoImageMetadata.flatMap((metadata) => {
-        const source = dsoImageAssets[metadata.targetId];
-        return source === undefined ? [] : [{ ...metadata, source }];
-      }),
-      observer: observerForProfile(data.profile),
-      timestampUtc: sceneTimestampUtc,
-    });
-  }, [data, sceneTimestampUtc]);
   const selectedDirection = useMemo(() => {
     if (!data || !sceneTimestampUtc || !selectedTarget) return null;
     const horizontal = equatorialJ2000ToHorizontal({
@@ -676,11 +706,22 @@ export const SkyViewScreen = ({
       window.startTimestampUtc !== observingWindow?.startTimestampUtc ||
       window.endTimestampUtc !== observingWindow?.endTimestampUtc;
     setSceneTimestampUtc(nextSceneTimestampUtc);
+    setControlTimestampUtc(nextSceneTimestampUtc);
+    sceneTimeMilliseconds.set(Date.parse(nextSceneTimestampUtc));
     setObservingWindow(window);
     setInspectedMarker(null);
     if (windowChanged && selectedTarget) {
       setTrajectory(null);
       setTrajectoryStatus('calculating');
+    }
+  };
+
+  const previewObservingTime = (nextSceneTimestampUtc: string) => {
+    sceneTimeMilliseconds.set(Date.parse(nextSceneTimestampUtc));
+    const nowMilliseconds = Date.now();
+    if (nowMilliseconds - lastControlPreviewMilliseconds.current >= 100) {
+      lastControlPreviewMilliseconds.current = nowMilliseconds;
+      setControlTimestampUtc(nextSceneTimestampUtc);
     }
   };
 
@@ -721,7 +762,13 @@ export const SkyViewScreen = ({
     );
   };
 
-  if (!data || !observingWindow || !sceneTimestampUtc) {
+  if (
+    !data ||
+    !observingWindow ||
+    !sceneTimestampUtc ||
+    !controlTimestampUtc ||
+    !celestialTimeTransform
+  ) {
     return (
       <SafeAreaView style={styles.centered}>
         {error ? (
@@ -820,9 +867,13 @@ export const SkyViewScreen = ({
               : null
           }
           minimumTargetCount={minimumTargetCount}
-          registeredSky={registeredSky}
-          registeredDsoImages={registeredDsoImages}
           constellationOpacityPercent={constellationOpacityPercent}
+          celestialTimeTransform={celestialTimeTransform}
+          sceneTimeMilliseconds={sceneTimeMilliseconds}
+          registeredCelestialSky={registeredCelestialSky}
+          registeredCelestialDsoImages={registeredCelestialDsoImages}
+          celestialTargets={celestialTargets}
+          controlTimeMilliseconds={Date.parse(controlTimestampUtc)}
         />
         {!data.hasMask ? (
           <View style={styles.noMaskCallout}>
@@ -1212,6 +1263,7 @@ export const SkyViewScreen = ({
       <ObservingWindowSheet
         observer={observerForProfile(data.profile)}
         onChange={applyObservingTime}
+        onPreview={previewObservingTime}
         onClose={() => setOpenSheet(null)}
         sceneTimestampUtc={sceneTimestampUtc}
         timeZoneId={data.profile.timeZoneId}

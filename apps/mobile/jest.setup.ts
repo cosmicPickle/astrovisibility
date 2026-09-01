@@ -37,6 +37,7 @@ jest.mock('@shopify/react-native-skia', () => {
 });
 
 jest.mock('react-native-reanimated', () => {
+  const react = jest.requireActual('react') as typeof import('react');
   const reactNative = jest.requireActual('react-native');
   return {
     __esModule: true,
@@ -49,14 +50,22 @@ jest.mock('react-native-reanimated', () => {
     }),
     useAnimatedStyle: (factory: () => unknown) => factory(),
     useSharedValue: (initialValue: unknown) => {
-      const sharedValue = {
-        value: initialValue,
-        get: () => sharedValue.value,
-        set: (value: unknown) => {
-          sharedValue.value = value;
-        },
-      };
-      return sharedValue;
+      const sharedValue = react.useRef<{
+        get: () => unknown;
+        set: (value: unknown) => void;
+        value: unknown;
+      } | null>(null);
+      if (sharedValue.current === null) {
+        const value = {
+          value: initialValue,
+          get: () => value.value,
+          set: (nextValue: unknown) => {
+            value.value = nextValue;
+          },
+        };
+        sharedValue.current = value;
+      }
+      return sharedValue.current;
     },
   };
 });

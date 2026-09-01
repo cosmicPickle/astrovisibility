@@ -148,7 +148,7 @@ const renderer = (props: SkyRendererProps) => (
       {props.constellationOpacityPercent}
     </Text>
     <Text testID="registered-dso-image-count">
-      {props.registeredDsoImages.length}
+      {props.registeredCelestialDsoImages.length}
     </Text>
     {props.targets.map((item) => (
       <Pressable

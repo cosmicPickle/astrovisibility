@@ -44,11 +44,13 @@ const observer = {
 const renderSheet = async ({
   clock = () => '2026-08-20T10:15:00.000Z',
   onChange = jest.fn(),
+  onPreview = jest.fn(),
   sceneTimestampUtc = '2026-08-21T21:00:00.000Z',
   selectedWindow = window,
 }: {
   clock?: () => string;
   onChange?: jest.Mock;
+  onPreview?: jest.Mock;
   sceneTimestampUtc?: string;
   selectedWindow?: typeof window;
 } = {}) => ({
@@ -64,6 +66,7 @@ const renderSheet = async ({
         clock={clock}
         observer={observer}
         onChange={onChange}
+        onPreview={onPreview}
         onClose={jest.fn()}
         sceneTimestampUtc={sceneTimestampUtc}
         timeZoneId="Europe/Sofia"
@@ -110,9 +113,10 @@ describe('ObservingWindowSheet', () => {
     expect(screen.queryByText('Fixed at 24 elapsed hours.')).toBeNull();
   });
 
-  it('moves smoothly during a drag and updates the atlas only when released', async () => {
+  it('previews the atlas during a drag and commits the exact release once', async () => {
     const onChange = jest.fn();
-    const { screen } = await renderSheet({ onChange });
+    const onPreview = jest.fn();
+    const { screen } = await renderSheet({ onChange, onPreview });
     const slider = screen.getByLabelText('Time of day');
 
     await act(async () => {
@@ -125,6 +129,7 @@ describe('ObservingWindowSheet', () => {
     });
 
     expect(onChange).not.toHaveBeenCalled();
+    expect(onPreview).toHaveBeenLastCalledWith('2026-08-22T03:00:00.000Z');
     expect(screen.getByText(/06:00/)).toBeTruthy();
 
     await act(async () => {

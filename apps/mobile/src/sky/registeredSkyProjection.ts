@@ -1,6 +1,10 @@
 import constellationsJson from './generated/constellations.json';
 import starsJson from './generated/stars.json';
 import {
+  observedHorizontalVectorToJ2000,
+  type CelestialTimeTransform,
+} from '../astronomy/celestialTimeTransform';
+import {
   createInstantHorizontalProjector,
   type ObserverLocation,
 } from '../astronomy/horizontalCoordinates';
@@ -23,6 +27,10 @@ import {
   type EquatorialDirection,
   type EquatorialImageMesh,
 } from './registeredSkyGeometry';
+import type {
+  RegisteredCelestialStar,
+  RegisteredCelestialStarBatch,
+} from './celestialSkyGeometry';
 
 type RegisteredStarRow = readonly [
   id: string,
@@ -225,7 +233,7 @@ export const getRegisteredDsoImageOpacity = (
   return Math.max(0, Math.min(0.9, opacity));
 };
 
-const getCameraCornerAngularRadiusDegrees = (
+export const getCameraCornerAngularRadiusDegrees = (
   camera: PlanetariumCamera,
   canvas: CanvasSizePixels,
 ) => {
@@ -395,7 +403,9 @@ const getMaximumResidentStarMagnitude = (fieldOfViewDegrees: number) => {
   return maximumMagnitude;
 };
 
-const starStyle = (star: HorizontalRegisteredStar): RegisteredStarStyle => {
+const starStyle = (
+  star: Pick<HorizontalRegisteredStar, 'colorIndexBv' | 'magnitude'>,
+): RegisteredStarStyle => {
   const colorStyle = getStarColorStyle(star.colorIndexBv);
   const magnitudeStyle = STAR_MAGNITUDE_STYLES.find(
     ({ maximumMagnitude }) => star.magnitude <= maximumMagnitude,
@@ -471,6 +481,65 @@ export const selectRegisteredStarBatches = (
     ) {
       continue;
     }
+    const { styleKey: key, ...batchStyle } = style;
+    const batch = batches.get(key) ?? {
+      ...batchStyle,
+      directions: [],
+      key,
+    };
+    batch.directions.push(star);
+    batches.set(key, batch);
+  }
+  return [...batches.values()];
+};
+
+export const selectRegisteredCelestialStarBatches = (input: {
+  camera: PlanetariumCamera;
+  canvas: CanvasSizePixels;
+  stars: readonly RegisteredCelestialStar[];
+  timeTransform: CelestialTimeTransform;
+  timestampMilliseconds: number;
+}): RegisteredCelestialStarBatch[] => {
+  const timestampMilliseconds = Math.max(
+    input.timeTransform.startTimestampMilliseconds,
+    Math.min(
+      input.timeTransform.endTimestampMilliseconds,
+      input.timestampMilliseconds,
+    ),
+  );
+  const cameraCenterJ2000 = observedHorizontalVectorToJ2000(
+    input.camera.forward,
+    input.timeTransform,
+    timestampMilliseconds,
+  );
+  const maximumResidentMagnitude = getMaximumResidentStarMagnitude(
+    input.camera.fieldOfViewDegrees,
+  );
+  const cornerAngularRadiusDegrees = getCameraCornerAngularRadiusDegrees(
+    input.camera,
+    input.canvas,
+  );
+  const residentRadiusDegrees = Math.min(
+    180,
+    cornerAngularRadiusDegrees + input.camera.fieldOfViewDegrees * 0.15,
+  );
+  const minimumResidentDotProduct = Math.cos(
+    (residentRadiusDegrees * Math.PI) / 180,
+  );
+  const batches = new Map<string, RegisteredCelestialStarBatch>();
+  for (const star of input.stars) {
+    if (star.magnitude > maximumResidentMagnitude) continue;
+    const centerDotProduct =
+      star.j2000UnitVector.x * cameraCenterJ2000.x +
+      star.j2000UnitVector.y * cameraCenterJ2000.y +
+      star.j2000UnitVector.z * cameraCenterJ2000.z;
+    if (
+      residentRadiusDegrees < 180 &&
+      centerDotProduct < minimumResidentDotProduct
+    ) {
+      continue;
+    }
+    const style = starStyle(star);
     const { styleKey: key, ...batchStyle } = style;
     const batch = batches.get(key) ?? {
       ...batchStyle,

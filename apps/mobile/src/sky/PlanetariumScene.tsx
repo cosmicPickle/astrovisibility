@@ -11,6 +11,7 @@ import {
   Mask as SkiaMask,
   Oval,
   Path,
+  Points,
   MipmapMode,
   Skia,
   Text,
@@ -20,6 +21,12 @@ import {
   type SkFont,
 } from '@shopify/react-native-skia';
 import { useDerivedValue, type SharedValue } from 'react-native-reanimated';
+import {
+  equatorialJ2000ToUnitVector,
+  projectJ2000ToObservedHorizontalVector,
+  type CelestialTimeTransform,
+  type UnitVector3,
+} from '../astronomy/celestialTimeTransform';
 
 import type { SelectedTargetTrajectory } from '../astronomy/trajectory';
 import type { TargetDiurnalOrbit } from '../astronomy/diurnalTrajectory';
@@ -41,14 +48,13 @@ import {
   densifyHorizontalPath,
   horizontalDirectionToVector,
   projectUnitVectorToCanvas,
+  vectorToHorizontalDirection,
   type PlanetariumCamera,
   type Vector3,
 } from './planetariumProjection';
 import {
   createPlanetariumPanoramaMesh,
   projectPlanetariumPanoramaMesh,
-  projectPlanetariumPanoramaMeshes,
-  type PlanetariumPanoramaMesh,
 } from './planetariumPanoramaGeometry';
 import { createScreenCenteredFieldOfViewFrame } from './fieldOfViewGeometry';
 import {
@@ -70,11 +76,18 @@ import type { MaskMode } from './MaskAppearanceControls';
 import {
   getRegisteredDsoImageOpacity,
   getRegisteredStarBatchOpacity,
-  type HorizontalRegisteredConstellation,
-  type RegisteredDsoImage,
-  type RegisteredSkyProjection,
-  type RegisteredStarBatch,
 } from './registeredSkyProjection';
+import {
+  clampCelestialTimestampMilliseconds,
+  projectJ2000UnitVectorToCanvas,
+} from './celestialPlanetariumProjection';
+import type {
+  CelestialImageMesh,
+  RegisteredCelestialConstellation,
+  RegisteredCelestialDsoImage,
+  RegisteredCelestialSky,
+  RegisteredCelestialStarBatch,
+} from './celestialSkyGeometry';
 
 const targetFont = matchFont({
   fontFamily: 'sans-serif',
@@ -305,6 +318,112 @@ function ProjectedText({
   );
 }
 
+function CelestialMultiPath({
+  camera,
+  canvas,
+  color,
+  lines,
+  sceneTimeMilliseconds,
+  strokeOpacity = 1,
+  strokeWidth = 1,
+  timeTransform,
+}: {
+  camera: SharedValue<PlanetariumCamera>;
+  canvas: CanvasSizePixels;
+  color: string;
+  lines: readonly (readonly UnitVector3[])[];
+  sceneTimeMilliseconds: SharedValue<number>;
+  strokeOpacity?: number;
+  strokeWidth?: number;
+  timeTransform: CelestialTimeTransform;
+}) {
+  const path = useDerivedValue(() => {
+    const builder = Skia.PathBuilder.Make();
+    const discontinuityPixels = Math.hypot(
+      canvas.widthPixels,
+      canvas.heightPixels,
+    );
+    const projectionContext = createPlanetariumProjectionContext(
+      camera.value,
+      canvas,
+    );
+    for (const line of lines) {
+      let first = true;
+      let previousX = 0;
+      let previousY = 0;
+      for (const j2000UnitVector of line) {
+        const point = projectJ2000UnitVectorToCanvas(
+          j2000UnitVector,
+          timeTransform,
+          sceneTimeMilliseconds.value,
+          projectionContext,
+        );
+        const discontinuity =
+          !first &&
+          Math.hypot(point.xPixels - previousX, point.yPixels - previousY) >
+            discontinuityPixels;
+        if (first || discontinuity) {
+          builder.moveTo(point.xPixels, point.yPixels);
+          first = false;
+        } else {
+          builder.lineTo(point.xPixels, point.yPixels);
+        }
+        previousX = point.xPixels;
+        previousY = point.yPixels;
+      }
+    }
+    return builder.build();
+  });
+  return (
+    <Path
+      color={color}
+      opacity={strokeOpacity}
+      path={path}
+      strokeCap="round"
+      strokeJoin="round"
+      strokeWidth={strokeWidth}
+      style="stroke"
+    />
+  );
+}
+
+function CelestialText({
+  camera,
+  canvas,
+  color,
+  font,
+  j2000UnitVector,
+  sceneTimeMilliseconds,
+  text,
+  timeTransform,
+}: {
+  camera: SharedValue<PlanetariumCamera>;
+  canvas: CanvasSizePixels;
+  color: string;
+  font: SkFont;
+  j2000UnitVector: UnitVector3;
+  sceneTimeMilliseconds: SharedValue<number>;
+  text: string;
+  timeTransform: CelestialTimeTransform;
+}) {
+  const point = useDerivedValue(() =>
+    projectJ2000UnitVectorToCanvas(
+      j2000UnitVector,
+      timeTransform,
+      sceneTimeMilliseconds.value,
+      createPlanetariumProjectionContext(camera.value, canvas),
+    ),
+  );
+  const x = useDerivedValue(
+    () => point.value.xPixels - font.measureText(text).width / 2,
+  );
+  const y = useDerivedValue(() => point.value.yPixels + font.getSize());
+  const opacity = useDerivedValue(() => (point.value.visible ? 1 : 0));
+  return (
+    <Text color={color} font={font} opacity={opacity} text={text} x={x} y={y} />
+  );
+}
+
 const horizontalGrid = (() => {
   const lines: HorizontalDirectionDegrees[][] = [];
   for (const altitudeDegrees of [0, 15, 30, 45, 60, 75]) {
@@ -448,27 +567,42 @@ function PlanetariumTarget({
   camera,
   canvas,
   item,
+  sceneTimeMilliseconds,
   selected,
+  timeTransform,
 }: {
   camera: SharedValue<PlanetariumCamera>;
   canvas: CanvasSizePixels;
   item: RenderedPlanetariumTarget;
+  sceneTimeMilliseconds: SharedValue<number>;
   selected: boolean;
+  timeTransform: CelestialTimeTransform;
 }) {
-  const direction = useMemo(
-    () => ({
-      altitudeDegrees: item.altitudeDegrees,
-      azimuthDegrees: item.azimuthDegrees,
-    }),
-    [item.altitudeDegrees, item.azimuthDegrees],
+  const j2000UnitVector = useMemo(
+    () =>
+      equatorialJ2000ToUnitVector({
+        declinationJ2000Degrees: item.target.declinationJ2000Degrees,
+        rightAscensionJ2000Hours: item.target.rightAscensionJ2000Hours,
+      }),
+    [item.target.declinationJ2000Degrees, item.target.rightAscensionJ2000Hours],
   );
-  const directionVector = useMemo(
-    () => horizontalDirectionToVector(direction),
-    [direction],
+  const observedDirection = useDerivedValue(() =>
+    vectorToHorizontalDirection(
+      projectJ2000ToObservedHorizontalVector(
+        j2000UnitVector,
+        timeTransform,
+        clampCelestialTimestampMilliseconds(
+          timeTransform,
+          sceneTimeMilliseconds.value,
+        ),
+      ),
+    ),
   );
   const point = useDerivedValue(() =>
-    projectUnitVectorToCanvas(
-      directionVector,
+    projectJ2000UnitVectorToCanvas(
+      j2000UnitVector,
+      timeTransform,
+      sceneTimeMilliseconds.value,
       createPlanetariumProjectionContext(camera.value, canvas),
     ),
   );
@@ -488,7 +622,7 @@ function PlanetariumTarget({
         maximumOutlinePixels,
         angularSizeDegreesToPixelsAtDirection(
           (item.target.majorAxisArcminutes ?? 3) / 60,
-          direction,
+          observedDirection.value,
           camera.value,
           canvas,
         ),
@@ -502,7 +636,7 @@ function PlanetariumTarget({
           (item.target.minorAxisArcminutes ??
             item.target.majorAxisArcminutes ??
             3) / 60,
-          direction,
+          observedDirection.value,
           camera.value,
           canvas,
         ),
@@ -827,68 +961,44 @@ function DirectionalAtlasLayer({
   );
 }
 
-function ProjectedImageMesh({
-  camera,
-  canvas,
-  mesh,
-}: {
-  camera: SharedValue<PlanetariumCamera>;
-  canvas: CanvasSizePixels;
-  mesh: PlanetariumPanoramaMesh;
-}) {
-  const textures = useMemo(
-    () => mesh.texturePointsPixels.map((point) => vec(point.x, point.y)),
-    [mesh.texturePointsPixels],
-  );
-  const projectedMesh = useDerivedValue(() => {
-    const projection = projectPlanetariumPanoramaMesh(
-      mesh,
-      camera.value,
-      canvas,
-    );
-    return {
-      indices: projection.indices,
-      vertices: projection.vertices.map((point) =>
-        vec(point.xPixels, point.yPixels),
-      ),
-    };
-  });
-  const indices = useDerivedValue(() => projectedMesh.value.indices);
-  const vertices = useDerivedValue(() => projectedMesh.value.vertices);
-  return (
-    <Vertices
-      indices={indices}
-      mode="triangles"
-      textures={textures}
-      vertices={vertices}
-    />
-  );
-}
-
-function ProjectedImageMeshes({
+function CelestialImageMeshes({
   camera,
   canvas,
   meshes,
+  sceneTimeMilliseconds,
+  timeTransform,
 }: {
   camera: SharedValue<PlanetariumCamera>;
   canvas: CanvasSizePixels;
-  meshes: readonly PlanetariumPanoramaMesh[];
+  meshes: readonly CelestialImageMesh[];
+  sceneTimeMilliseconds: SharedValue<number>;
+  timeTransform: CelestialTimeTransform;
 }) {
   const projectedMeshes = useDerivedValue(() => {
-    const projection = projectPlanetariumPanoramaMeshes(
-      meshes,
+    const indices: number[] = [];
+    const textures: ReturnType<typeof vec>[] = [];
+    const vertices: ReturnType<typeof vec>[] = [];
+    const projectionContext = createPlanetariumProjectionContext(
       camera.value,
       canvas,
     );
-    return {
-      indices: projection.indices,
-      textures: projection.texturePointsPixels.map((point) =>
-        vec(point.x, point.y),
-      ),
-      vertices: projection.vertices.map((point) =>
-        vec(point.xPixels, point.yPixels),
-      ),
-    };
+    for (const mesh of meshes) {
+      const vertexOffset = vertices.length;
+      for (const index of mesh.indices) indices.push(vertexOffset + index);
+      for (const texturePoint of mesh.texturePointsPixels) {
+        textures.push(vec(texturePoint.x, texturePoint.y));
+      }
+      for (const j2000UnitVector of mesh.directionVectors) {
+        const point = projectJ2000UnitVectorToCanvas(
+          j2000UnitVector,
+          timeTransform,
+          sceneTimeMilliseconds.value,
+          projectionContext,
+        );
+        vertices.push(vec(point.xPixels, point.yPixels));
+      }
+    }
+    return { indices, textures, vertices };
   });
   const indices = useDerivedValue(() => projectedMeshes.value.indices);
   const textures = useDerivedValue(() => projectedMeshes.value.textures);
@@ -907,10 +1017,14 @@ function MilkyWayAtlasLayer({
   camera,
   canvas,
   meshes,
+  sceneTimeMilliseconds,
+  timeTransform,
 }: {
   camera: SharedValue<PlanetariumCamera>;
   canvas: CanvasSizePixels;
-  meshes: readonly PlanetariumPanoramaMesh[];
+  meshes: readonly CelestialImageMesh[];
+  sceneTimeMilliseconds: SharedValue<number>;
+  timeTransform: CelestialTimeTransform;
 }) {
   const image = useImage(milkyWayAtlasImage);
   const opacity = useDerivedValue(() =>
@@ -928,7 +1042,13 @@ function MilkyWayAtlasLayer({
         tx="decal"
         ty="decal"
       />
-      <ProjectedImageMeshes camera={camera} canvas={canvas} meshes={meshes} />
+      <CelestialImageMeshes
+        camera={camera}
+        canvas={canvas}
+        meshes={meshes}
+        sceneTimeMilliseconds={sceneTimeMilliseconds}
+        timeTransform={timeTransform}
+      />
     </Group>
   );
 }
@@ -937,16 +1057,22 @@ function RegisteredStarLayer({
   batches,
   camera,
   canvas,
+  sceneTimeMilliseconds,
+  timeTransform,
 }: {
-  batches: readonly RegisteredStarBatch[];
+  batches: readonly RegisteredCelestialStarBatch[];
   camera: SharedValue<PlanetariumCamera>;
   canvas: CanvasSizePixels;
+  sceneTimeMilliseconds: SharedValue<number>;
+  timeTransform: CelestialTimeTransform;
 }) {
   return batches.map((batch) => (
     <RegisteredStarBatchLayer
       batch={batch}
       camera={camera}
       canvas={canvas}
+      sceneTimeMilliseconds={sceneTimeMilliseconds}
+      timeTransform={timeTransform}
       key={batch.key}
     />
   ));
@@ -956,67 +1082,65 @@ function RegisteredStarBatchLayer({
   batch,
   camera,
   canvas,
+  sceneTimeMilliseconds,
+  timeTransform,
 }: {
-  batch: RegisteredStarBatch;
+  batch: RegisteredCelestialStarBatch;
   camera: SharedValue<PlanetariumCamera>;
   canvas: CanvasSizePixels;
+  sceneTimeMilliseconds: SharedValue<number>;
+  timeTransform: CelestialTimeTransform;
 }) {
-  const paths = useDerivedValue(() => {
-    const coreBuilder = Skia.PathBuilder.Make();
-    const haloBuilder = Skia.PathBuilder.Make();
-    const outerHaloBuilder =
-      batch.outerHaloRadiusPixels === null ? null : Skia.PathBuilder.Make();
+  const points = useDerivedValue(() => {
+    const visiblePoints: ReturnType<typeof vec>[] = [];
     const projectionContext = createPlanetariumProjectionContext(
       camera.value,
       canvas,
     );
-    for (const direction of batch.directions) {
-      const point = projectUnitVectorToCanvas(
-        direction.unitVector ?? horizontalDirectionToVector(direction),
+    for (const star of batch.directions) {
+      const point = projectJ2000UnitVectorToCanvas(
+        star.j2000UnitVector,
+        timeTransform,
+        sceneTimeMilliseconds.value,
         projectionContext,
       );
-      if (point.visible) {
-        coreBuilder.addCircle(point.xPixels, point.yPixels, batch.radiusPixels);
-        haloBuilder.addCircle(
-          point.xPixels,
-          point.yPixels,
-          batch.haloRadiusPixels,
-        );
-        if (outerHaloBuilder !== null && batch.outerHaloRadiusPixels !== null) {
-          outerHaloBuilder.addCircle(
-            point.xPixels,
-            point.yPixels,
-            batch.outerHaloRadiusPixels,
-          );
-        }
-      }
+      if (point.visible) visiblePoints.push(vec(point.xPixels, point.yPixels));
     }
-    return {
-      core: coreBuilder.build(),
-      halo: haloBuilder.build(),
-      outerHalo: outerHaloBuilder?.build() ?? null,
-    };
+    return visiblePoints;
   });
-  const corePath = useDerivedValue(() => paths.value.core);
-  const haloPath = useDerivedValue(() => paths.value.halo);
-  const outerHaloPath = useDerivedValue(
-    () => paths.value.outerHalo ?? paths.value.halo,
-  );
   const opacity = useDerivedValue(() =>
     getRegisteredStarBatchOpacity(batch, camera.value.fieldOfViewDegrees),
   );
   return (
     <Group opacity={opacity}>
       {batch.outerHaloRadiusPixels === null ? null : (
-        <Path
+        <Points
           color={batch.color}
+          mode="points"
           opacity={0.1}
-          path={outerHaloPath}
-          style="fill"
+          points={points}
+          strokeCap="round"
+          strokeWidth={batch.outerHaloRadiusPixels * 2}
+          style="stroke"
         />
       )}
-      <Path color={batch.color} opacity={0.28} path={haloPath} style="fill" />
-      <Path color={batch.coreColor} path={corePath} style="fill" />
+      <Points
+        color={batch.color}
+        mode="points"
+        opacity={0.28}
+        points={points}
+        strokeCap="round"
+        strokeWidth={batch.haloRadiusPixels * 2}
+        style="stroke"
+      />
+      <Points
+        color={batch.coreColor}
+        mode="points"
+        points={points}
+        strokeCap="round"
+        strokeWidth={batch.radiusPixels * 2}
+        style="stroke"
+      />
     </Group>
   );
 }
@@ -1027,33 +1151,43 @@ function RegisteredConstellationLayer({
   constellations,
   labels,
   opacity,
+  sceneTimeMilliseconds,
+  timeTransform,
 }: {
   camera: SharedValue<PlanetariumCamera>;
   canvas: CanvasSizePixels;
-  constellations: readonly HorizontalRegisteredConstellation[];
-  labels: readonly HorizontalRegisteredConstellation[];
+  constellations: readonly RegisteredCelestialConstellation[];
+  labels: readonly RegisteredCelestialConstellation[];
   opacity: number;
+  sceneTimeMilliseconds: SharedValue<number>;
+  timeTransform: CelestialTimeTransform;
 }) {
   return (
     <>
-      <ProjectedMultiPath
+      <CelestialMultiPath
         camera={camera}
         canvas={canvas}
         color="#8093b2"
-        lines={constellations.flatMap(({ lines }) => lines)}
+        lines={constellations.flatMap(
+          ({ lineJ2000UnitVectors }) => lineJ2000UnitVectors,
+        )}
+        sceneTimeMilliseconds={sceneTimeMilliseconds}
         strokeOpacity={opacity}
         strokeWidth={1.5}
+        timeTransform={timeTransform}
       />
       <Group opacity={opacity}>
         {labels.map((constellation) => (
-          <ProjectedText
+          <CelestialText
             camera={camera}
             canvas={canvas}
             color="#9aabc4"
-            direction={constellation.label}
             font={secondaryFont}
+            j2000UnitVector={constellation.labelJ2000UnitVector}
             key={constellation.id}
             text={constellation.name}
+            sceneTimeMilliseconds={sceneTimeMilliseconds}
+            timeTransform={timeTransform}
           />
         ))}
       </Group>
@@ -1065,12 +1199,16 @@ function RegisteredDsoImageLayer({
   camera,
   canvas,
   mesh,
+  sceneTimeMilliseconds,
   source,
+  timeTransform,
 }: {
   camera: SharedValue<PlanetariumCamera>;
   canvas: CanvasSizePixels;
-  mesh: PlanetariumPanoramaMesh;
+  mesh: CelestialImageMesh;
+  sceneTimeMilliseconds: SharedValue<number>;
   source: number;
+  timeTransform: CelestialTimeTransform;
 }) {
   const image = useImage(source);
   const opacity = useDerivedValue(() =>
@@ -1084,7 +1222,13 @@ function RegisteredDsoImageLayer({
   return (
     <Group opacity={opacity}>
       <ImageShader image={image} tx="decal" ty="decal" />
-      <ProjectedImageMesh camera={camera} canvas={canvas} mesh={mesh} />
+      <CelestialImageMeshes
+        camera={camera}
+        canvas={canvas}
+        meshes={[mesh]}
+        sceneTimeMilliseconds={sceneTimeMilliseconds}
+        timeTransform={timeTransform}
+      />
     </Group>
   );
 }
@@ -1425,11 +1569,13 @@ export function PlanetariumScene({
   panoramaOpacity,
   panoramaImage,
   panoramaTiles,
-  registeredSky = { atlasMeshes: [], constellations: [], stars: [] },
-  registeredStarBatches = [],
-  constellationLabels = [],
+  registeredCelestialSky,
+  registeredCelestialStarBatches = [],
+  celestialConstellationLabels = [],
+  celestialTimeTransform,
+  sceneTimeMilliseconds,
   constellationOpacity = 0.3,
-  registeredDsoImages = [],
+  registeredCelestialDsoImages = [],
   selectedPanoramaTileId,
   selectedTargetId,
   targets,
@@ -1449,11 +1595,13 @@ export function PlanetariumScene({
   panoramaOpacity: number;
   panoramaImage?: ActivePanorama | null;
   panoramaTiles: readonly ActivePanoramaTile[];
-  registeredSky?: RegisteredSkyProjection;
-  registeredStarBatches?: readonly RegisteredStarBatch[];
-  constellationLabels?: readonly HorizontalRegisteredConstellation[];
+  registeredCelestialSky?: RegisteredCelestialSky;
+  registeredCelestialStarBatches?: readonly RegisteredCelestialStarBatch[];
+  celestialConstellationLabels?: readonly RegisteredCelestialConstellation[];
+  celestialTimeTransform?: CelestialTimeTransform;
+  sceneTimeMilliseconds?: SharedValue<number>;
   constellationOpacity?: number;
-  registeredDsoImages?: readonly RegisteredDsoImage[];
+  registeredCelestialDsoImages?: readonly RegisteredCelestialDsoImage[];
   selectedPanoramaTileId?: string | null;
   selectedTargetId: string | null;
   targets: readonly RenderedPlanetariumTarget[];
@@ -1462,37 +1610,53 @@ export function PlanetariumScene({
   return (
     <Canvas style={{ flex: 1 }}>
       <Fill color={colors.backdrop} />
-      <MilkyWayAtlasLayer
-        camera={camera}
-        canvas={canvas}
-        meshes={registeredSky.atlasMeshes}
-      />
-      <RegisteredStarLayer
-        batches={registeredStarBatches}
-        camera={camera}
-        canvas={canvas}
-      />
-      <RegisteredConstellationLayer
-        camera={camera}
-        canvas={canvas}
-        constellations={registeredSky.constellations}
-        labels={constellationLabels}
-        opacity={constellationOpacity}
-      />
+      {registeredCelestialSky &&
+      celestialTimeTransform &&
+      sceneTimeMilliseconds ? (
+        <>
+          <MilkyWayAtlasLayer
+            camera={camera}
+            canvas={canvas}
+            meshes={registeredCelestialSky.atlasMeshes}
+            sceneTimeMilliseconds={sceneTimeMilliseconds}
+            timeTransform={celestialTimeTransform}
+          />
+          <RegisteredStarLayer
+            batches={registeredCelestialStarBatches}
+            camera={camera}
+            canvas={canvas}
+            sceneTimeMilliseconds={sceneTimeMilliseconds}
+            timeTransform={celestialTimeTransform}
+          />
+          <RegisteredConstellationLayer
+            camera={camera}
+            canvas={canvas}
+            constellations={registeredCelestialSky.constellations}
+            labels={celestialConstellationLabels}
+            opacity={constellationOpacity}
+            sceneTimeMilliseconds={sceneTimeMilliseconds}
+            timeTransform={celestialTimeTransform}
+          />
+        </>
+      ) : null}
       <PlanetariumGrid
         camera={camera}
         canvas={canvas}
         celestialEquatorDirections={celestialEquatorDirections}
       />
-      {registeredDsoImages.map((image) => (
-        <RegisteredDsoImageLayer
-          camera={camera}
-          canvas={canvas}
-          key={image.targetId}
-          mesh={image.mesh}
-          source={image.source}
-        />
-      ))}
+      {celestialTimeTransform && sceneTimeMilliseconds
+        ? registeredCelestialDsoImages.map((image) => (
+            <RegisteredDsoImageLayer
+              camera={camera}
+              canvas={canvas}
+              key={image.targetId}
+              mesh={image.mesh}
+              sceneTimeMilliseconds={sceneTimeMilliseconds}
+              source={image.source}
+              timeTransform={celestialTimeTransform}
+            />
+          ))
+        : null}
       {mask && maskMode ? (
         <MaskPresentationLayer
           camera={camera}
@@ -1533,15 +1697,19 @@ export function PlanetariumScene({
         diurnalOrbit={diurnalOrbit}
         trajectory={trajectory}
       />
-      {targets.map((item) => (
-        <PlanetariumTarget
-          camera={camera}
-          canvas={canvas}
-          item={item}
-          key={item.target.id}
-          selected={item.target.id === selectedTargetId}
-        />
-      ))}
+      {celestialTimeTransform && sceneTimeMilliseconds
+        ? targets.map((item) => (
+            <PlanetariumTarget
+              camera={camera}
+              canvas={canvas}
+              item={item}
+              key={item.target.id}
+              sceneTimeMilliseconds={sceneTimeMilliseconds}
+              selected={item.target.id === selectedTargetId}
+              timeTransform={celestialTimeTransform}
+            />
+          ))
+        : null}
       <GroundLayer camera={camera} canvas={canvas} />
       <HorizonAndCardinals camera={camera} canvas={canvas} />
       {equipment ? (
