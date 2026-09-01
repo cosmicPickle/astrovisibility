@@ -44,13 +44,14 @@ Meet the numerical and device-performance budgets in the focused spec.
 - [x] Run mandatory quality gates and inspect the final diff/security surface.
 - [x] Build the branch-only release APK at
       `tmp/artifacts/android/app-release.apk`.
-- [ ] Complete representative, constrained, and physical-device
-      visual/performance QA.
+- [x] Complete representative and constrained Android emulator visual QA.
+- [ ] Complete physical-device performance QA.
 - [ ] Present measured results for explicit product-owner readiness decision.
 
 **Current step**
 
-Stages 1 through 5 and the code/build portion of Stage 6 are implemented. One
+Stages 1 through 5 and the code/build plus emulator-visual portion of Stage 6
+are implemented. One
 shared UTC-millisecond value now moves fixed J2000 stars, catalogue marks,
 constellations, the Milky Way, and DSO meshes on the Skia worklet path. Fixed
 J2000 catalogue and star queries publish bounded residents without rebuilding
@@ -58,8 +59,12 @@ the full horizontal catalogue during previews; exact counts and labels refresh
 on release. Star rendering uses Skia point batches instead of rebuilding circle
 paths. Format, typecheck, lint, all 412 tests, production catalogue/asset
 validation, Expo Android export, and a fresh 193,106,809-byte release APK pass.
-The remaining step is rendered interaction and frame-pacing verification on an
-Android surface.
+The exact release APK also passes representative 1080x2400/420 dpi and
+constrained 720x1280/320 dpi emulator inspection. Static pan, native pinch
+zoom, close-zoom Andromeda imagery, live time movement, selected-arc/current
+marker registration, and the compact/expanded observing-window layouts were
+exercised without a crash or stale celestial frame. The remaining acceptance
+step is physical-device frame-pacing verification.
 
 **Blockers and decisions**
 
@@ -68,9 +73,11 @@ Android surface.
 - No density, imagery, trajectory, panorama/mask, or catalogue functionality may
   be removed for performance. Report any proposed compromise before acting.
 - Physical-device proof requires a connected representative Android device;
-  emulator measurements remain diagnostic only. On 2026-09-01 no Android
-  device was attached and `C:\Android\emulator\emulator.exe -list-avds`
-  returned no configured AVD, so the required visual QA is blocked.
+  emulator measurements remain diagnostic only. The existing
+  `RallyPath_Pixel_8_API_36` AVD was found by setting `ANDROID_AVD_HOME` to its
+  established location and has completed the available visual QA. No physical
+  Android device is attached, so the S24 Ultra 60 Hz target and representative
+  mid-range 50 fps p95/no-stall budget remain unverified.
 
 ## Registered sky background
 

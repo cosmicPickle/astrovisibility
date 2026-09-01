@@ -2,8 +2,10 @@
 
 **Timestamp:** 2026-09-01 17:48 +03:00 (Europe/Sofia)  
 **Branch:** `feature/atlas-shared-time-transform`  
-**Status:** Automated and release-build verification passed; Android visual QA
-blocked by the absence of an attached device or configured emulator.
+**Status:** Automated, release-build, and Android emulator visual verification
+passed; physical-device frame-budget verification remains open.
+
+**Emulator follow-up:** 2026-09-01 18:32 +03:00 (Europe/Sofia)
 
 ## Implemented result
 
@@ -34,15 +36,44 @@ blocked by the absence of an attached device or configured emulator.
 - `pnpm build`: catalogue checksum, registered sky assets, and Android Expo
   export passed.
 - Fresh release APK: `tmp/artifacts/android/app-release.apk`, 193,106,809 bytes.
+- SHA-256:
+  `1A7CF214A4E9E9EBBD299DA9FC024B79609EFF4DD525FAE6CAE948D122096FF5`.
 
 No dependency, permission, persistence, network behavior, catalogue membership,
 DSO coverage, mask behavior, trajectory calculation, or sensitive logging was
 added or changed.
 
+## Exact-release emulator review
+
+The existing `RallyPath_Pixel_8_API_36` AVD was discovered at its established
+AVD home after the initial default-context lookup failed. The exact feature-
+branch release APK installed and launched on API 36 with software rendering.
+Inspection used a synthetic profile and covered both 1080x2400 at 420 dpi and
+720x1280 at 320 dpi.
+
+- Fresh install, profile creation, atlas launch, static pan, and native pinch
+  zoom completed without an AndroidRuntime, ReactNativeJS, or native fatal log.
+- Stars, constellation geometry, grid, Milky Way, target marks, labels, horizon,
+  and cardinal direction remained mutually registered during pan and zoom.
+- Close zoom crossed the DSO image threshold and displayed the registered
+  Andromeda Galaxy optical cutout beneath its vector outline and label.
+- Slider movement updated the celestial field while held. With IC 1831
+  selected, the whole trajectory remained mounted and its current marker moved
+  along the unchanged arc as the displayed time advanced.
+- The observing-window date, condition, navigation controls, gradient slider,
+  darkness times, and expanded lunar-condition panel remained readable and
+  operable at both viewports. The constrained expanded panel scrolled to expose
+  the complete slider and darkness controls.
+
+Android `gfxinfo` is not used as an atlas-FPS acceptance claim here: the atlas
+is a Skia `TextureView`, while the sampled ViewRoot frames primarily reflect
+coalesced React text/control updates. The software-rendered emulator samples
+were therefore retained as diagnostics only rather than being presented as the
+required Skia or physical-device frame percentiles.
+
 ## Remaining blocker
 
-Visual QA is blocked. `adb devices -l` reported no attached devices, and the
-configured Android SDK contains no AVDs (`emulator.exe -list-avds` returned no
-entries). Consequently the representative/constrained screenshots, live drag
-inspection, and physical-device frame percentiles cannot be claimed. The APK is
-ready to install on an Android device for that final acceptance step.
+No physical Android device is attached. The specification's Galaxy S24 Ultra
+60 Hz target and representative mid-range 50 fps p95/no-stall requirement still
+need an exact-release physical-device run. Emulator visual verification is
+complete and is not represented as physical performance evidence.
