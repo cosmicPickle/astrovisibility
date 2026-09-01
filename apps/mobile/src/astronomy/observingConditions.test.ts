@@ -6,6 +6,7 @@ import {
   createAstronomicalDarknessSpan,
   createMoonConditions,
   createSkyConditionTrack,
+  isMeaningfulMoonlight,
 } from './observingConditions';
 
 const sofiaObserver = {
@@ -15,6 +16,33 @@ const sofiaObserver = {
 };
 
 describe('observing conditions', () => {
+  it('requires meaningful illumination, altitude, and combined Moon impact', () => {
+    expect(
+      isMeaningfulMoonlight({
+        illuminatedFraction: 0.34,
+        moonAltitudeDegrees: 70,
+      }),
+    ).toBe(false);
+    expect(
+      isMeaningfulMoonlight({
+        illuminatedFraction: 0.9,
+        moonAltitudeDegrees: 9,
+      }),
+    ).toBe(false);
+    expect(
+      isMeaningfulMoonlight({
+        illuminatedFraction: 0.35,
+        moonAltitudeDegrees: 20,
+      }),
+    ).toBe(false);
+    expect(
+      isMeaningfulMoonlight({
+        illuminatedFraction: 0.35,
+        moonAltitudeDegrees: 30,
+      }),
+    ).toBe(true);
+  });
+
   it('builds a bounded moon-aware track once per half hour', () => {
     const fullMoonWindow = createDateObservingWindow({
       civilDate: { year: 2026, month: 5, day: 1 },

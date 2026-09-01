@@ -23,6 +23,9 @@ const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 const SKY_TRACK_SAMPLE_COUNT = 49;
 const ASTRONOMICAL_NIGHT_ALTITUDE_DEGREES = -18;
 const APPARENT_HORIZON_ALTITUDE_DEGREES = -0.833;
+const MEANINGFUL_MOON_ILLUMINATION_FRACTION = 0.35;
+const MEANINGFUL_MOON_ALTITUDE_DEGREES = 10;
+const MEANINGFUL_MOONLIGHT_STRENGTH = 0.15;
 
 export type SkyConditionName =
   'Daylight' | 'Dusk' | 'Dark night' | 'Moonlight' | 'Dawn';
@@ -91,6 +94,16 @@ const mixColor = (
 const nightColor = (moonlightStrength: number) =>
   mixColor([3, 7, 17], [42, 77, 126], moonlightStrength * 0.72);
 
+export const isMeaningfulMoonlight = (input: {
+  illuminatedFraction: number;
+  moonAltitudeDegrees: number;
+}) =>
+  input.illuminatedFraction >= MEANINGFUL_MOON_ILLUMINATION_FRACTION &&
+  input.moonAltitudeDegrees >= MEANINGFUL_MOON_ALTITUDE_DEGREES &&
+  input.illuminatedFraction *
+    Math.sin((input.moonAltitudeDegrees * Math.PI) / 180) >=
+    MEANINGFUL_MOONLIGHT_STRENGTH;
+
 const colorFor = (sunAltitudeDegrees: number, moonlightStrength: number) => {
   const darkColor = nightColor(moonlightStrength);
   if (sunAltitudeDegrees <= ASTRONOMICAL_NIGHT_ALTITUDE_DEGREES) {
@@ -146,6 +159,10 @@ export const createSkyConditionTrack = (input: {
         illuminatedFraction *
         Math.max(0, Math.sin((moonAltitudeDegrees * Math.PI) / 180));
       return {
+        meaningfulMoonlight: isMeaningfulMoonlight({
+          illuminatedFraction,
+          moonAltitudeDegrees,
+        }),
         moonlightStrength,
         offsetPercent,
         sunAltitudeDegrees,
@@ -160,7 +177,7 @@ export const createSkyConditionTrack = (input: {
     } else if (
       sample.sunAltitudeDegrees <= ASTRONOMICAL_NIGHT_ALTITUDE_DEGREES
     ) {
-      condition = sample.moonlightStrength >= 0.03 ? 'Moonlight' : 'Dark night';
+      condition = sample.meaningfulMoonlight ? 'Moonlight' : 'Dark night';
     } else {
       const previousAltitude =
         rawSamples[Math.max(0, index - 1)]!.sunAltitudeDegrees;

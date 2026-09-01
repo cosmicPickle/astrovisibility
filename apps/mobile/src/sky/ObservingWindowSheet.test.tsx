@@ -69,13 +69,17 @@ const renderSheet = async ({
 });
 
 describe('ObservingWindowSheet', () => {
-  it('offers a noon-centred slider, rollback, and shooting conditions without quick-action buttons', async () => {
+  it('unifies the date/time control with centred day navigation and condition controls', async () => {
     const { screen } = await renderSheet();
 
-    expect(screen.getByLabelText('Choose observing date')).toBeTruthy();
+    expect(screen.getByLabelText('Choose date and time')).toBeTruthy();
     expect(screen.getByLabelText('Time of day')).toBeTruthy();
+    expect(screen.getByLabelText('Previous day')).toBeTruthy();
     expect(screen.getByLabelText('Return to current time')).toBeTruthy();
+    expect(screen.getByLabelText('Next day')).toBeTruthy();
     expect(screen.getByLabelText('Show shooting conditions')).toBeTruthy();
+    expect(screen.queryByText('DATE')).toBeNull();
+    expect(screen.queryByText('TIME OF DAY')).toBeNull();
     expect(screen.queryByText('Now')).toBeNull();
     expect(screen.queryByText('Tonight')).toBeNull();
     expect(screen.queryByText('Custom interval')).toBeNull();
@@ -166,14 +170,44 @@ describe('ObservingWindowSheet', () => {
     const onChange = jest.fn();
     const { screen } = await renderSheet({ onChange });
 
-    fireEvent.press(screen.getByLabelText('Choose observing date'));
-    await waitFor(() => screen.getByLabelText('Choose 22 August 2026'));
-    fireEvent.press(screen.getByLabelText('Choose 22 August 2026'));
+    fireEvent.press(screen.getByLabelText('Choose date and time'));
+    await waitFor(() => screen.getByLabelText('Choose 23 August 2026'));
+    fireEvent.press(screen.getByLabelText('Choose 23 August 2026'));
 
     expect(onChange).toHaveBeenLastCalledWith({
       sceneTimestampUtc: '2026-08-22T21:00:00.000Z',
       window: expect.objectContaining({
         kind: 'day',
+        startTimestampUtc: '2026-08-22T09:00:00.000Z',
+        endTimestampUtc: '2026-08-23T09:00:00.000Z',
+      }),
+    });
+  });
+
+  it('moves to the previous civil day at the same local time', async () => {
+    const onChange = jest.fn();
+    const { screen } = await renderSheet({ onChange });
+
+    fireEvent.press(screen.getByLabelText('Previous day'));
+
+    expect(onChange).toHaveBeenLastCalledWith({
+      sceneTimestampUtc: '2026-08-20T21:00:00.000Z',
+      window: expect.objectContaining({
+        startTimestampUtc: '2026-08-20T09:00:00.000Z',
+        endTimestampUtc: '2026-08-21T09:00:00.000Z',
+      }),
+    });
+  });
+
+  it('moves to the next civil day at the same local time', async () => {
+    const onChange = jest.fn();
+    const { screen } = await renderSheet({ onChange });
+
+    fireEvent.press(screen.getByLabelText('Next day'));
+
+    expect(onChange).toHaveBeenLastCalledWith({
+      sceneTimestampUtc: '2026-08-22T21:00:00.000Z',
+      window: expect.objectContaining({
         startTimestampUtc: '2026-08-22T09:00:00.000Z',
         endTimestampUtc: '2026-08-23T09:00:00.000Z',
       }),
@@ -196,6 +230,13 @@ describe('ObservingWindowSheet', () => {
     });
   });
 
+  it('keeps the reset icon available while already at the current time', async () => {
+    const now = '2026-08-21T21:00:00.000Z';
+    const { screen } = await renderSheet({ clock: () => now });
+
+    expect(screen.getByLabelText('Return to current time')).toBeTruthy();
+  });
+
   it('positions clickable astronomical darkness bounds under the track', async () => {
     const onChange = jest.fn();
     const { screen } = await renderSheet({ onChange });
@@ -208,7 +249,13 @@ describe('ObservingWindowSheet', () => {
       sceneTimestampUtc: darkness.startTimestampUtc,
       window,
     });
-    expect(screen.getByLabelText(/Set time to darkness end/)).toBeTruthy();
+    const endMarker = screen.getByLabelText(/Set time to darkness end/);
+    expect(endMarker).toBeTruthy();
+    expect(screen.queryByText(/^Starts /)).toBeNull();
+    expect(screen.queryByText(/^Ends /)).toBeNull();
+    const endMarkerStyle = StyleSheet.flatten(endMarker.props.style);
+    expect(endMarkerStyle.left).toBeDefined();
+    expect(endMarkerStyle.right).toBeUndefined();
   });
 
   it('normalizes a pre-existing midnight day window to the noon-centred day', async () => {

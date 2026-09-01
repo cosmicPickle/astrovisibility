@@ -3,7 +3,13 @@ import { Circle, Path, Svg } from 'react-native-svg';
 import { colors } from '../../theme/tokens';
 
 export type AppIconName =
-  'eye' | 'info' | 'restore' | 'search' | 'shootingConditions' | 'telescope';
+  | 'eye'
+  | 'info'
+  | 'nextDay'
+  | 'previousDay'
+  | 'restore'
+  | 'search'
+  | 'telescope';
 
 export const AppIcon = ({
   color = colors.text,
@@ -45,10 +51,15 @@ export const AppIcon = ({
         <Path d="M4 4v6h6" />
         <Path d="M5.3 9.2A8 8 0 1 1 6 18" />
       </>
-    ) : name === 'shootingConditions' ? (
+    ) : name === 'previousDay' ? (
       <>
-        <Path d="M14.8 3.4a7.5 7.5 0 1 0 5.8 11.9 8.2 8.2 0 0 1-5.8-11.9Z" />
-        <Path d="m18.5 3 .5 1.5L20.5 5 19 5.5 18.5 7 18 5.5 16.5 5l1.5-.5L18.5 3Z" />
+        <Path d="M6 5v14" />
+        <Path d="m18 5-9 7 9 7V5Z" />
+      </>
+    ) : name === 'nextDay' ? (
+      <>
+        <Path d="M18 5v14" />
+        <Path d="m6 5 9 7-9 7V5Z" />
       </>
     ) : (
       <>

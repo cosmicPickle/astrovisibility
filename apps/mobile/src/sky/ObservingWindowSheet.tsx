@@ -16,6 +16,7 @@ import {
 
 import type { ObserverLocation } from '../astronomy/horizontalCoordinates';
 import {
+  addDaysToLocalDate,
   localCivilDateTimeAtInstant,
   type LocalCivilDate,
   type ObservingWindow,
@@ -64,15 +65,6 @@ type ObservingWindowSheetProps = {
 const clampSliderMinute = (value: number) =>
   Math.max(0, Math.min(MAX_SLIDER_MINUTE, Math.round(value)));
 
-const dateLabel = (date: LocalCivilDate) =>
-  new Intl.DateTimeFormat(undefined, {
-    day: 'numeric',
-    month: 'long',
-    weekday: 'short',
-    year: 'numeric',
-    timeZone: 'UTC',
-  }).format(new Date(Date.UTC(date.year, date.month - 1, date.day)));
-
 const dateAccessibilityLabel = (date: LocalCivilDate) =>
   `Choose ${date.day} ${new Intl.DateTimeFormat('en-GB', {
     month: 'long',
@@ -101,36 +93,73 @@ const calendarDates = (month: LocalCivilDate) => {
   ];
 };
 
-const sceneTimeLabel = (timestampUtc: string, timeZoneId: string) => {
+const localDateAtInstant = (timestampUtc: string, timeZoneId: string) => {
   const local = localCivilDateTimeAtInstant(timestampUtc, timeZoneId);
-  const abbreviatedDate = new Intl.DateTimeFormat(undefined, {
+  return { year: local.year, month: local.month, day: local.day };
+};
+
+const sceneDateTimeLabel = (timestampUtc: string, timeZoneId: string) => {
+  const local = localCivilDateTimeAtInstant(timestampUtc, timeZoneId);
+  const date = new Intl.DateTimeFormat(undefined, {
     day: 'numeric',
-    month: 'short',
+    month: 'long',
+    weekday: 'short',
+    year: 'numeric',
     timeZone: 'UTC',
   }).format(new Date(Date.UTC(local.year, local.month - 1, local.day)));
-  return `${abbreviatedDate} · ${formatLocalTimeInput(local)}`;
+  return `${date} · ${formatLocalTimeInput(local)}`;
 };
+
+const TimeNavigationButton = ({
+  accessibilityLabel,
+  icon,
+  onPress,
+}: {
+  accessibilityLabel: string;
+  icon: 'nextDay' | 'previousDay' | 'restore';
+  onPress: () => void;
+}) => (
+  <Pressable
+    accessibilityLabel={accessibilityLabel}
+    accessibilityRole="button"
+    hitSlop={6}
+    onPress={onPress}
+    style={({ pressed }) => [
+      styles.timeNavigationButton,
+      pressed && styles.pressed,
+    ]}
+  >
+    <AppIcon color={colors.primary} name={icon} size={22} />
+  </Pressable>
+);
 
 const TimeOfDaySlider = ({
   civilDate,
   observer,
+  onChooseDate,
   onCommit,
+  onNextDay,
+  onPreviousDay,
   onReturnToNow,
-  showReturnToNow,
+  sceneTimestampUtc,
   timeZoneId,
   valueMinute,
   window,
 }: {
   civilDate: LocalCivilDate;
   observer: ObserverLocation;
+  onChooseDate: () => void;
   onCommit: (timestampUtc: string) => void;
+  onNextDay: () => void;
+  onPreviousDay: () => void;
   onReturnToNow: () => void;
-  showReturnToNow: boolean;
+  sceneTimestampUtc: string;
   timeZoneId: string;
   valueMinute: number;
   window: ObservingWindow;
 }) => {
   const [widthPixels, setWidthPixels] = useState(1);
+  const [conditionsVisible, setConditionsVisible] = useState(false);
   const boundedValue = clampSliderMinute(valueMinute);
   const [dragMinute, setDragMinute] = useState<number | null>(null);
   const draftMinute = dragMinute ?? boundedValue;
@@ -183,32 +212,83 @@ const TimeOfDaySlider = ({
     Math.round((draftMinute / MINUTES_PER_DAY) * (conditionTrack.length - 1)),
   );
   const condition = conditionTrack[conditionIndex]!.condition;
+  const moonConditions = useMemo(
+    () =>
+      conditionsVisible
+        ? createMoonConditions({
+            observer,
+            timestampUtc: sceneTimestampUtc,
+            timeZoneId,
+            window,
+          })
+        : null,
+    [conditionsVisible, observer, sceneTimestampUtc, timeZoneId, window],
+  );
 
   return (
     <View style={styles.sliderField}>
-      <View style={styles.labelRow}>
-        <AppText tone="label">Time of day</AppText>
-        <View style={styles.timeHeading}>
-          <AppText style={styles.timeValue}>
-            {sceneTimeLabel(timestampUtc, timeZoneId)}
-          </AppText>
-          <AppText style={styles.conditionText}>({condition})</AppText>
-          {showReturnToNow ? (
-            <Pressable
-              accessibilityLabel="Return to current time"
-              accessibilityRole="button"
-              hitSlop={8}
-              onPress={onReturnToNow}
-              style={({ pressed }) => [
-                styles.inlineIconButton,
-                pressed && styles.pressed,
-              ]}
-            >
-              <AppIcon color={colors.primary} name="restore" size={19} />
-            </Pressable>
-          ) : null}
-        </View>
+      <Pressable
+        accessibilityLabel="Choose date and time"
+        accessibilityRole="button"
+        onPress={onChooseDate}
+        style={({ pressed }) => [
+          styles.dateTimeButton,
+          pressed && styles.pressed,
+        ]}
+      >
+        <AppText style={styles.timeValue}>
+          {sceneDateTimeLabel(timestampUtc, timeZoneId)}
+        </AppText>
+      </Pressable>
+      <View style={styles.timeNavigationRow}>
+        <TimeNavigationButton
+          accessibilityLabel="Previous day"
+          icon="previousDay"
+          onPress={onPreviousDay}
+        />
+        <TimeNavigationButton
+          accessibilityLabel="Return to current time"
+          icon="restore"
+          onPress={onReturnToNow}
+        />
+        <TimeNavigationButton
+          accessibilityLabel="Next day"
+          icon="nextDay"
+          onPress={onNextDay}
+        />
       </View>
+      <Pressable
+        accessibilityLabel={`${conditionsVisible ? 'Hide' : 'Show'} shooting conditions`}
+        accessibilityRole="button"
+        onPress={() => setConditionsVisible((current) => !current)}
+        style={({ pressed }) => [
+          styles.conditionButton,
+          pressed && styles.pressed,
+        ]}
+      >
+        <AppText style={styles.conditionText}>{condition}</AppText>
+      </Pressable>
+      {conditionsVisible && moonConditions ? (
+        <View style={styles.conditionsPanel}>
+          <MoonPhaseIcon phaseDegrees={moonConditions.phaseDegrees} />
+          <View style={styles.conditionsSummary}>
+            <AppText style={styles.conditionsTitle}>
+              {moonConditions.phaseName}
+            </AppText>
+            <AppText tone="muted">
+              {moonConditions.illuminatedPercent}% illuminated
+            </AppText>
+          </View>
+          <View style={styles.moonEvents}>
+            <AppText style={styles.moonEvent} tone="muted">
+              Moonrise {moonConditions.riseLocalTime ?? '—'}
+            </AppText>
+            <AppText style={styles.moonEvent} tone="muted">
+              Moonset {moonConditions.setLocalTime ?? '—'}
+            </AppText>
+          </View>
+        </View>
+      ) : null}
       <View
         accessibilityActions={[
           { name: 'decrement', label: 'Earlier by 15 minutes' },
@@ -220,7 +300,7 @@ const TimeOfDaySlider = ({
           min: 0,
           max: MAX_SLIDER_MINUTE,
           now: draftMinute,
-          text: sceneTimeLabel(timestampUtc, timeZoneId),
+          text: sceneDateTimeLabel(timestampUtc, timeZoneId),
         }}
         onAccessibilityAction={(event) => {
           const delta =
@@ -317,10 +397,7 @@ const DarknessMarkers = ({
         const local = localCivilDateTimeAtInstant(timestampUtc, timeZoneId);
         const time = formatLocalTimeInput(local);
         const offsetPercent = (minute / MINUTES_PER_DAY) * 100;
-        const position =
-          minute >= MINUTES_PER_DAY / 2
-            ? { right: `${100 - offsetPercent}%` as const }
-            : { left: `${offsetPercent}%` as const };
+        const position = { left: `${offsetPercent}%` as const };
         return (
           <Pressable
             accessibilityLabel={`Set time to darkness ${marker.label.toLowerCase()} at ${time}`}
@@ -328,16 +405,10 @@ const DarknessMarkers = ({
             hitSlop={8}
             key={marker.label}
             onPress={() => onCommit(timestampUtc)}
-            style={[
-              styles.darknessMarker,
-              position,
-              minute >= MINUTES_PER_DAY / 2 && styles.darknessMarkerRight,
-            ]}
+            style={[styles.darknessMarker, position]}
           >
             <View style={styles.markerTick} />
-            <AppText style={styles.darknessMarkerText}>
-              {marker.label} {time}
-            </AppText>
+            <AppText style={styles.darknessMarkerText}>{time}</AppText>
           </Pressable>
         );
       })}
@@ -360,13 +431,14 @@ const VisibleObservingWindowSheet = ({
     sceneTimestampUtc,
     timeZoneId,
   );
-  const [selectedDate, setSelectedDate] = useState<LocalCivilDate>(initialDate);
+  const initialSceneDate = localDateAtInstant(sceneTimestampUtc, timeZoneId);
+  const [observingDate, setObservingDate] =
+    useState<LocalCivilDate>(initialDate);
   const [displayedMonth, setDisplayedMonth] = useState<LocalCivilDate>({
-    ...initialDate,
+    ...initialSceneDate,
     day: 1,
   });
   const [calendarVisible, setCalendarVisible] = useState(false);
-  const [conditionsVisible, setConditionsVisible] = useState(false);
   const [localSceneTimestampUtc, setLocalSceneTimestampUtc] =
     useState(sceneTimestampUtc);
   // Incoming windows may use the legacy midnight boundary; this sheet always
@@ -376,61 +448,52 @@ const VisibleObservingWindowSheet = ({
   );
   const days = useMemo(() => calendarDates(displayedMonth), [displayedMonth]);
   const valueMinute = getNoonCenteredSliderMinute({
-    civilDate: selectedDate,
+    civilDate: observingDate,
     timestampUtc: localSceneTimestampUtc,
     timeZoneId,
   });
-  const moonConditions = useMemo(
-    () =>
-      conditionsVisible
-        ? createMoonConditions({
-            observer,
-            timestampUtc: localSceneTimestampUtc,
-            timeZoneId,
-            window: localWindow,
-          })
-        : null,
-    [
-      conditionsVisible,
-      localSceneTimestampUtc,
-      localWindow,
-      observer,
-      timeZoneId,
-    ],
-  );
-  const nowTimestampUtc = clock();
-  const showReturnToNow =
-    Math.abs(
-      Date.parse(localSceneTimestampUtc) - Date.parse(nowTimestampUtc),
-    ) >= 60_000;
+  const sceneDate = localDateAtInstant(localSceneTimestampUtc, timeZoneId);
   const emitChange = (change: ObservingWindowChange) => {
     setLocalSceneTimestampUtc(change.sceneTimestampUtc);
     setLocalWindow(change.window);
     onChange(change);
   };
-  const selectDate = (date: LocalCivilDate) => {
+  const selectCivilDate = (date: LocalCivilDate) => {
+    const nextObservingDate =
+      valueMinute >= MINUTES_PER_DAY / 2 ? addDaysToLocalDate(date, -1) : date;
     const nextWindow = createDateObservingWindow({
-      civilDate: date,
+      civilDate: nextObservingDate,
       timeZoneId,
     });
     const nextTimestampUtc = resolveNoonCenteredSliderTimestamp({
-      civilDate: date,
+      civilDate: nextObservingDate,
       minuteOfTrack: valueMinute,
       timeZoneId,
     });
-    setSelectedDate(date);
+    setObservingDate(nextObservingDate);
+    setDisplayedMonth({ ...date, day: 1 });
     setCalendarVisible(false);
     emitChange({ sceneTimestampUtc: nextTimestampUtc, window: nextWindow });
   };
+  const changeCivilDay = (dayDelta: -1 | 1) =>
+    selectCivilDate(addDaysToLocalDate(sceneDate, dayDelta));
   const returnToCurrentTime = () => {
     const currentTimestampUtc = clock();
-    const date = getNoonCenteredObservingDate(currentTimestampUtc, timeZoneId);
+    const currentObservingDate = getNoonCenteredObservingDate(
+      currentTimestampUtc,
+      timeZoneId,
+    );
+    const currentSceneDate = localDateAtInstant(
+      currentTimestampUtc,
+      timeZoneId,
+    );
     const nextWindow = createDateObservingWindow({
-      civilDate: date,
+      civilDate: currentObservingDate,
       timeZoneId,
     });
-    setSelectedDate(date);
-    setDisplayedMonth({ ...date, day: 1 });
+    setObservingDate(currentObservingDate);
+    setDisplayedMonth({ ...currentSceneDate, day: 1 });
+    setCalendarVisible(false);
     emitChange({ sceneTimestampUtc: currentTimestampUtc, window: nextWindow });
   };
 
@@ -441,32 +504,6 @@ const VisibleObservingWindowSheet = ({
       title="Observing window"
       visible
     >
-      <View style={styles.dateRow}>
-        <Pressable
-          accessibilityLabel="Choose observing date"
-          accessibilityRole="button"
-          onPress={() => setCalendarVisible((current) => !current)}
-          style={styles.dateButton}
-        >
-          <AppText tone="label">Date</AppText>
-          <AppText style={styles.dateValue}>{dateLabel(selectedDate)}</AppText>
-        </Pressable>
-        <Pressable
-          accessibilityLabel={`${conditionsVisible ? 'Hide' : 'Show'} shooting conditions`}
-          accessibilityRole="button"
-          onPress={() => {
-            setConditionsVisible((current) => !current);
-            setCalendarVisible(false);
-          }}
-          style={({ pressed }) => [
-            styles.conditionsButton,
-            conditionsVisible && styles.conditionsButtonActive,
-            pressed && styles.pressed,
-          ]}
-        >
-          <AppIcon name="shootingConditions" size={24} />
-        </Pressable>
-      </View>
       {calendarVisible ? (
         <View style={styles.calendar}>
           <View style={styles.calendarHeader}>
@@ -524,10 +561,10 @@ const VisibleObservingWindowSheet = ({
                   accessibilityLabel={dateAccessibilityLabel(date)}
                   accessibilityRole="button"
                   key={`${date.year}-${date.month}-${date.day}`}
-                  onPress={() => selectDate(date)}
+                  onPress={() => selectCivilDate(date)}
                   style={[
                     styles.calendarDay,
-                    sameDate(date, selectedDate) && styles.selectedCalendarDay,
+                    sameDate(date, sceneDate) && styles.selectedCalendarDay,
                   ]}
                 >
                   <AppText>{date.day}</AppText>
@@ -539,38 +576,23 @@ const VisibleObservingWindowSheet = ({
           </View>
         </View>
       ) : null}
-      {conditionsVisible && moonConditions ? (
-        <View style={styles.conditionsPanel}>
-          <MoonPhaseIcon phaseDegrees={moonConditions.phaseDegrees} />
-          <View style={styles.conditionsSummary}>
-            <AppText style={styles.conditionsTitle}>
-              {moonConditions.phaseName}
-            </AppText>
-            <AppText tone="muted">
-              {moonConditions.illuminatedPercent}% illuminated
-            </AppText>
-          </View>
-          <View style={styles.moonEvents}>
-            <AppText style={styles.moonEvent} tone="muted">
-              Moonrise {moonConditions.riseLocalTime ?? '—'}
-            </AppText>
-            <AppText style={styles.moonEvent} tone="muted">
-              Moonset {moonConditions.setLocalTime ?? '—'}
-            </AppText>
-          </View>
-        </View>
-      ) : null}
       <TimeOfDaySlider
-        civilDate={selectedDate}
+        civilDate={observingDate}
         observer={observer}
+        onChooseDate={() => {
+          if (!calendarVisible) setDisplayedMonth({ ...sceneDate, day: 1 });
+          setCalendarVisible((current) => !current);
+        }}
         onCommit={(nextTimestampUtc) =>
           emitChange({
             sceneTimestampUtc: nextTimestampUtc,
             window: localWindow,
           })
         }
+        onNextDay={() => changeCivilDay(1)}
+        onPreviousDay={() => changeCivilDay(-1)}
         onReturnToNow={returnToCurrentTime}
-        showReturnToNow={showReturnToNow}
+        sceneTimestampUtc={localSceneTimestampUtc}
         timeZoneId={timeZoneId}
         valueMinute={valueMinute}
         window={localWindow}
@@ -600,18 +622,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   calendarTitle: { fontWeight: '800' },
-  conditionText: { color: colors.mutedText, fontSize: 11 },
-  conditionsButton: {
+  conditionButton: {
     alignItems: 'center',
-    backgroundColor: colors.surfaceRaised,
-    borderColor: colors.outline,
-    borderRadius: layout.controlRadius,
-    borderWidth: 1,
-    height: 58,
     justifyContent: 'center',
-    width: 58,
+    minHeight: layout.minimumTouchTarget,
   },
-  conditionsButtonActive: { borderColor: colors.primary },
+  conditionText: {
+    color: colors.mutedText,
+    fontSize: 12,
+    textDecorationLine: 'underline',
+  },
   conditionsPanel: {
     alignItems: 'center',
     backgroundColor: colors.surfaceRaised,
@@ -622,27 +642,16 @@ const styles = StyleSheet.create({
   },
   conditionsSummary: { flex: 1 },
   conditionsTitle: { fontWeight: '800' },
-  dateButton: {
-    backgroundColor: colors.surfaceRaised,
-    borderColor: colors.outline,
-    borderRadius: layout.controlRadius,
-    borderWidth: 1,
-    flex: 1,
-    gap: 3,
-    minHeight: 58,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+  dateTimeButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: layout.minimumTouchTarget,
   },
-  dateRow: { flexDirection: 'row', gap: 8 },
-  dateValue: { fontSize: 16, fontWeight: '800' },
   darknessMarker: {
     alignItems: 'flex-start',
+    minWidth: layout.minimumTouchTarget,
     position: 'absolute',
     top: 0,
-  },
-  darknessMarkerRight: {
-    alignItems: 'flex-end',
-    transform: [{ translateX: -1 }],
   },
   darknessMarkers: { height: 30, position: 'relative' },
   darknessMarkerText: {
@@ -651,24 +660,12 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
   darknessStatus: { fontSize: 11, minHeight: 30, textAlign: 'center' },
-  inlineIconButton: {
-    alignItems: 'center',
-    height: 28,
-    justifyContent: 'center',
-    marginLeft: 2,
-    width: 28,
-  },
-  labelRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
   markerTick: { backgroundColor: colors.mutedText, height: 5, width: 1 },
   moonEvent: { fontSize: 11, textAlign: 'right' },
   moonEvents: { gap: 2 },
   pressed: { opacity: 0.68 },
   selectedCalendarDay: { backgroundColor: colors.primaryPressed },
-  sliderField: { gap: 3 },
+  sliderField: { gap: 2 },
   sliderThumb: {
     backgroundColor: colors.text,
     borderColor: colors.primary,
@@ -690,8 +687,24 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     height: 12,
   },
-  timeHeading: { alignItems: 'center', flexDirection: 'row', gap: 4 },
-  timeValue: { color: colors.primary, fontSize: 17, fontWeight: '800' },
+  timeNavigationButton: {
+    alignItems: 'center',
+    height: layout.minimumTouchTarget,
+    justifyContent: 'center',
+    width: layout.minimumTouchTarget,
+  },
+  timeNavigationRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 24,
+    justifyContent: 'center',
+  },
+  timeValue: {
+    color: colors.primary,
+    fontSize: 17,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
   weekday: {
     color: colors.mutedText,
     textAlign: 'center',

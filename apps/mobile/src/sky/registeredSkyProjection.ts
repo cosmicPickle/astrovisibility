@@ -88,7 +88,7 @@ export interface RegisteredDsoImageDefinition {
   targetId: string;
 }
 
-export const MINIMUM_CONSTELLATION_CANVAS_AREA_FRACTION = 0.1;
+export const MINIMUM_CONSTELLATION_CANVAS_AREA_FRACTION = 0.05;
 
 const stars = starsJson as unknown as RegisteredStarRow[];
 const constellations = constellationsJson as RegisteredConstellation[];

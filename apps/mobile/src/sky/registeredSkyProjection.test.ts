@@ -1,5 +1,6 @@
 import { createPlanetariumCamera } from './planetariumProjection';
 import {
+  MINIMUM_CONSTELLATION_CANVAS_AREA_FRACTION,
   createRegisteredSkyProjection,
   getRegisteredDsoImageOpacity,
   getRegisteredStarBatchOpacity,
@@ -286,7 +287,8 @@ describe('constellation figure culling', () => {
     rank: 1,
   });
 
-  it('keeps only complete figures whose projected bounds cover ten percent', () => {
+  it('keeps only complete figures whose projected bounds cover five percent', () => {
+    expect(MINIMUM_CONSTELLATION_CANVAS_AREA_FRACTION).toBe(0.05);
     const large = constellation('large', [
       [
         { altitudeDegrees: 5, azimuthDegrees: 330 },
