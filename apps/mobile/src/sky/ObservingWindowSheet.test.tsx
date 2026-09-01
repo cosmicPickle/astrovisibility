@@ -1,4 +1,10 @@
-import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import {
+  act,
+  fireEvent,
+  render,
+  waitFor,
+  within,
+} from '@testing-library/react-native';
 import { PanResponder, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -78,6 +84,21 @@ describe('ObservingWindowSheet', () => {
     expect(screen.getByLabelText('Return to current time')).toBeTruthy();
     expect(screen.getByLabelText('Next day')).toBeTruthy();
     expect(screen.getByLabelText('Show shooting conditions')).toBeTruthy();
+    expect(screen.getByText('22/08/2026 00:00')).toBeTruthy();
+    expect(
+      screen.getByText(/^\((?:Daylight|Dusk|Dark night|Moonlight|Dawn)\)$/),
+    ).toBeTruthy();
+    const timeControls = within(screen.getByTestId('time-navigation-row'));
+    expect(
+      timeControls
+        .getAllByRole('button')
+        .map((button) => button.props.accessibilityLabel),
+    ).toEqual([
+      'Previous day',
+      'Return to current time',
+      'Show shooting conditions',
+      'Next day',
+    ]);
     expect(screen.queryByText('DATE')).toBeNull();
     expect(screen.queryByText('TIME OF DAY')).toBeNull();
     expect(screen.queryByText('Now')).toBeNull();

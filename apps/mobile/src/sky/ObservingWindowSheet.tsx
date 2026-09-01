@@ -100,14 +100,9 @@ const localDateAtInstant = (timestampUtc: string, timeZoneId: string) => {
 
 const sceneDateTimeLabel = (timestampUtc: string, timeZoneId: string) => {
   const local = localCivilDateTimeAtInstant(timestampUtc, timeZoneId);
-  const date = new Intl.DateTimeFormat(undefined, {
-    day: 'numeric',
-    month: 'long',
-    weekday: 'short',
-    year: 'numeric',
-    timeZone: 'UTC',
-  }).format(new Date(Date.UTC(local.year, local.month - 1, local.day)));
-  return `${date} · ${formatLocalTimeInput(local)}`;
+  const day = String(local.day).padStart(2, '0');
+  const month = String(local.month).padStart(2, '0');
+  return `${day}/${month}/${local.year} ${formatLocalTimeInput(local)}`;
 };
 
 const TimeNavigationButton = ({
@@ -116,13 +111,13 @@ const TimeNavigationButton = ({
   onPress,
 }: {
   accessibilityLabel: string;
-  icon: 'nextDay' | 'previousDay' | 'restore';
+  icon: 'conditions' | 'nextDay' | 'previousDay' | 'restore';
   onPress: () => void;
 }) => (
   <Pressable
     accessibilityLabel={accessibilityLabel}
     accessibilityRole="button"
-    hitSlop={6}
+    hitSlop={4}
     onPress={onPress}
     style={({ pressed }) => [
       styles.timeNavigationButton,
@@ -230,17 +225,21 @@ const TimeOfDaySlider = ({
       <Pressable
         accessibilityLabel="Choose date and time"
         accessibilityRole="button"
+        hitSlop={4}
         onPress={onChooseDate}
         style={({ pressed }) => [
           styles.dateTimeButton,
           pressed && styles.pressed,
         ]}
       >
-        <AppText style={styles.timeValue}>
-          {sceneDateTimeLabel(timestampUtc, timeZoneId)}
-        </AppText>
+        <View style={styles.dateTimeContent}>
+          <AppText style={styles.timeValue}>
+            {sceneDateTimeLabel(timestampUtc, timeZoneId)}
+          </AppText>
+          <AppText style={styles.inlineCondition}>({condition})</AppText>
+        </View>
       </Pressable>
-      <View style={styles.timeNavigationRow}>
+      <View style={styles.timeNavigationRow} testID="time-navigation-row">
         <TimeNavigationButton
           accessibilityLabel="Previous day"
           icon="previousDay"
@@ -252,22 +251,16 @@ const TimeOfDaySlider = ({
           onPress={onReturnToNow}
         />
         <TimeNavigationButton
+          accessibilityLabel={`${conditionsVisible ? 'Hide' : 'Show'} shooting conditions`}
+          icon="conditions"
+          onPress={() => setConditionsVisible((current) => !current)}
+        />
+        <TimeNavigationButton
           accessibilityLabel="Next day"
           icon="nextDay"
           onPress={onNextDay}
         />
       </View>
-      <Pressable
-        accessibilityLabel={`${conditionsVisible ? 'Hide' : 'Show'} shooting conditions`}
-        accessibilityRole="button"
-        onPress={() => setConditionsVisible((current) => !current)}
-        style={({ pressed }) => [
-          styles.conditionButton,
-          pressed && styles.pressed,
-        ]}
-      >
-        <AppText style={styles.conditionText}>{condition}</AppText>
-      </Pressable>
       {conditionsVisible && moonConditions ? (
         <View style={styles.conditionsPanel}>
           <MoonPhaseIcon phaseDegrees={moonConditions.phaseDegrees} />
@@ -622,30 +615,26 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   calendarTitle: { fontWeight: '800' },
-  conditionButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: layout.minimumTouchTarget,
-  },
-  conditionText: {
-    color: colors.mutedText,
-    fontSize: 12,
-    textDecorationLine: 'underline',
-  },
   conditionsPanel: {
     alignItems: 'center',
     backgroundColor: colors.surfaceRaised,
     borderRadius: layout.controlRadius,
     flexDirection: 'row',
-    gap: 8,
-    padding: 10,
+    gap: 6,
+    padding: 8,
   },
   conditionsSummary: { flex: 1 },
   conditionsTitle: { fontWeight: '800' },
   dateTimeButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: layout.minimumTouchTarget,
+    minHeight: 36,
+  },
+  dateTimeContent: {
+    alignItems: 'baseline',
+    flexDirection: 'row',
+    gap: 4,
+    justifyContent: 'center',
   },
   darknessMarker: {
     alignItems: 'flex-start',
@@ -663,9 +652,10 @@ const styles = StyleSheet.create({
   markerTick: { backgroundColor: colors.mutedText, height: 5, width: 1 },
   moonEvent: { fontSize: 11, textAlign: 'right' },
   moonEvents: { gap: 2 },
+  inlineCondition: { color: colors.mutedText, fontSize: 12 },
   pressed: { opacity: 0.68 },
   selectedCalendarDay: { backgroundColor: colors.primaryPressed },
-  sliderField: { gap: 2 },
+  sliderField: { gap: 0 },
   sliderThumb: {
     backgroundColor: colors.text,
     borderColor: colors.primary,
@@ -689,19 +679,19 @@ const styles = StyleSheet.create({
   },
   timeNavigationButton: {
     alignItems: 'center',
-    height: layout.minimumTouchTarget,
+    height: 36,
     justifyContent: 'center',
-    width: layout.minimumTouchTarget,
+    width: 36,
   },
   timeNavigationRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 24,
+    gap: 8,
     justifyContent: 'center',
   },
   timeValue: {
     color: colors.primary,
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '800',
     textAlign: 'center',
   },

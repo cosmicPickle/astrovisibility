@@ -3,6 +3,7 @@ import { Circle, Path, Svg } from 'react-native-svg';
 import { colors } from '../../theme/tokens';
 
 export type AppIconName =
+  | 'conditions'
   | 'eye'
   | 'info'
   | 'nextDay'
@@ -30,7 +31,16 @@ export const AppIcon = ({
     viewBox="0 0 24 24"
     width={size}
   >
-    {name === 'eye' ? (
+    {name === 'conditions' ? (
+      <>
+        <Path d="M4 6h6m4 0h6" />
+        <Circle cx="12" cy="6" r="2" />
+        <Path d="M4 12h10m4 0h2" />
+        <Circle cx="16" cy="12" r="2" />
+        <Path d="M4 18h3m4 0h9" />
+        <Circle cx="9" cy="18" r="2" />
+      </>
+    ) : name === 'eye' ? (
       <>
         <Path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" />
         <Circle cx="12" cy="12" r="3" />
