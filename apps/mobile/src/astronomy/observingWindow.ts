@@ -17,6 +17,8 @@ import {
 
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 const NO_ASTRONOMICAL_DARKNESS = 'No astronomical darkness';
+const MINUTES_PER_DAY = 24 * 60;
+const NOON_MINUTE_OF_DAY = 12 * 60;
 
 const resolveOrdinaryBoundary = (
   resolution: LocalCivilTimeResolution,
@@ -37,43 +39,145 @@ export const createDateObservingWindow = (input: {
   civilDate: LocalCivilDate;
   timeZoneId: string;
 }): ObservingWindow => {
-  let resolution = resolveLocalCivilDateTime(
-    { ...input.civilDate, hour: 0, minute: 0 },
-    input.timeZoneId,
+  const followingDate = addDaysToLocalDate(input.civilDate, 1);
+  const startTimestampUtc = resolveOrdinaryBoundary(
+    resolveLocalCivilDateTime(
+      { ...input.civilDate, hour: 12, minute: 0 },
+      input.timeZoneId,
+    ),
+    'earlier',
   );
-  if (resolution.kind === 'gap') {
-    for (
-      let minute = 1;
-      minute < 180 && resolution.kind === 'gap';
-      minute += 1
-    ) {
-      resolution = resolveLocalCivilDateTime(
-        {
-          ...input.civilDate,
-          hour: Math.floor(minute / 60),
-          minute: minute % 60,
-        },
-        input.timeZoneId,
-      );
-    }
-  }
-  if (resolution.kind === 'gap') {
-    throw new Error('Selected local date has no resolvable start');
-  }
-  const startTimestampUtc =
-    resolution.kind === 'unique'
-      ? resolution.timestampUtc
-      : resolution.earlierTimestampUtc;
+  const endTimestampUtc = resolveOrdinaryBoundary(
+    resolveLocalCivilDateTime(
+      { ...followingDate, hour: 12, minute: 0 },
+      input.timeZoneId,
+    ),
+    'later',
+  );
   return {
     kind: 'day',
     startTimestampUtc,
-    endTimestampUtc: new Date(
-      Date.parse(startTimestampUtc) + MILLISECONDS_PER_DAY,
-    ).toISOString(),
+    endTimestampUtc,
     note: null,
     warnings: [],
   };
 };
+
+export const getNoonCenteredObservingDate = (
+  timestampUtc: string,
+  timeZoneId: string,
+): LocalCivilDate => {
+  const local = localCivilDateTimeAtInstant(timestampUtc, timeZoneId);
+  const localDate = { year: local.year, month: local.month, day: local.day };
+  return local.hour < 12 ? addDaysToLocalDate(localDate, -1) : localDate;
+};
+
+const dateKey = (date: LocalCivilDate) =>
+  Date.UTC(date.year, date.month - 1, date.day);
+
+export const getNoonCenteredSliderMinute = (input: {
+  civilDate: LocalCivilDate;
+  timestampUtc: string;
+  timeZoneId: string;
+}): number => {
+  const local = localCivilDateTimeAtInstant(
+    input.timestampUtc,
+    input.timeZoneId,
+  );
+  const localDate = { year: local.year, month: local.month, day: local.day };
+  const dayOffset = Math.round(
+    (dateKey(localDate) - dateKey(input.civilDate)) / MILLISECONDS_PER_DAY,
+  );
+  const minuteOfTrack =
+    dayOffset * MINUTES_PER_DAY +
+    local.hour * 60 +
+    local.minute -
+    NOON_MINUTE_OF_DAY;
+  if (minuteOfTrack < 0 || minuteOfTrack >= MINUTES_PER_DAY) {
+    throw new RangeError('Timestamp is outside the noon-centred observing day');
+  }
+  return minuteOfTrack;
+};
+
+const resolveForwardFromGap = (
+  local: LocalCivilDate & { hour: number; minute: number },
+  timeZoneId: string,
+): string => {
+  let candidate = local;
+  for (let skippedMinutes = 0; skippedMinutes <= 180; skippedMinutes += 1) {
+    const resolution = resolveLocalCivilDateTime(candidate, timeZoneId);
+    if (resolution.kind === 'unique') return resolution.timestampUtc;
+    if (resolution.kind === 'ambiguous') {
+      return resolution.earlierTimestampUtc;
+    }
+    const normalized = new Date(
+      Date.UTC(
+        candidate.year,
+        candidate.month - 1,
+        candidate.day,
+        candidate.hour,
+        candidate.minute + 1,
+      ),
+    );
+    candidate = {
+      year: normalized.getUTCFullYear(),
+      month: normalized.getUTCMonth() + 1,
+      day: normalized.getUTCDate(),
+      hour: normalized.getUTCHours(),
+      minute: normalized.getUTCMinutes(),
+    };
+  }
+  throw new Error('Slider time could not be resolved after a civil-time gap');
+};
+
+export const resolveNoonCenteredSliderTimestamp = (input: {
+  civilDate: LocalCivilDate;
+  minuteOfTrack: number;
+  timeZoneId: string;
+}): string => {
+  if (
+    !Number.isInteger(input.minuteOfTrack) ||
+    input.minuteOfTrack < 0 ||
+    input.minuteOfTrack >= MINUTES_PER_DAY
+  ) {
+    throw new RangeError(
+      'minuteOfTrack must be an integer from 0 through 1439',
+    );
+  }
+  const normalized = new Date(
+    Date.UTC(
+      input.civilDate.year,
+      input.civilDate.month - 1,
+      input.civilDate.day,
+      12,
+      input.minuteOfTrack,
+    ),
+  );
+  return resolveForwardFromGap(
+    {
+      year: normalized.getUTCFullYear(),
+      month: normalized.getUTCMonth() + 1,
+      day: normalized.getUTCDate(),
+      hour: normalized.getUTCHours(),
+      minute: normalized.getUTCMinutes(),
+    },
+    input.timeZoneId,
+  );
+};
+
+export const clampNoonCenteredTrackEndTimestamp = (input: {
+  civilDate: LocalCivilDate;
+  timeZoneId: string;
+  timestampUtc: string;
+  windowEndTimestampUtc: string;
+}): string =>
+  input.timestampUtc === input.windowEndTimestampUtc
+    ? resolveNoonCenteredSliderTimestamp({
+        civilDate: input.civilDate,
+        minuteOfTrack: MINUTES_PER_DAY - 1,
+        timeZoneId: input.timeZoneId,
+      })
+    : input.timestampUtc;
 
 const findBoundedEvent = (
   search: (start: Date, limitDays: number) => { date: Date } | null,

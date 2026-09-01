@@ -103,6 +103,26 @@ describe('equatorialJ2000ToHorizontal', () => {
 });
 
 describe('window-optimized horizontal projection', () => {
+  it('accepts a 25-hour noon window across a fall daylight-saving transition', () => {
+    expect(() =>
+      createWindowHorizontalProjector({
+        observer: {
+          latitudeDegreesNorth: 42.7,
+          longitudeDegreesEast: 23.3,
+          elevationMetersAboveMeanSeaLevel: 550,
+        },
+        target: {
+          rightAscensionJ2000Hours: 2,
+          declinationJ2000Degrees: 40,
+        },
+        window: {
+          startTimestampUtc: '2026-10-24T09:00:00.000Z',
+          endTimestampUtc: '2026-10-25T10:00:00.000Z',
+        },
+      }),
+    ).not.toThrow();
+  });
+
   it('matches the authoritative adapter across a twelve-hour observing window', () => {
     const observer = {
       latitudeDegreesNorth: 42.7,

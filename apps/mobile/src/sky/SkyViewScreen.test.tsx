@@ -608,7 +608,8 @@ describe('SkyViewScreen', () => {
     await waitFor(() => screen.getByText(profile.name));
     await fireEvent.press(screen.getByLabelText('Sky time'));
     expect(screen.getByText('Observing window')).toBeTruthy();
-    expect(screen.getByText('Tonight')).toBeTruthy();
+    expect(screen.getByLabelText('Show shooting conditions')).toBeTruthy();
+    expect(screen.queryByText('Tonight')).toBeNull();
     await fireEvent.press(screen.getByLabelText('Close time sheet'));
     await fireEvent.press(screen.getByLabelText('Profile menu'));
     await fireEvent.press(screen.getByText('Capture panorama'));
@@ -985,7 +986,11 @@ describe('SkyViewScreen', () => {
       },
     );
 
-    await waitFor(() => screen.getByText('23:15'));
+    await waitFor(() =>
+      expect(
+        screen.getByLabelText('Time of day').props.accessibilityValue.text,
+      ).toContain('23:15'),
+    );
     expect(skyController.load).toHaveBeenCalledTimes(1);
   });
 });

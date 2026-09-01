@@ -11,6 +11,7 @@ import type { VisibilityInterval } from './trajectory';
 
 const ASTRONOMICAL_DARKNESS_ALTITUDE_DEGREES = -18;
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
+const MAXIMUM_NOON_WINDOW_MILLISECONDS = 25 * 60 * 60 * 1000;
 
 const parseWindow = (window: {
   startTimestampUtc: string;
@@ -28,10 +29,10 @@ const parseWindow = (window: {
   }
   if (
     endMilliseconds <= startMilliseconds ||
-    endMilliseconds - startMilliseconds > MILLISECONDS_PER_DAY
+    endMilliseconds - startMilliseconds > MAXIMUM_NOON_WINDOW_MILLISECONDS
   ) {
     throw new RangeError(
-      'Darkness window must be greater than 0 and at most 24 hours.',
+      'Darkness window must be greater than 0 and at most 25 hours.',
     );
   }
   return { startMilliseconds, endMilliseconds };

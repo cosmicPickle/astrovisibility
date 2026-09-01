@@ -48,6 +48,15 @@ describe('astronomical darkness', () => {
     ).toEqual([]);
   });
 
+  it('accepts a 25-hour noon window across a fall daylight-saving transition', () => {
+    expect(() =>
+      createAstronomicalDarknessIntervals(sofiaObserver, {
+        startTimestampUtc: '2026-10-24T09:00:00.000Z',
+        endTimestampUtc: '2026-10-25T10:00:00.000Z',
+      }),
+    ).not.toThrow();
+  });
+
   it('intersects multiple visibility and darkness intervals without joining gaps', () => {
     const visibility = [
       interval('2026-01-01T00:00:00.000Z', '2026-01-01T01:00:00.000Z'),

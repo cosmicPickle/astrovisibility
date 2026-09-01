@@ -79,6 +79,25 @@ const linearProjector =
   };
 
 describe('obstruction-aware trajectory classification', () => {
+  it('accepts a 25-hour noon window across a fall daylight-saving transition', async () => {
+    await expect(
+      calculateObstructionAwareTrajectory(
+        baseInput({
+          window: {
+            startTimestampUtc: '2026-10-24T09:00:00.000Z',
+            endTimestampUtc: '2026-10-25T10:00:00.000Z',
+          },
+        }),
+        {
+          projectAt: () => ({
+            azimuthDegreesClockwiseFromNorth: 355,
+            refractedAltitudeDegrees: 20,
+          }),
+        },
+      ),
+    ).resolves.toBeDefined();
+  });
+
   it('produces the same ranked-list interval summary without render allocations', async () => {
     const input = baseInput();
     const projectAt = linearProjector(352, 368);

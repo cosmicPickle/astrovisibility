@@ -12,6 +12,23 @@ const sofiaObserver = {
 };
 
 describe('selected-target trajectory', () => {
+  it('accepts a 25-hour noon window across a fall daylight-saving transition', () => {
+    expect(() =>
+      createSelectedTargetTrajectory({
+        target: {
+          rightAscensionJ2000Hours: 2,
+          declinationJ2000Degrees: 40,
+        },
+        observer: sofiaObserver,
+        timeZoneId: 'Europe/Sofia',
+        window: {
+          startTimestampUtc: '2026-10-24T09:00:00.000Z',
+          endTimestampUtc: '2026-10-25T10:00:00.000Z',
+        },
+      }),
+    ).not.toThrow();
+  });
+
   it('samples exact one-minute render instants, includes the end, and never claims visibility without a mask', () => {
     const result = createSelectedTargetTrajectory({
       target: {

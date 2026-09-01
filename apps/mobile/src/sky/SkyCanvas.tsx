@@ -32,6 +32,7 @@ import {
   selectRegisteredConstellationLabels,
   selectRegisteredDsoImages,
   selectRegisteredStarBatches,
+  selectVisibleRegisteredConstellations,
   type RegisteredDsoImage,
   type RegisteredSkyProjection,
 } from './registeredSkyProjection';
@@ -98,6 +99,8 @@ export const SkyCanvas = ({
   const [residentCameraState, setResidentCameraState] =
     useState(initialCameraState);
   const [labelCameraState, setLabelCameraState] = useState(initialCameraState);
+  const [constellationCameraState, setConstellationCameraState] =
+    useState(initialCameraState);
   const catalogueIndex = useMemo(
     () => buildPlanetariumCatalogueIndex(targets),
     [targets],
@@ -151,14 +154,30 @@ export const SkyCanvas = ({
       ),
     [canvas, registeredSky.stars, residentCameraState],
   );
+  const visibleRegisteredConstellations = useMemo(
+    () =>
+      selectVisibleRegisteredConstellations(
+        registeredSky.constellations,
+        constellationCameraState,
+        canvas,
+      ),
+    [canvas, constellationCameraState, registeredSky.constellations],
+  );
   const constellationLabels = useMemo(
     () =>
       selectRegisteredConstellationLabels(
-        registeredSky.constellations,
+        visibleRegisteredConstellations,
         labelCameraState,
         canvas,
       ),
-    [canvas, labelCameraState, registeredSky.constellations],
+    [canvas, labelCameraState, visibleRegisteredConstellations],
+  );
+  const visibleRegisteredSky = useMemo(
+    () => ({
+      ...registeredSky,
+      constellations: visibleRegisteredConstellations,
+    }),
+    [registeredSky, visibleRegisteredConstellations],
   );
   const visibleRegisteredDsoImages = useMemo(
     () =>
@@ -264,6 +283,7 @@ export const SkyCanvas = ({
         : anchorCamera,
     );
     setLabelCameraState(camera);
+    setConstellationCameraState(camera);
   }, []);
   const handleCameraPreview = useCallback((camera: PlanetariumCamera) => {
     setResidentCameraState((anchorCamera) =>
@@ -271,6 +291,7 @@ export const SkyCanvas = ({
         ? camera
         : anchorCamera,
     );
+    setConstellationCameraState(camera);
   }, []);
   const navigation = usePlanetariumNavigation({
     cameraState: initialCameraState,
@@ -321,7 +342,7 @@ export const SkyCanvas = ({
             panoramaOpacity={(maskPresentation?.opacityPercent ?? 0) / 100}
             panoramaImage={maskPresentation?.panorama}
             panoramaTiles={maskPresentation?.panorama?.tiles ?? []}
-            registeredSky={registeredSky}
+            registeredSky={visibleRegisteredSky}
             registeredStarBatches={registeredStarBatches}
             constellationLabels={constellationLabels}
             constellationOpacity={constellationOpacityPercent / 100}

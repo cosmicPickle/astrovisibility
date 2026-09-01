@@ -4,6 +4,7 @@ import {
   getRegisteredDsoImageOpacity,
   getRegisteredStarBatchOpacity,
   selectRegisteredConstellationLabels,
+  selectVisibleRegisteredConstellations,
   selectRegisteredDsoImages,
   selectRegisteredStarBatches,
 } from './registeredSkyProjection';
@@ -264,5 +265,67 @@ describe('constellation label layout', () => {
     );
 
     expect(labels).toEqual([]);
+  });
+});
+
+describe('constellation figure culling', () => {
+  const camera = createPlanetariumCamera({
+    centerAltitudeDegrees: 30,
+    centerAzimuthDegrees: 0,
+    fieldOfViewDegrees: 100,
+  });
+  const canvas = { heightPixels: 400, widthPixels: 400 };
+  const constellation = (
+    id: string,
+    lines: { altitudeDegrees: number; azimuthDegrees: number }[][],
+  ) => ({
+    id,
+    label: { altitudeDegrees: 30, azimuthDegrees: 0 },
+    lines,
+    name: id,
+    rank: 1,
+  });
+
+  it('keeps only complete figures whose projected bounds cover ten percent', () => {
+    const large = constellation('large', [
+      [
+        { altitudeDegrees: 5, azimuthDegrees: 330 },
+        { altitudeDegrees: 55, azimuthDegrees: 30 },
+      ],
+      [
+        { altitudeDegrees: 55, azimuthDegrees: 330 },
+        { altitudeDegrees: 5, azimuthDegrees: 30 },
+      ],
+    ]);
+    const small = constellation('small', [
+      [
+        { altitudeDegrees: 29, azimuthDegrees: 359 },
+        { altitudeDegrees: 31, azimuthDegrees: 1 },
+      ],
+    ]);
+    const clipped = constellation('clipped', [
+      [
+        { altitudeDegrees: 5, azimuthDegrees: 330 },
+        { altitudeDegrees: 30, azimuthDegrees: 120 },
+      ],
+    ]);
+
+    expect(
+      selectVisibleRegisteredConstellations(
+        [small, clipped, large],
+        camera,
+        canvas,
+      ).map(({ id }) => id),
+    ).toEqual(['large']);
+  });
+
+  it('never mounts an empty constellation figure', () => {
+    expect(
+      selectVisibleRegisteredConstellations(
+        [constellation('empty', [])],
+        camera,
+        canvas,
+      ),
+    ).toEqual([]);
   });
 });

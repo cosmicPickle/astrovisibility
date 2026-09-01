@@ -265,7 +265,7 @@ const SIDEREAL_HOURS_PER_UTC_DAY = 24.06570982441908;
 
 /**
  * Creates a fast projector for repeated samples of one fixed catalogue target
- * over a window no longer than 24 hours. Precession/nutation is evaluated at
+ * over a window no longer than 25 elapsed hours. Precession/nutation is evaluated at
  * the window midpoint, then Earth rotation is advanced at the sidereal rate.
  * The approximation is fixture-tested against the authoritative adapter and
  * retains Astronomy Engine's normal-refraction model.
@@ -281,9 +281,9 @@ const createWindowHorizontalProjectorAtMillisecondsInternal = (input: {
   const startDate = parseUtcInstant(input.window.startTimestampUtc);
   const endDate = parseUtcInstant(input.window.endTimestampUtc);
   const durationMilliseconds = endDate.getTime() - startDate.getTime();
-  if (durationMilliseconds <= 0 || durationMilliseconds > 24 * 60 * 60 * 1000) {
+  if (durationMilliseconds <= 0 || durationMilliseconds > 25 * 60 * 60 * 1000) {
     throw new RangeError(
-      'Horizontal projection window must be greater than 0 and at most 24 hours.',
+      'Horizontal projection window must be greater than 0 and at most 25 hours.',
     );
   }
   assertFiniteRange(

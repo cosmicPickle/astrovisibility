@@ -68,7 +68,7 @@ export interface SelectedTargetTrajectory {
 // One minute bounds a sidereal track step to about 0.25 degrees.
 const RENDER_SAMPLE_MILLISECONDS = 60 * 1000;
 const TRANSITION_TOLERANCE_MILLISECONDS = 30 * 1000;
-const MAXIMUM_WINDOW_MILLISECONDS = 24 * 60 * 60 * 1000;
+const MAXIMUM_WINDOW_MILLISECONDS = 25 * 60 * 60 * 1000;
 
 const parseWindow = (window: {
   startTimestampUtc: string;
@@ -90,7 +90,7 @@ const parseWindow = (window: {
     durationMilliseconds > MAXIMUM_WINDOW_MILLISECONDS
   ) {
     throw new RangeError(
-      'Observing window must be greater than 0 and at most 24 hours',
+      'Observing window must be greater than 0 and at most 25 hours',
     );
   }
   return { startMilliseconds, endMilliseconds };

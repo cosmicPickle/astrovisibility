@@ -28,17 +28,17 @@ import {
   type VisibilityCalculationCache,
   type VisibilityCalculationOptions,
 } from '../astronomy/obstructionVisibility';
-import {
-  localCivilDateTimeAtInstant,
-  type ObservingWindow,
-} from '../astronomy/localCivilTime';
+import type { ObservingWindow } from '../astronomy/localCivilTime';
 import {
   formatAboveHorizonIntervals,
   formatDuration,
   formatObservingWindowRange,
   formatSceneControlLabel,
 } from '../astronomy/observingWindowPresentation';
-import { createDateObservingWindow } from '../astronomy/observingWindow';
+import {
+  createDateObservingWindow,
+  getNoonCenteredObservingDate,
+} from '../astronomy/observingWindow';
 import {
   createTargetDiurnalOrbit,
   type TargetDiurnalOrbit,
@@ -214,7 +214,7 @@ const aliasesFor = (target: CatalogueTarget) =>
 
 const createDefaultObservingWindow = (data: SkyViewData) => {
   return createDateObservingWindow({
-    civilDate: localCivilDateTimeAtInstant(
+    civilDate: getNoonCenteredObservingDate(
       data.timestampUtc,
       data.profile.timeZoneId,
     ),

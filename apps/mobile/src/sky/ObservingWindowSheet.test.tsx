@@ -3,6 +3,7 @@ import { PanResponder, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { createDateObservingWindow } from '../astronomy/observingWindow';
+import { createAstronomicalDarknessSpan } from '../astronomy/observingConditions';
 import { ObservingWindowSheet } from './ObservingWindowSheet';
 
 const window = createDateObservingWindow({
@@ -28,7 +29,23 @@ afterAll(() => {
   jest.restoreAllMocks();
 });
 
-const renderSheet = async (onChange = jest.fn()) => ({
+const observer = {
+  latitudeDegreesNorth: 42.7,
+  longitudeDegreesEast: 23.3,
+  elevationMetersAboveMeanSeaLevel: 550,
+};
+
+const renderSheet = async ({
+  clock = () => '2026-08-20T10:15:00.000Z',
+  onChange = jest.fn(),
+  sceneTimestampUtc = '2026-08-21T21:00:00.000Z',
+  selectedWindow = window,
+}: {
+  clock?: () => string;
+  onChange?: jest.Mock;
+  sceneTimestampUtc?: string;
+  selectedWindow?: typeof window;
+} = {}) => ({
   onChange,
   screen: await render(
     <SafeAreaProvider
@@ -38,31 +55,29 @@ const renderSheet = async (onChange = jest.fn()) => ({
       }}
     >
       <ObservingWindowSheet
-        clock={() => '2026-08-20T10:15:00.000Z'}
-        observer={{
-          latitudeDegreesNorth: 42.7,
-          longitudeDegreesEast: 23.3,
-          elevationMetersAboveMeanSeaLevel: 550,
-        }}
+        clock={clock}
+        observer={observer}
         onChange={onChange}
         onClose={jest.fn()}
-        sceneTimestampUtc="2026-08-21T09:00:00.000Z"
+        sceneTimestampUtc={sceneTimestampUtc}
         timeZoneId="Europe/Sofia"
         visible
-        window={window}
+        window={selectedWindow}
       />
     </SafeAreaProvider>,
   ),
 });
 
 describe('ObservingWindowSheet', () => {
-  it('offers one selected day, a live time slider, Now and Tonight without interval modes', async () => {
+  it('offers a noon-centred slider, rollback, and shooting conditions without quick-action buttons', async () => {
     const { screen } = await renderSheet();
 
     expect(screen.getByLabelText('Choose observing date')).toBeTruthy();
     expect(screen.getByLabelText('Time of day')).toBeTruthy();
-    expect(screen.getByText('Now')).toBeTruthy();
-    expect(screen.getByText('Tonight')).toBeTruthy();
+    expect(screen.getByLabelText('Return to current time')).toBeTruthy();
+    expect(screen.getByLabelText('Show shooting conditions')).toBeTruthy();
+    expect(screen.queryByText('Now')).toBeNull();
+    expect(screen.queryByText('Tonight')).toBeNull();
     expect(screen.queryByText('Custom interval')).toBeNull();
     expect(screen.queryByLabelText('Start date')).toBeNull();
     expect(screen.queryByText(/Browse one 24-hour sky day/)).toBeNull();
@@ -72,7 +87,7 @@ describe('ObservingWindowSheet', () => {
 
   it('moves smoothly during a drag and updates the atlas only when released', async () => {
     const onChange = jest.fn();
-    const { screen } = await renderSheet(onChange);
+    const { screen } = await renderSheet({ onChange });
     const slider = screen.getByLabelText('Time of day');
 
     await act(async () => {
@@ -85,7 +100,7 @@ describe('ObservingWindowSheet', () => {
     });
 
     expect(onChange).not.toHaveBeenCalled();
-    expect(screen.getByText('18:00')).toBeTruthy();
+    expect(screen.getByText(/06:00/)).toBeTruthy();
 
     await act(async () => {
       screen
@@ -95,14 +110,14 @@ describe('ObservingWindowSheet', () => {
 
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenLastCalledWith({
-      sceneTimestampUtc: '2026-08-21T15:00:00.000Z',
+      sceneTimestampUtc: '2026-08-22T03:00:00.000Z',
       window,
     });
   });
 
   it('does not jump to midnight when a drag reverses direction', async () => {
     const onChange = jest.fn();
-    const { screen } = await renderSheet(onChange);
+    const { screen } = await renderSheet({ onChange });
     const slider = screen.getByLabelText('Time of day');
 
     await act(async () => {
@@ -115,7 +130,7 @@ describe('ObservingWindowSheet', () => {
       measuredSlider.props.onResponderMove({}, { dx: -10 });
     });
 
-    expect(screen.getByText('11:00')).toBeTruthy();
+    expect(screen.getByText(/23:00/)).toBeTruthy();
     expect(onChange).not.toHaveBeenCalled();
   });
 
@@ -127,53 +142,111 @@ describe('ObservingWindowSheet', () => {
 
     expect(style.top).toBe('50%');
     expect(style.transform).toEqual([{ translateY: -11 }]);
+    expect(
+      StyleSheet.flatten(screen.getByTestId('time-slider-track').props.style)
+        .height,
+    ).toBe(12);
   });
 
   it('supports accessible 15-minute steps without a drag', async () => {
     const onChange = jest.fn();
-    const { screen } = await renderSheet(onChange);
+    const { screen } = await renderSheet({ onChange });
 
     fireEvent(screen.getByLabelText('Time of day'), 'accessibilityAction', {
       nativeEvent: { actionName: 'increment' },
     });
 
     expect(onChange).toHaveBeenLastCalledWith({
-      sceneTimestampUtc: '2026-08-21T09:15:00.000Z',
+      sceneTimestampUtc: '2026-08-21T21:15:00.000Z',
       window,
     });
   });
 
   it('changes the date through a calendar while preserving time of day', async () => {
     const onChange = jest.fn();
-    const { screen } = await renderSheet(onChange);
+    const { screen } = await renderSheet({ onChange });
 
     fireEvent.press(screen.getByLabelText('Choose observing date'));
     await waitFor(() => screen.getByLabelText('Choose 22 August 2026'));
     fireEvent.press(screen.getByLabelText('Choose 22 August 2026'));
 
     expect(onChange).toHaveBeenLastCalledWith({
-      sceneTimestampUtc: '2026-08-22T09:00:00.000Z',
+      sceneTimestampUtc: '2026-08-22T21:00:00.000Z',
       window: expect.objectContaining({
         kind: 'day',
-        startTimestampUtc: '2026-08-21T21:00:00.000Z',
-        endTimestampUtc: '2026-08-22T21:00:00.000Z',
+        startTimestampUtc: '2026-08-22T09:00:00.000Z',
+        endTimestampUtc: '2026-08-23T09:00:00.000Z',
       }),
     });
   });
 
-  it('reads the system clock when Now is pressed rather than caching sheet-open time', async () => {
+  it('reads the system clock when rollback is pressed and selects its owning observing date', async () => {
     const onChange = jest.fn();
-    const { screen } = await renderSheet(onChange);
+    const { screen } = await renderSheet({ onChange });
 
-    fireEvent.press(screen.getByText('Now'));
+    fireEvent.press(screen.getByLabelText('Return to current time'));
 
     expect(onChange).toHaveBeenLastCalledWith({
       sceneTimestampUtc: '2026-08-20T10:15:00.000Z',
       window: expect.objectContaining({
         kind: 'day',
-        startTimestampUtc: '2026-08-19T21:00:00.000Z',
-        endTimestampUtc: '2026-08-20T21:00:00.000Z',
+        startTimestampUtc: '2026-08-20T09:00:00.000Z',
+        endTimestampUtc: '2026-08-21T09:00:00.000Z',
       }),
     });
+  });
+
+  it('positions clickable astronomical darkness bounds under the track', async () => {
+    const onChange = jest.fn();
+    const { screen } = await renderSheet({ onChange });
+    const darkness = createAstronomicalDarknessSpan(observer, window);
+    if (darkness.kind !== 'bounded') throw new Error('Expected darkness');
+
+    fireEvent.press(screen.getByLabelText(/Set time to darkness start/));
+
+    expect(onChange).toHaveBeenLastCalledWith({
+      sceneTimestampUtc: darkness.startTimestampUtc,
+      window,
+    });
+    expect(screen.getByLabelText(/Set time to darkness end/)).toBeTruthy();
+  });
+
+  it('normalizes a pre-existing midnight day window to the noon-centred day', async () => {
+    const legacyWindow = {
+      kind: 'day' as const,
+      startTimestampUtc: '2026-08-30T21:00:00.000Z',
+      endTimestampUtc: '2026-08-31T21:00:00.000Z',
+      note: null,
+      warnings: [],
+    };
+
+    const { screen } = await renderSheet({
+      sceneTimestampUtc: '2026-09-01T07:00:00.000Z',
+      selectedWindow: legacyWindow,
+    });
+
+    expect(screen.getByLabelText(/Set time to darkness start/)).toBeTruthy();
+    expect(screen.getByLabelText(/Set time to darkness end/)).toBeTruthy();
+  });
+
+  it('reveals current moon phase, fullness, rise, and set conditions', async () => {
+    const selectedWindow = createDateObservingWindow({
+      civilDate: { year: 2026, month: 5, day: 1 },
+      timeZoneId: 'Europe/Sofia',
+    });
+    const { screen } = await renderSheet({
+      sceneTimestampUtc: '2026-05-01T21:00:00.000Z',
+      selectedWindow,
+    });
+
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Show shooting conditions'));
+    });
+
+    await waitFor(() => screen.getByText('Full Moon'));
+    expect(screen.getByText(/% illuminated/)).toBeTruthy();
+    expect(screen.getByText(/Moonrise/)).toBeTruthy();
+    expect(screen.getByText(/Moonset/)).toBeTruthy();
+    expect(screen.getByLabelText('Hide shooting conditions')).toBeTruthy();
   });
 });

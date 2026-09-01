@@ -34,7 +34,7 @@ const COARSE_STEP_MILLISECONDS = 5 * 60 * 1000;
 const SUMMARY_COARSE_STEP_MILLISECONDS = 15 * 60 * 1000;
 const TRANSITION_TOLERANCE_MILLISECONDS = 30 * 1000;
 const SPATIAL_TOLERANCE_DEGREES = 0.05;
-const MAXIMUM_WINDOW_MILLISECONDS = 24 * 60 * 60 * 1000;
+const MAXIMUM_WINDOW_MILLISECONDS = 25 * 60 * 60 * 1000;
 const MAXIMUM_REFINED_SAMPLES = 100_000;
 const DEFAULT_YIELD_EVERY_SAMPLES = 128;
 
@@ -114,7 +114,7 @@ function parseWindow(window: ObstructionVisibilityInput['window']) {
     durationMilliseconds > MAXIMUM_WINDOW_MILLISECONDS
   ) {
     throw new RangeError(
-      'Observing window must be greater than 0 and at most 24 hours.',
+      'Observing window must be greater than 0 and at most 25 hours.',
     );
   }
   return { startMilliseconds, endMilliseconds };

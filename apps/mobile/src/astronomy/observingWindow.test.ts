@@ -1,7 +1,11 @@
 import {
+  clampNoonCenteredTrackEndTimestamp,
   createDateObservingWindow,
   createDefaultObservingContext,
   createTonightObservingWindow,
+  getNoonCenteredObservingDate,
+  getNoonCenteredSliderMinute,
+  resolveNoonCenteredSliderTimestamp,
 } from './observingWindow';
 
 const sofiaObserver = {
@@ -75,24 +79,90 @@ describe('Tonight observing window', () => {
 });
 
 describe('fixed selected-date observing window', () => {
-  it('starts at local midnight and always spans exactly 24 elapsed hours', () => {
+  it('runs from local noon to following local noon with midnight centred', () => {
     const ordinary = createDateObservingWindow({
       civilDate: { year: 2026, month: 8, day: 21 },
       timeZoneId: 'Europe/Sofia',
     });
+
+    expect(ordinary.kind).toBe('day');
+    expect(ordinary.startTimestampUtc).toBe('2026-08-21T09:00:00.000Z');
+    expect(ordinary.endTimestampUtc).toBe('2026-08-22T09:00:00.000Z');
+    expect(
+      resolveNoonCenteredSliderTimestamp({
+        civilDate: { year: 2026, month: 8, day: 21 },
+        minuteOfTrack: 720,
+        timeZoneId: 'Europe/Sofia',
+      }),
+    ).toBe('2026-08-21T21:00:00.000Z');
+    expect(
+      resolveNoonCenteredSliderTimestamp({
+        civilDate: { year: 2026, month: 8, day: 21 },
+        minuteOfTrack: 1439,
+        timeZoneId: 'Europe/Sofia',
+      }),
+    ).toBe('2026-08-22T08:59:00.000Z');
+  });
+
+  it('keeps the civil slider centred while elapsed duration follows DST', () => {
     const springForward = createDateObservingWindow({
-      civilDate: { year: 2026, month: 3, day: 29 },
+      civilDate: { year: 2026, month: 3, day: 28 },
+      timeZoneId: 'Europe/Sofia',
+    });
+    const fallBack = createDateObservingWindow({
+      civilDate: { year: 2026, month: 10, day: 24 },
       timeZoneId: 'Europe/Sofia',
     });
 
-    expect(ordinary.kind).toBe('day');
-    expect(ordinary.startTimestampUtc).toBe('2026-08-20T21:00:00.000Z');
-    for (const window of [ordinary, springForward]) {
-      expect(
-        Date.parse(window.endTimestampUtc) -
-          Date.parse(window.startTimestampUtc),
-      ).toBe(24 * 60 * 60 * 1000);
-    }
+    expect(
+      Date.parse(springForward.endTimestampUtc) -
+        Date.parse(springForward.startTimestampUtc),
+    ).toBe(23 * 60 * 60 * 1000);
+    expect(
+      Date.parse(fallBack.endTimestampUtc) -
+        Date.parse(fallBack.startTimestampUtc),
+    ).toBe(25 * 60 * 60 * 1000);
+    expect(
+      resolveNoonCenteredSliderTimestamp({
+        civilDate: { year: 2026, month: 3, day: 28 },
+        minuteOfTrack: 930,
+        timeZoneId: 'Europe/Sofia',
+      }),
+    ).toBe('2026-03-29T01:00:00.000Z');
+    expect(
+      resolveNoonCenteredSliderTimestamp({
+        civilDate: { year: 2026, month: 10, day: 24 },
+        minuteOfTrack: 930,
+        timeZoneId: 'Europe/Sofia',
+      }),
+    ).toBe('2026-10-25T00:30:00.000Z');
+  });
+
+  it('clamps an exact day-end condition marker to the last selectable minute', () => {
+    expect(
+      clampNoonCenteredTrackEndTimestamp({
+        civilDate: { year: 2026, month: 8, day: 31 },
+        timestampUtc: '2026-09-01T09:00:00.000Z',
+        windowEndTimestampUtc: '2026-09-01T09:00:00.000Z',
+        timeZoneId: 'Europe/Kiev',
+      }),
+    ).toBe('2026-09-01T08:59:00.000Z');
+  });
+
+  it('assigns pre-noon instants to the previous observing date', () => {
+    expect(
+      getNoonCenteredObservingDate('2026-05-02T08:00:00.000Z', 'Europe/Sofia'),
+    ).toEqual({ year: 2026, month: 5, day: 1 });
+    expect(
+      getNoonCenteredObservingDate('2026-05-02T09:00:00.000Z', 'Europe/Sofia'),
+    ).toEqual({ year: 2026, month: 5, day: 2 });
+    expect(
+      getNoonCenteredSliderMinute({
+        civilDate: { year: 2026, month: 5, day: 1 },
+        timestampUtc: '2026-05-01T21:00:00.000Z',
+        timeZoneId: 'Europe/Sofia',
+      }),
+    ).toBe(720);
   });
 });
 

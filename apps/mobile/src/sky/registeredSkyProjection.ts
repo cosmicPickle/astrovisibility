@@ -88,6 +88,8 @@ export interface RegisteredDsoImageDefinition {
   targetId: string;
 }
 
+export const MINIMUM_CONSTELLATION_CANVAS_AREA_FRACTION = 0.1;
+
 const stars = starsJson as unknown as RegisteredStarRow[];
 const constellations = constellationsJson as RegisteredConstellation[];
 const equatorialAtlasTiles = createEquatorialAtlasTiles({
@@ -539,4 +541,38 @@ export const selectRegisteredConstellationLabels = (
     if (selected.length >= 18) break;
   }
   return selected;
+};
+
+export const selectVisibleRegisteredConstellations = (
+  projectedConstellations: readonly HorizontalRegisteredConstellation[],
+  camera: PlanetariumCamera,
+  canvas: CanvasSizePixels,
+): HorizontalRegisteredConstellation[] => {
+  const canvasAreaPixels = canvas.widthPixels * canvas.heightPixels;
+  if (canvasAreaPixels <= 0) return [];
+  return projectedConstellations.filter((constellation) => {
+    let pointCount = 0;
+    let minimumXPixels = Number.POSITIVE_INFINITY;
+    let maximumXPixels = Number.NEGATIVE_INFINITY;
+    let minimumYPixels = Number.POSITIVE_INFINITY;
+    let maximumYPixels = Number.NEGATIVE_INFINITY;
+    for (const line of constellation.lines) {
+      for (const direction of line) {
+        const point = projectHorizontalDirection(direction, camera, canvas);
+        if (!point.visible) return false;
+        pointCount += 1;
+        minimumXPixels = Math.min(minimumXPixels, point.xPixels);
+        maximumXPixels = Math.max(maximumXPixels, point.xPixels);
+        minimumYPixels = Math.min(minimumYPixels, point.yPixels);
+        maximumYPixels = Math.max(maximumYPixels, point.yPixels);
+      }
+    }
+    if (pointCount === 0) return false;
+    const widthPixels = maximumXPixels - minimumXPixels;
+    const heightPixels = maximumYPixels - minimumYPixels;
+    return (
+      (widthPixels * heightPixels) / canvasAreaPixels >=
+      MINIMUM_CONSTELLATION_CANVAS_AREA_FRACTION
+    );
+  });
 };
