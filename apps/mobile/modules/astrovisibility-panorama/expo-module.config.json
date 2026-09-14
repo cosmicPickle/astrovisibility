@@ -2,7 +2,8 @@
   "platforms": ["android"],
   "android": {
     "modules": [
-      "com.cosmicpickle.astrovisibility.panorama.AstrovisibilityPanoramaModule"
+      "com.cosmicpickle.astrovisibility.panorama.AstrovisibilityPanoramaModule",
+      "com.cosmicpickle.astrovisibility.panorama.MaskEditingModule"
     ]
   }
 }

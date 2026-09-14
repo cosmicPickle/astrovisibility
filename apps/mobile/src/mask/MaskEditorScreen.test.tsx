@@ -56,18 +56,15 @@ const renderWithSafeArea = (element: ReactElement) =>
 
 const TestCanvas = (props: MaskEditorCanvasProps) => (
   <View>
-    <Text testID="operation-count">{props.mask.operations.length}</Text>
+    <Text testID="mask-first-byte">{props.blockedBitset[0]}</Text>
     <Text testID="active-tool">{props.activeTool}</Text>
-    <Text testID="coverage">{JSON.stringify(props.mask.coveragePolygons)}</Text>
+    <Text testID="paint-mode">{props.paintMode}</Text>
     <Pressable
       accessibilityLabel="Test add stroke"
       onPress={() =>
-        props.onCommitStroke(
-          [
-            { azimuthDegrees: 15, altitudeDegrees: 20 },
-            { azimuthDegrees: 16, altitudeDegrees: 24 },
-          ],
-          0.5,
+        props.onCommitSelection(
+          new Uint8Array([6, 0, 0, 0, 0, 0, 0, 0]),
+          props.activeTool === 'blockedStroke',
         )
       }
     />
@@ -84,6 +81,34 @@ const controller = (): MaskEditorController => ({
 });
 
 describe('MaskEditorScreen', () => {
+  it('announces a failed save and retries with the same painted pixels', async () => {
+    const editorController = controller();
+    jest
+      .mocked(editorController.save)
+      .mockRejectedValueOnce(new Error('Synthetic storage failure'));
+    const onSaved = jest.fn();
+    const screen = await renderWithSafeArea(
+      <MaskEditorScreen
+        controller={editorController}
+        navigation={{ goBack: jest.fn(), onSaved }}
+        profileId="profile-1"
+        renderCanvas={TestCanvas}
+      />,
+    );
+    await waitFor(() => screen.getByText('Paint obstacles'));
+    await fireEvent.press(screen.getByLabelText('Test add stroke'));
+    await fireEvent.press(screen.getByText('Complete mask'));
+    await fireEvent.press(screen.getByText('Save binary mask'));
+    await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+    expect(onSaved).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByText('Save binary mask'));
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(
+      jest.mocked(editorController.save).mock.calls[1]![0].blockedBitset,
+    ).toEqual(
+      jest.mocked(editorController.save).mock.calls[0]![0].blockedBitset,
+    );
+  });
   it('starts with a visible coverage base and exposes only obstacle brush tools', async () => {
     const editorController = controller();
     const screen = await renderWithSafeArea(
@@ -98,10 +123,10 @@ describe('MaskEditorScreen', () => {
     expect(screen.getByTestId('active-tool').props.children).toBe(
       'blockedStroke',
     );
-    expect(screen.getByTestId('coverage').props.children).toBe('[]');
-    expect(screen.getByTestId('operation-count').props.children).toBe(0);
-    expect(screen.getByText('Draw')).toBeTruthy();
-    expect(screen.getByText('Erase')).toBeTruthy();
+    expect(screen.getByTestId('paint-mode').props.children).toBe('manual');
+    expect(screen.getByTestId('mask-first-byte').props.children).toBe(0);
+    expect(screen.getByLabelText('Draw')).toBeTruthy();
+    expect(screen.getByLabelText('Erase')).toBeTruthy();
     expect(screen.getByText(/Brush size/)).toBeTruthy();
     expect(screen.queryByText('Pan / zoom')).toBeNull();
     expect(screen.queryByText('Mark visible sky')).toBeNull();
@@ -111,10 +136,12 @@ describe('MaskEditorScreen', () => {
     expect(screen.queryByText('Before')).toBeNull();
 
     await fireEvent.press(screen.getByLabelText('Test add stroke'));
-    expect(screen.getByTestId('operation-count').props.children).toBe(1);
-    await fireEvent.press(screen.getByText('Erase'));
+    expect(screen.getByTestId('mask-first-byte').props.children).toBe(6);
+    await fireEvent.press(screen.getByLabelText('Magic painting'));
+    expect(screen.getByTestId('paint-mode').props.children).toBe('magic');
+    await fireEvent.press(screen.getByLabelText('Erase'));
     await fireEvent.press(screen.getByLabelText('Test add stroke'));
-    expect(screen.getByTestId('operation-count').props.children).toBe(2);
+    expect(screen.getByTestId('mask-first-byte').props.children).toBe(0);
   });
 
   it('can complete captured coverage without painting an obstacle', async () => {
@@ -143,7 +170,7 @@ describe('MaskEditorScreen', () => {
     expect(saved.blockedBitset).toBeInstanceOf(Uint8Array);
   });
 
-  it('loads an existing revision, applies ordered brush corrections, removes operations, and saves a new revision', async () => {
+  it('loads an existing revision, applies ordered draw and erase selections, and saves a new revision', async () => {
     const editorController = controller();
     editorController.load = jest.fn().mockResolvedValue({
       activeMask: {
@@ -174,13 +201,13 @@ describe('MaskEditorScreen', () => {
       />,
     );
     await waitFor(() => screen.getByText('Edit obstacle mask'));
-    expect(screen.getByTestId('operation-count').props.children).toBe(0);
-    await fireEvent.press(screen.getByText('Draw'));
+    expect(screen.getByTestId('mask-first-byte').props.children).toBe(0);
+    await fireEvent.press(screen.getByLabelText('Draw'));
     await fireEvent.press(screen.getByLabelText('Test add stroke'));
-    expect(screen.getByTestId('operation-count').props.children).toBe(1);
-    await fireEvent.press(screen.getByText('Erase'));
+    expect(screen.getByTestId('mask-first-byte').props.children).toBe(6);
+    await fireEvent.press(screen.getByLabelText('Erase'));
     await fireEvent.press(screen.getByLabelText('Test add stroke'));
-    expect(screen.getByTestId('operation-count').props.children).toBe(2);
+    expect(screen.getByTestId('mask-first-byte').props.children).toBe(0);
     await fireEvent.press(screen.getByText('Complete mask'));
     expect(
       screen.getByText(

@@ -1,204 +1,156 @@
 import { useCallback, useState } from 'react';
-import type { LayoutChangeEvent } from 'react-native';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { Canvas } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, {
+import {
   runOnJS,
-  useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
 } from 'react-native-reanimated';
-import Svg from 'react-native-svg';
-
-import {
-  applyPanoramaEditorPan,
-  applyPanoramaEditorZoom,
-  createPanoramaEditorViewport,
-  panoramaEditorPixelRadiusToDegrees,
-  panoramaEditorPointToDirection,
-  unprojectPanoramaEditorPoint,
-  type PanoramaEditorViewport,
-} from '../sky/panoramaOverlayGeometry';
+import { AppText } from '../components/ui/AppText';
+import { CubeBackgroundLayer } from '../sky/CubeBackgroundLayer';
+import { createPlanetariumCamera } from '../sky/planetariumProjection';
 import { colors } from '../theme/tokens';
 import type { MaskEditorCanvasProps } from './MaskEditorScreen';
-import { MaskOverlayLayer } from './MaskOverlayLayer';
-import { PanoramaEditorLayer } from './PanoramaEditorLayer';
-import type { AngularPointDegrees } from './visibilityMask';
-
-type DraftStroke = Readonly<{
-  angularRadiusDegrees: number;
-  kind: MaskEditorCanvasProps['activeTool'];
-  points: readonly AngularPointDegrees[];
-}>;
+import type { MaskBrushStroke } from './maskBrushSelection';
+import { useMaskBrushSession } from './useMaskBrushSession';
+import {
+  createMaskTouchState,
+  updateMaskTouches,
+  remainingMaskTouches,
+  type MaskTouchState,
+} from './maskEditorTouch';
+import { MaskEditorOverlay } from './MaskEditorOverlay';
 
 export function MaskEditorCanvas({
   activeTool,
   brushDiameterPixels,
-  mask,
-  onCommitStroke,
+  blockedBitset,
+  enabled,
+  paintMode,
+  onCommitSelection,
+  onProcessingChange,
   panorama,
 }: MaskEditorCanvasProps) {
   const [canvas, setCanvas] = useState({ widthPixels: 1, heightPixels: 1 });
-  const [viewport, setViewport] = useState<PanoramaEditorViewport>(() =>
-    createPanoramaEditorViewport([]),
+  const { apply, processing, error } = useMaskBrushSession(
+    panorama,
+    onCommitSelection,
+    onProcessingChange,
   );
-  const [draftStroke, setDraftStroke] = useState<DraftStroke | null>(null);
-  const strokePoints = useSharedValue<AngularPointDegrees[]>([]);
-  const strokeRadiusDegrees = useSharedValue(0);
-  const translationX = useSharedValue(0);
-  const translationY = useSharedValue(0);
-  const gestureScale = useSharedValue(1);
-  const gestureFocalX = useSharedValue(0);
-  const gestureFocalY = useSharedValue(0);
+  const busy = useSharedValue(false);
+  const initial = panorama.tiles[0];
+  const touchState = useSharedValue(
+    createMaskTouchState(
+      createPlanetariumCamera({
+        centerAltitudeDegrees: initial?.centerAltitudeDegrees ?? 45,
+        centerAzimuthDegrees: initial?.centerAzimuthDegrees ?? 0,
+        fieldOfViewDegrees: Math.max(
+          60,
+          Math.min(110, (initial?.horizontalFieldOfViewDegrees ?? 80) * 1.2),
+        ),
+      }),
+    ),
+  );
+  const brush = useSharedValue({
+    draw: activeTool === 'blockedStroke',
+    diameter: brushDiameterPixels,
+  });
+  const mode = useSharedValue(paintMode);
+  const camera = useDerivedValue(() => touchState.value.camera);
 
-  const updateDraftStroke = useCallback(
-    (points: readonly AngularPointDegrees[], angularRadiusDegrees: number) =>
-      setDraftStroke({ angularRadiusDegrees, kind: activeTool, points }),
-    [activeTool],
-  );
-  const finishStroke = useCallback(
-    (points: readonly AngularPointDegrees[], angularRadiusDegrees: number) => {
-      setDraftStroke(null);
-      if (points.length > 0) onCommitStroke(points, angularRadiusDegrees);
+  const commit = useCallback(
+    async (
+      finished: MaskTouchState,
+      context: { draw: boolean; diameter: number },
+      selectedMode: MaskBrushStroke['mode'],
+    ) => {
+      try {
+        if (finished.completed?.length)
+          await apply(
+            {
+              camera: finished.camera,
+              canvas,
+              points: finished.completed,
+              brushDiameterPixels: context.diameter,
+              mode: selectedMode,
+            },
+            context.draw,
+          );
+      } finally {
+        touchState.set(createMaskTouchState(finished.camera));
+        busy.set(false);
+      }
     },
-    [onCommitStroke],
-  );
-  const clearDraftStroke = useCallback(() => setDraftStroke(null), []);
-  const commitPan = useCallback(
-    (xPixels: number, yPixels: number) =>
-      setViewport((current) =>
-        applyPanoramaEditorPan(current, canvas, {
-          translationXPixels: xPixels,
-          translationYPixels: yPixels,
-        }),
-      ),
-    [canvas],
-  );
-  const commitZoom = useCallback(
-    (scale: number, xPixels: number, yPixels: number) =>
-      setViewport((current) =>
-        applyPanoramaEditorZoom(current, canvas, {
-          focalXPixels: xPixels,
-          focalYPixels: yPixels,
-          scale,
-        }),
-      ),
-    [canvas],
+    [apply, busy, canvas, touchState],
   );
 
-  const stroke = Gesture.Pan()
-    .maxPointers(1)
-    .onBegin((event) => {
-      const point = panoramaEditorPointToDirection(
-        unprojectPanoramaEditorPoint(
-          { xPixels: event.x, yPixels: event.y },
-          viewport,
+  const gesture = Gesture.Manual()
+    .withTestId('mask-touch')
+    .enabled(enabled)
+    .onTouchesDown((event, manager) => {
+      if (busy.get()) {
+        manager.fail();
+        return;
+      }
+      if (!touchState.get().active) {
+        brush.set({
+          draw: activeTool === 'blockedStroke',
+          diameter: brushDiameterPixels,
+        });
+        mode.set(paintMode);
+      }
+      manager.activate();
+      touchState.set(
+        updateMaskTouches(
+          touchState.get(),
+          'down',
+          event.allTouches.map((p) => ({ xPixels: p.x, yPixels: p.y })),
           canvas,
         ),
       );
-      if (!point) {
-        strokePoints.value = [];
-        runOnJS(clearDraftStroke)();
-        return;
-      }
-      const angularRadiusDegrees = panoramaEditorPixelRadiusToDegrees(
-        brushDiameterPixels / 2,
-        viewport,
+    })
+    .onTouchesMove((event) => {
+      if (!busy.get())
+        touchState.set(
+          updateMaskTouches(
+            touchState.get(),
+            'move',
+            event.allTouches.map((p) => ({ xPixels: p.x, yPixels: p.y })),
+            canvas,
+          ),
+        );
+    })
+    .onTouchesUp((event, manager) => {
+      if (busy.get()) return;
+      const finished = updateMaskTouches(
+        touchState.get(),
+        'up',
+        remainingMaskTouches(event.allTouches, event.changedTouches),
         canvas,
       );
-      strokePoints.value = [point];
-      strokeRadiusDegrees.value = angularRadiusDegrees;
-      runOnJS(updateDraftStroke)([point], angularRadiusDegrees);
+      if (finished.completed?.length) {
+        busy.set(true);
+        touchState.set({ ...finished, points: finished.completed });
+        runOnJS(commit)(finished, brush.get(), mode.get());
+      } else touchState.set(finished);
+      if (event.numberOfTouches === 0) manager.end();
     })
-    .onUpdate((event) => {
-      if (
-        strokePoints.value.length === 0 ||
-        strokePoints.value.length >= 10_000
-      ) {
-        return;
-      }
-      const point = panoramaEditorPointToDirection(
-        unprojectPanoramaEditorPoint(
-          { xPixels: event.x, yPixels: event.y },
-          viewport,
-          canvas,
-        ),
-      );
-      if (!point) return;
-      const previous = strokePoints.value[strokePoints.value.length - 1]!;
-      const minimumSampleDistanceDegrees = panoramaEditorPixelRadiusToDegrees(
-        2,
-        viewport,
-        canvas,
-      );
-      if (
-        Math.hypot(
-          point.azimuthDegrees - previous.azimuthDegrees,
-          point.altitudeDegrees - previous.altitudeDegrees,
-        ) < minimumSampleDistanceDegrees
-      ) {
-        return;
-      }
-      strokePoints.value = [...strokePoints.value, point];
-      runOnJS(updateDraftStroke)(strokePoints.value, strokeRadiusDegrees.value);
+    .onTouchesCancelled((_event, manager) => {
+      if (!busy.get())
+        touchState.set(createMaskTouchState(touchState.get().camera));
+      manager.fail();
     })
-    .onEnd(() => {
-      runOnJS(finishStroke)(strokePoints.value, strokeRadiusDegrees.value);
-      strokePoints.value = [];
-    })
-    .onFinalize((_event, success) => {
-      if (!success) runOnJS(clearDraftStroke)();
-      strokePoints.value = [];
-    });
-  const navigationPan = Gesture.Pan()
-    .minPointers(2)
-    .onUpdate((event) => {
-      translationX.value = event.translationX;
-      translationY.value = event.translationY;
-    })
-    .onEnd((event) =>
-      runOnJS(commitPan)(event.translationX, event.translationY),
-    )
     .onFinalize(() => {
-      translationX.value = 0;
-      translationY.value = 0;
+      if (!busy.get())
+        touchState.set(createMaskTouchState(touchState.get().camera));
     });
-  const pinch = Gesture.Pinch()
-    .onUpdate((event) => {
-      gestureScale.value = event.scale;
-      gestureFocalX.value = event.focalX;
-      gestureFocalY.value = event.focalY;
-    })
-    .onEnd((event) =>
-      runOnJS(commitZoom)(event.scale, event.focalX, event.focalY),
-    )
-    .onFinalize(() => {
-      gestureScale.value = 1;
-    });
-  const gesture = Gesture.Simultaneous(stroke, navigationPan, pinch);
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: translationX.value },
-      { translateY: translationY.value },
-      {
-        translateX:
-          (1 - gestureScale.value) *
-          (gestureFocalX.value - canvas.widthPixels / 2),
-      },
-      {
-        translateY:
-          (1 - gestureScale.value) *
-          (gestureFocalY.value - canvas.heightPixels / 2),
-      },
-      { scale: gestureScale.value },
-    ],
-  }));
+
   const handleLayout = (event: LayoutChangeEvent) => {
     const { height, width } = event.nativeEvent.layout;
-    if (height > 0 && width > 0) {
+    if (height > 0 && width > 0)
       setCanvas({ heightPixels: height, widthPixels: width });
-    }
   };
-
   return (
     <View
       accessibilityLabel="Mask drawing canvas"
@@ -206,23 +158,40 @@ export function MaskEditorCanvas({
       style={styles.container}
     >
       <GestureDetector gesture={gesture}>
-        <Animated.View style={[styles.canvas, animatedStyle]}>
-          <PanoramaEditorLayer
-            canvas={canvas}
-            panorama={panorama}
-            viewport={viewport}
-          />
-          <Svg height="100%" pointerEvents="none" width="100%">
-            <MaskOverlayLayer
+        <View style={styles.canvas} collapsable={false}>
+          <Canvas style={styles.canvas}>
+            <CubeBackgroundLayer
+              camera={camera}
               canvas={canvas}
-              draftStroke={draftStroke}
-              mask={mask}
-              opacityPercent={76}
-              viewport={viewport}
+              source={panorama.uri}
             />
-          </Svg>
-        </Animated.View>
+            {panorama.widthPixels &&
+            panorama.heightPixels &&
+            blockedBitset.length ? (
+              <MaskEditorOverlay
+                blockedBitset={blockedBitset}
+                coverageBitset={panorama.coverageBitset!}
+                width={panorama.widthPixels}
+                height={panorama.heightPixels}
+                canvas={canvas}
+                touchState={touchState}
+                brush={brush}
+              />
+            ) : null}
+          </Canvas>
+        </View>
       </GestureDetector>
+      {processing || error ? (
+        <View pointerEvents="none" style={styles.status}>
+          <AppText>
+            {processing
+              ? paintMode === 'magic'
+                ? 'Finding connected areas…'
+                : 'Applying brush…'
+              : error}
+          </AppText>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -231,10 +200,17 @@ const styles = StyleSheet.create({
   canvas: { flex: 1 },
   container: {
     backgroundColor: colors.backdrop,
-    borderColor: colors.outline,
-    borderWidth: 1,
     flex: 1,
     minHeight: 180,
     overflow: 'hidden',
+  },
+  status: {
+    position: 'absolute',
+    bottom: 12,
+    left: 12,
+    right: 12,
+    padding: 10,
+    backgroundColor: colors.surface,
+    borderRadius: 10,
   },
 });

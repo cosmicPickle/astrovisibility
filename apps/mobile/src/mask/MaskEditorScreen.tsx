@@ -16,23 +16,10 @@ import { colors, layout } from '../theme/tokens';
 import { createMaskImageFile } from '../panorama/directionalAtlasImage';
 import { DIRECTIONAL_ATLAS_PROJECTION } from '../panorama/directionalAtlas';
 import { MaskEditorCanvas } from './MaskEditorCanvas';
-import { BrushSizeControl } from './BrushSizeControl';
-import {
-  addMaskOperation,
-  createMaskEditorHistory,
-  type MaskEditorHistory,
-} from './maskEditorHistory';
-import {
-  createVisibilityMask,
-  type AngularPointDegrees,
-  type VisibilityMask,
-  type VisibilityMaskOperation,
-} from './visibilityMask';
-import {
-  applyRasterMaskOperations,
-  createBlockedBitsetFromCoverage,
-  createMaskRgba,
-} from './rasterMask';
+import { CompactBrushSizeControl } from './CompactBrushSizeControl';
+import { MaskToolControls } from './MaskToolControls';
+import { applyMaskSelection, type MaskPaintMode } from './maskBrushSelection';
+import { createBlockedBitsetFromCoverage, createMaskRgba } from './rasterMask';
 
 export type MaskEditorTool = 'blockedStroke' | 'visibleStroke';
 
@@ -50,11 +37,11 @@ export interface MaskEditorController {
 export interface MaskEditorCanvasProps {
   activeTool: MaskEditorTool;
   brushDiameterPixels: number;
-  mask: VisibilityMask;
-  onCommitStroke(
-    points: readonly AngularPointDegrees[],
-    angularRadiusDegrees: number,
-  ): void;
+  blockedBitset: Uint8Array;
+  enabled: boolean;
+  paintMode: MaskPaintMode;
+  onCommitSelection(selection: Uint8Array, draw: boolean): void;
+  onProcessingChange(processing: boolean): void;
   panorama: ActivePanorama;
 }
 
@@ -75,8 +62,6 @@ export const maskEditorController: MaskEditorController = {
   },
 };
 
-const createInitialOperations = (): readonly VisibilityMaskOperation[] => [];
-
 export function MaskEditorScreen({
   controller = maskEditorController,
   navigation,
@@ -89,9 +74,9 @@ export function MaskEditorScreen({
   renderCanvas?: (props: MaskEditorCanvasProps) => React.ReactNode;
 }) {
   const [data, setData] = useState<MaskEditorData | null>(null);
-  const [history, setHistory] = useState<MaskEditorHistory>(() =>
-    createMaskEditorHistory(),
-  );
+  const [draftBlocked, setDraftBlocked] = useState<Uint8Array | null>(null);
+  const [paintMode, setPaintMode] = useState<MaskPaintMode>('manual');
+  const [processing, setProcessing] = useState(false);
   const [activeTool, setActiveTool] = useState<MaskEditorTool>('blockedStroke');
   const [brushDiameterPixels, setBrushDiameterPixels] = useState(32);
   const [confirmationVisible, setConfirmationVisible] = useState(false);
@@ -105,7 +90,7 @@ export function MaskEditorScreen({
     try {
       const loaded = await controller.load(profileId);
       setData(loaded);
-      setHistory(createMaskEditorHistory(createInitialOperations()));
+      setDraftBlocked(null);
     } catch {
       setError('The panorama and mask could not be read from this device.');
     } finally {
@@ -119,7 +104,7 @@ export function MaskEditorScreen({
       (loaded) => {
         if (!active) return;
         setData(loaded);
-        setHistory(createMaskEditorHistory(createInitialOperations()));
+        setDraftBlocked(null);
         setError(null);
         setLoading(false);
       },
@@ -134,14 +119,22 @@ export function MaskEditorScreen({
     };
   }, [controller, profileId]);
 
-  const activeRaster = data?.activeMask?.raster;
-  const mask = useMemo(
-    () => ({
-      ...createVisibilityMask([], history.operations),
-      ...(activeRaster ? { raster: activeRaster } : {}),
-    }),
-    [activeRaster, history.operations],
-  );
+  const initialBlocked = useMemo(() => {
+    if (data?.activeMask?.raster) return data.activeMask.raster.blockedBitset;
+    const panorama = data?.panorama;
+    if (
+      !panorama?.coverageBitset ||
+      !panorama.widthPixels ||
+      !panorama.heightPixels
+    )
+      return new Uint8Array();
+    return createBlockedBitsetFromCoverage(
+      panorama.coverageBitset,
+      panorama.widthPixels,
+      panorama.heightPixels,
+    );
+  }, [data]);
+  const blockedBitset = draftBlocked ?? initialBlocked;
   const hasCapturedCoverage = Boolean(
     data?.panorama?.uri &&
     data.panorama.coverageBitset &&
@@ -149,48 +142,19 @@ export function MaskEditorScreen({
     data.panorama.heightPixels,
   );
 
-  const addOperation = (
-    operation: Omit<
-      Extract<
-        VisibilityMaskOperation,
-        { kind: 'blockedStroke' | 'visibleStroke' }
-      >,
-      'id'
-    >,
-  ) =>
-    setHistory((current) =>
-      addMaskOperation(current, {
-        ...operation,
-        id: createLocalRecordId('mask-operation'),
-      } as VisibilityMaskOperation),
-    );
-
   const save = async () => {
     if (
       !data?.panorama?.coverageBitset ||
       !data.panorama.widthPixels ||
       !data.panorama.heightPixels ||
-      !hasCapturedCoverage
+      !hasCapturedCoverage ||
+      processing
     ) {
       return;
     }
     setSaving(true);
     setError(null);
     try {
-      const initialBlocked = data.activeMask?.raster?.blockedBitset
-        ? data.activeMask.raster.blockedBitset
-        : createBlockedBitsetFromCoverage(
-            data.panorama.coverageBitset,
-            data.panorama.widthPixels,
-            data.panorama.heightPixels,
-          );
-      const blockedBitset = applyRasterMaskOperations(
-        initialBlocked,
-        data.panorama.coverageBitset,
-        data.panorama.widthPixels,
-        data.panorama.heightPixels,
-        history.operations,
-      );
       const temporaryUri = createMaskImageFile(
         createMaskRgba(
           blockedBitset,
@@ -260,7 +224,8 @@ export function MaskEditorScreen({
             {data.activeMask ? 'Edit obstacle mask' : 'Paint obstacles'}
           </AppText>
           <AppText numberOfLines={1} tone="muted">
-            {data.profileName} · paint obstacles red · two fingers move
+            {paintMode === 'magic' ? 'Magic' : 'Manual'} · Two fingers: pan /
+            zoom
           </AppText>
         </View>
         <ActionButton label="Back" onPress={navigation.goBack} variant="text" />
@@ -269,39 +234,40 @@ export function MaskEditorScreen({
       <Canvas
         activeTool={activeTool}
         brushDiameterPixels={brushDiameterPixels}
-        mask={mask}
-        onCommitStroke={(points, angularRadiusDegrees) => {
-          addOperation({
-            kind: activeTool,
-            angularRadiusDegrees,
-            points,
-          });
+        blockedBitset={blockedBitset}
+        enabled={!confirmationVisible && !saving && hasCapturedCoverage}
+        paintMode={paintMode}
+        onCommitSelection={(selection, draw) => {
+          setDraftBlocked((current) =>
+            applyMaskSelection(
+              current ?? initialBlocked,
+              data.panorama!.coverageBitset!,
+              selection,
+              draw,
+            ),
+          );
         }}
+        onProcessingChange={setProcessing}
         panorama={data.panorama}
       />
 
       <View style={styles.controls}>
-        <View style={styles.toolRow}>
-          <ActionButton
-            label="Draw"
-            onPress={() => setActiveTool('blockedStroke')}
-            style={styles.toolButton}
-            variant={activeTool === 'blockedStroke' ? 'primary' : 'secondary'}
-          />
-          <ActionButton
-            label="Erase"
-            onPress={() => setActiveTool('visibleStroke')}
-            style={styles.toolButton}
-            variant={activeTool === 'visibleStroke' ? 'primary' : 'secondary'}
-          />
-        </View>
-        <BrushSizeControl
+        <CompactBrushSizeControl
           onChange={setBrushDiameterPixels}
           valuePixels={brushDiameterPixels}
         />
-        {error ? <AppText style={styles.error}>{error}</AppText> : null}
+        <MaskToolControls
+          activeTool={activeTool}
+          mode={paintMode}
+          onToolChange={setActiveTool}
+          onModeChange={setPaintMode}
+          disabled={processing || saving}
+        />
+        {error && !confirmationVisible ? (
+          <AppText style={styles.error}>{error}</AppText>
+        ) : null}
         <ActionButton
-          disabled={!hasCapturedCoverage}
+          disabled={!hasCapturedCoverage || processing || saving}
           label="Complete mask"
           onPress={() => setConfirmationVisible(true)}
         />
@@ -317,6 +283,16 @@ export function MaskEditorScreen({
           Painted obstacles and uncaptured directions will be blocked. The saved
           mask is one neutral binary image and can be edited later.
         </AppText>
+        {error ? (
+          <AppText
+            accessible
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+            style={styles.error}
+          >
+            {error}
+          </AppText>
+        ) : null}
         <ActionButton
           label="Save binary mask"
           loading={saving}
@@ -352,6 +328,4 @@ const styles = StyleSheet.create({
   },
   headingCopy: { flex: 1 },
   screen: { backgroundColor: colors.background, flex: 1 },
-  toolButton: { flex: 1, minWidth: 82 },
-  toolRow: { alignItems: 'center', flexDirection: 'row', gap: 8 },
 });

@@ -25,8 +25,11 @@ Controlling specifications:
 - [ ] Owner inspects combined cubemap build and accepts merge or discard.
 
 Current step: owner inspects the combined APK, then accepts merge or discard.
-All 443 combined tests, actual Skia pixel checks and both Android viewports pass.
+All 457 current tests, actual Skia pixel checks and both Android viewports pass.
 Report: `docs/superpowers/reports/mobile/2026-09-14-1416-cubemap-time-integration.md`.
+The branch now also contains the owner's requested manual/magic directional mask
+editor. Its latest APK and verification are recorded in
+`docs/superpowers/reports/mobile/2026-09-14-1602-mask-selection-editor.md`.
 Main optimization merge: `f9c6b2f`. The cubemap branch includes that merge.
 Merged-main format,
 typecheck, lint, all 432 tests and build passed. No new dependencies,

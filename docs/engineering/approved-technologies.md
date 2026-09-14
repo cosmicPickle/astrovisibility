@@ -94,6 +94,14 @@ Sources: [official release](https://github.com/opencv/opencv/releases/tag/4.13.0
 Controlling implementation:
 `docs/superpowers/specs/mobile/2026-09-14-1051-android-panorama-stitching.md`.
 
+## Android Mask Selection Reuse (2026-09-14)
+
+The mask editor also reuses the adopted OpenCV 4.13.0 Android library for
+offline, connected colour selection. A local Expo/Kotlin module owns ephemeral
+selection sessions; no dependency, permission, model download or persisted
+format is added. Skia and the existing directional camera render the editor.
+See `docs/superpowers/specs/mobile/2026-09-14-1502-mask-selection-editor.md`.
+
 ## Best-Fit Starting Candidates for This Product
 
 These technologies are pre-approved and align most directly with a mobile,

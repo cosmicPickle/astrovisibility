@@ -1,5 +1,5 @@
 /** SkSL shared by baking, runtime drawing and actual Skia pixel tests. */
-const cubeLookup = `
+export const cubeLookup = `
 float2 cubePoint(float3 d, float faceSize) {
   float3 a = abs(d);
   float face; float2 uv; float major;
