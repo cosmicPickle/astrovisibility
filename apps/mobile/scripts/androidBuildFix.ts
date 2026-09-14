@@ -26,9 +26,26 @@ subprojects { subproject ->
 `;
 
 export function applyAndroidBuildFix(buildGradle: string): string {
-  if (buildGradle.includes('def cmakeLongPathArguments')) return buildGradle;
   if (!buildGradle.includes(expoRootPlugin)) {
     throw new Error('Expo Android project build.gradle anchor not found.');
   }
-  return buildGradle.replace(expoRootPlugin, `${workaround}${expoRootPlugin}`);
+  let result = buildGradle;
+  if (!result.includes('def cmakeLongPathArguments'))
+    result = result.replace(expoRootPlugin, `${workaround}${expoRootPlugin}`);
+  if (!result.includes('// OpenCV shared C++ runtime'))
+    result = result.replace(
+      expoRootPlugin,
+      `${sharedRuntime}${expoRootPlugin}`,
+    );
+  return result;
 }
+
+const sharedRuntime = `// OpenCV shared C++ runtime: RN, OpenCV and the NDK export the same ABI.
+// Configure before app evaluation, and keep one copy in the final APK.
+subprojects { subproject ->
+  subproject.plugins.withId("com.android.application") {
+    subproject.android.packagingOptions.jniLibs.pickFirsts += ["**/libc++_shared.so"]
+  }
+}
+
+`;

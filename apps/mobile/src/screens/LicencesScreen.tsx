@@ -17,6 +17,8 @@ import {
 } from '../storage/localDataMaintenance';
 import { clearSkySelectionHandoffs } from '../targets/skySelectionHandoff';
 import { colors, layout } from '../theme/tokens';
+import { clearPanoramaStitchingCache } from '../panorama/panoramaStitching';
+import { OpenCvLicences } from './OpenCvLicences';
 
 export interface LicencesController {
   deleteAllLocalData(): Promise<DeleteAllLocalUserDataResult>;
@@ -31,6 +33,17 @@ const defaultController: LicencesController = {
     );
     selectedTrajectoryCache.clear();
     clearSkySelectionHandoffs();
+    try {
+      await clearPanoramaStitchingCache();
+    } catch {
+      return {
+        ...result,
+        fileCleanupFailures: [
+          ...result.fileCleanupFailures,
+          'panorama-stitching-cache',
+        ],
+      };
+    }
     return result;
   },
 };
@@ -186,10 +199,12 @@ export const LicencesScreen = ({
           />
         </SectionCard>
 
+        <OpenCvLicences />
+
         <SectionCard>
           <AppText tone="label">Prototype limits</AppText>
           <AppText>
-            Panorama alignment uses phone sensors plus manual correction.
+            Panorama alignment uses OpenCV with phone sensors for direction.
             Magnetic interference, thin nearby branches, camera field-of-view
             differences, and very dense masks can reduce precision.
           </AppText>

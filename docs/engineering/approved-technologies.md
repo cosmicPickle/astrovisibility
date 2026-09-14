@@ -59,6 +59,41 @@ version-specific dependency, memory, and APK-size review.
 
 See `docs/superpowers/specs/mobile/2026-09-14-1020-panorama-stitching-prototype.md`.
 
+## Android Panorama Stitching Adoption (2026-09-14)
+
+The product owner subsequently directed integration into the Android app, using
+the library rather than a desktop-only proof. Adopt official OpenCV 4.13.0 via
+`org.opencv:opencv:4.13.0` and that release's Android SDK static stitching
+archives. A local Expo/Kotlin/JNI module adapts the existing capture, directional
+atlas, and persistence contracts. No unofficial wrapper, server, new permission,
+Python runtime, or runtime download is introduced. Existing Skia renders the
+result; OpenCV supplies registration, exposure compensation, seams, and blending.
+
+The AAR's Prefab headers include stitching, but the shared library omits its
+symbols. The build therefore extracts `libopencv_stitching.a` for each existing
+ABI from the official 318,235,406-byte Android SDK ZIP, checked against GitHub's
+published SHA-256. Other static libraries and example applications are not
+adopted. The SDK ZIP stays in Gradle's local dependency cache. All upstream
+licence notices are packaged as Android assets and readable offline in About.
+OpenCV is Apache-2.0; the SDK's ITT notices include both alternative licences,
+with BSD-3-Clause the applicable permissive option. There is no new copyleft
+choice or change to application licensing.
+
+The four ABI OpenCV shared libraries add about 143 MB uncompressed before the
+small stitching bridge; retain existing device support and report the measured
+APK size. The existing NDK 27.1/CMake 3.22.1 and resolved Kotlin runtime are used.
+Image decoding is restricted to private, bounded local sources and sampled on
+Android before OpenCV decodes them. Matching and composition have explicit
+image, feature, candidate-pair, and memory bounds. Upstream's security advisory
+page had no published advisories at review; this is not a claim that native
+image decoding is risk-free. Keep the pinned dependency under normal updates.
+
+Sources: [official release](https://github.com/opencv/opencv/releases/tag/4.13.0),
+[official Android usage](https://opencv.org/opencv4android-usage-models/),
+[upstream advisories](https://github.com/opencv/opencv/security/advisories).
+Controlling implementation:
+`docs/superpowers/specs/mobile/2026-09-14-1051-android-panorama-stitching.md`.
+
 ## Best-Fit Starting Candidates for This Product
 
 These technologies are pre-approved and align most directly with a mobile,

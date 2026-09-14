@@ -483,7 +483,7 @@ export const PanoramaCaptureScreen = ({
               />
               {draft.tiles.length > 0 ? (
                 <ActionButton
-                  label="Align Tiles"
+                  label="Create panorama"
                   onPress={finishCapture}
                   variant="secondary"
                 />

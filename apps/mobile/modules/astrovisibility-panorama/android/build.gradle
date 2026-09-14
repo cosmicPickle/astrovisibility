@@ -1,0 +1,33 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.cosmicpickle.astrovisibility.panorama'
+version = '0.1.0'
+
+android {
+  ndkVersion rootProject.ext.ndkVersion
+  namespace 'com.cosmicpickle.astrovisibility.panorama'
+  defaultConfig {
+    versionCode 1
+    versionName '0.1.0'
+    testInstrumentationRunner 'com.cosmicpickle.astrovisibility.panorama.PanoramaInputChecks'
+    externalNativeBuild {
+      cmake {
+        cppFlags '-std=c++17 -O2 -Wall -Wextra'
+        arguments '-DANDROID_STL=c++_shared'
+        targets 'astrovisibility_panorama'
+      }
+    }
+  }
+  buildFeatures { prefab true }
+  packagingOptions { jniLibs { pickFirsts += ['**/libc++_shared.so'] } }
+  externalNativeBuild {
+    cmake { path 'src/main/cpp/CMakeLists.txt'; version '3.22.1' }
+  }
+}
+
+dependencies { implementation 'org.opencv:opencv:4.13.0' }
+
+apply from: 'opencv-stitching.gradle'

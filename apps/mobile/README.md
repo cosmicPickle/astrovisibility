@@ -109,6 +109,41 @@ is detached without deleting its observing profile or the offline catalogue.
 
 ## Android testing and release
 
+### Automatic panorama stitching
+
+After capture, choose **Create panorama**. OpenCV aligns overlapping photos,
+corrects exposure and blends seams locally, then shows one directional panorama
+for review. **Use panorama** saves it and opens mask drawing. Partial views and
+upward views through the zenith are supported. When photos cannot be connected
+by visual matching, their measured placement is retained and the preview warns
+about those joins. **Adjust manually** opens the existing fallback controls.
+Back cancels processing and keeps the draft; save failure keeps the preview for
+retry. Reopening an interrupted draft starts stitching again. Saved panoramas
+and masks are not changed by this upgrade.
+
+The local Expo module in `modules/astrovisibility-panorama` autolinks from
+Expo's standard `modules` directory. It uses OpenCV 4.13.0's Maven AAR plus the
+official Android SDK's static stitching library. The first native build needs
+internet access for the SDK's 318 MB ZIP; Gradle verifies its published SHA-256
+and caches it under `caches/astrovisibility` in the Gradle user home. Subsequent
+builds reuse that dependency. If checksum validation fails, remove only that
+cached ZIP and retry. The app itself needs no internet for stitching.
+
+NDK 27.1.12297006 and CMake 3.22.1 are required. All existing Android ABIs remain
+supported. Upstream licences are bundled and available offline under **About ·
+licences → Open panorama licences**. Cache images are removed after completion
+or cancellation, and abandoned jobs older than a day are cleared on the next
+stitch. **Delete all local data** also clears the stitching cache.
+
+Native input/EXIF checks run with
+`gradlew :astrovisibility-panorama:connectedDebugAndroidTest` from `android`.
+The CMake `panorama_tests` target tests directional registration, zenith,
+single/black photos, unmatched 200-photo input, cancellation and binary output.
+It is excluded from the shipped library target; run the executable on Android
+with the three generated fixtures from `scripts/panorama-proof/synthetic_capture.py`.
+Physical-device capture quality and timing depend on overlap, texture, nearby
+parallax, sensor accuracy, and hardware. Inspect the preview before mask drawing.
+
 Install a debug build for iterative work:
 
 ```powershell

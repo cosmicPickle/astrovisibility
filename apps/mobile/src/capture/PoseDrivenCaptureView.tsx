@@ -254,7 +254,7 @@ export function PoseDrivenCaptureView({
           />
           <ActionButton
             disabled={tiles.length === 0}
-            label="Align Tiles"
+            label="Create panorama"
             onPress={onFinish}
             variant="secondary"
           />

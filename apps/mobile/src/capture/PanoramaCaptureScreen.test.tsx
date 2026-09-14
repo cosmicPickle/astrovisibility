@@ -394,7 +394,7 @@ describe('PanoramaCaptureScreen', () => {
     await waitFor(() => screen.getByText('Resume 1-tile draft'));
     expect(screen.queryByText('Review draft')).toBeNull();
     expect(screen.queryByText('Review tile alignment')).toBeNull();
-    await act(async () => fireEvent.press(screen.getByText('Align Tiles')));
+    await act(async () => fireEvent.press(screen.getByText('Create panorama')));
     expect(onAlign).toHaveBeenCalledTimes(1);
     expect(controller.completeDraft).not.toHaveBeenCalled();
     expect(controller.updateTilePlacement).not.toHaveBeenCalled();

@@ -1,21 +1,17 @@
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 
-import { PanoramaStitchingScreen } from '../../../src/capture/PanoramaStitchingScreen';
+import { PanoramaAlignmentScreen } from '../../../src/capture/PanoramaAlignmentScreen';
 
-export default function PanoramaStitchingRoute() {
+export default function PanoramaAlignmentRoute() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const profileId = typeof id === 'string' ? id : '';
   return (
-    <PanoramaStitchingScreen
+    <PanoramaAlignmentScreen
       navigation={{
         backToCapture: () =>
           router.replace(
             `/profiles/${encodeURIComponent(profileId)}/capture-panorama?resume=1` as Href,
-          ),
-        manual: () =>
-          router.replace(
-            `/profiles/${encodeURIComponent(profileId)}/adjust-panorama` as Href,
           ),
         onAccepted: () =>
           router.replace(

@@ -3,6 +3,13 @@
 import { applyAndroidBuildFix } from './androidBuildFix';
 
 describe('Android build fix regeneration', () => {
+  it('preserves the OpenCV shared-runtime rule when the CMake fix already exists', () => {
+    const result = applyAndroidBuildFix(
+      'def cmakeLongPathArguments = []\napply plugin: "expo-root-project"\n',
+    );
+    expect(result).toContain('pickFirsts += ["**/libc++_shared.so"]');
+    expect(applyAndroidBuildFix(result)).toBe(result);
+  });
   it('inserts the Rallypath CMake arguments before Expo root plugins', () => {
     const result = applyAndroidBuildFix(
       'allprojects { repositories { google() } }\n\napply plugin: "expo-root-project"\n',

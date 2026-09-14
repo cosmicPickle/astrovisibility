@@ -44,6 +44,10 @@ export default function RootLayout() {
             options={{ headerShown: false }}
           />
           <Stack.Screen
+            name="profiles/[id]/adjust-panorama"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
             name="profiles/[id]/mask"
             options={{ headerShown: false }}
           />

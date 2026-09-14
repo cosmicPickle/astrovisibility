@@ -1,0 +1,65 @@
+import java.security.MessageDigest
+import java.util.zip.ZipFile
+
+// Maven's OpenCV Android AAR exports core APIs but not stitching symbols.
+// Link the matching official SDK's static stitching archive, without copying
+// or modifying OpenCV algorithms. Pin the release asset's published digest.
+def sdkDigest = 'edfda20fdf65d0bd45391d168ec5261dd30b600b00279c4d910d7f1c3e020f0f'
+def sdkArchive = new File(gradle.gradleUserHomeDir, 'caches/astrovisibility/opencv-4.13.0-android-sdk.zip')
+def sdkOutput = layout.buildDirectory.dir('opencv-sdk')
+def licenceAssets = layout.buildDirectory.dir('generated/opencv-assets')
+def prepareSdk = tasks.register('prepareOpenCvStitching') {
+  inputs.property('sdkDigest', sdkDigest)
+  outputs.dir(sdkOutput)
+  outputs.dir(licenceAssets)
+  doLast {
+    sdkArchive.parentFile.mkdirs()
+    if (!sdkArchive.exists()) {
+      def partial = new File(sdkArchive.parentFile, sdkArchive.name + '.partial')
+      try {
+        def connection = new URI('https://github.com/opencv/opencv/releases/download/4.13.0/opencv-4.13.0-android-sdk.zip').toURL().openConnection()
+        connection.connectTimeout = 30000
+        connection.readTimeout = 60000
+        connection.inputStream.withCloseable { input -> partial.withOutputStream { it << input } }
+        java.nio.file.Files.move(partial.toPath(), sdkArchive.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+      } finally {
+        partial.delete()
+      }
+    }
+    def hash = MessageDigest.getInstance('SHA-256')
+    sdkArchive.withInputStream { input ->
+      byte[] buffer = new byte[65536]
+      int length
+      while ((length = input.read(buffer)) != -1) hash.update(buffer, 0, length)
+    }
+    if (hash.digest().encodeHex().toString() != sdkDigest) {
+      throw new GradleException('OpenCV SDK checksum mismatch. Remove the cached SDK archive and retry.')
+    }
+    new ZipFile(sdkArchive).withCloseable { archive ->
+      ['armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'].each { abi ->
+        def entry = archive.getEntry("OpenCV-android-sdk/sdk/native/staticlibs/$abi/libopencv_stitching.a")
+        if (entry == null) throw new GradleException('OpenCV SDK stitching archive missing')
+        def output = new File(sdkOutput.get().asFile, "$abi/libopencv_stitching.a")
+        output.parentFile.mkdirs()
+        archive.getInputStream(entry).withCloseable { input -> output.withOutputStream { it << input } }
+      }
+      def notices = new File(licenceAssets.get().asFile, 'opencv-licenses')
+      notices.mkdirs()
+      archive.entries().each { entry ->
+        if (!entry.directory && (entry.name == 'OpenCV-android-sdk/LICENSE' ||
+            entry.name.startsWith('OpenCV-android-sdk/sdk/etc/licenses/'))) {
+          // Flatten the trusted, checksum-verified notice list; no zip paths
+          // are ever resolved outside our generated assets directory.
+          def output = new File(notices, entry.name.tokenize('/').last())
+          archive.getInputStream(entry).withCloseable { input -> output.withOutputStream { it << input } }
+        }
+      }
+    }
+  }
+}
+
+android.sourceSets.main.assets.srcDir(prepareSdk.map { licenceAssets.get().asFile })
+tasks.configureEach { task ->
+  if (task.name.startsWith('configureCMake') || task.name.endsWith('Assets') || task.name.toLowerCase().contains('lint'))
+    task.dependsOn(prepareSdk)
+}
