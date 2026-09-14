@@ -113,7 +113,7 @@ const commonProps = {
   minimumTargetCount: 100,
   onInspectTrajectoryMarker: jest.fn(),
   onSelectTarget: jest.fn(),
-  registeredSky: { atlasMeshes: [], constellations: [], stars: [] },
+  registeredSky: { constellations: [], stars: [] },
   registeredDsoImages: [],
   constellationOpacityPercent: 30,
   targets: [],

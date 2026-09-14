@@ -23,7 +23,12 @@ describe('registered sky projection', () => {
 
     expect(projection.stars).toHaveLength(15_598);
     expect(projection.constellations).toHaveLength(88);
-    expect(projection.atlasMeshes).toHaveLength(72);
+    expect(projection.celestialOrientation?.eastJ2000).toHaveLength(3);
+    expect(
+      Object.values(projection.celestialOrientation!)
+        .flat()
+        .every(Number.isFinite),
+    ).toBe(true);
     expect(
       projection.stars.every(
         ({ altitudeDegrees, azimuthDegrees }) =>

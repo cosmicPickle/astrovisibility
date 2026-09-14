@@ -1,5 +1,30 @@
 # Active Tasks
 
+## Cube-map background renderer
+
+**Started:** 2026-09-14 12:48 +03:00 (Europe/Sofia)
+
+- Branch: `feature/cubemap-background-renderer`, base `63c87a6`. Do not merge.
+- Controlling spec: `docs/superpowers/specs/mobile/2026-09-14-1248-cubemap-background-renderer.md`.
+- Objective: replace Milky Way and saved mask/panorama meshes, preserving
+  current mask modes, astrometric registration, saved data and responsiveness.
+- [x] Inspect current code; isolate the owner's experiment from main and the
+      separate pending celestial-time branch.
+- [x] Add failing geometry/accuracy and resource-lifecycle tests.
+- [x] Implement padded cube baking and source-compatible shader rendering.
+- [x] Verify Milky Way coordinates, mask boundaries and actual Skia output.
+- [x] Run quality gates and Android visual/performance comparison.
+- [x] Build branch APK and commit/push branch for owner inspection.
+- [ ] Owner accepts merge or requests discard (pending after delivery).
+
+Current step: owner phone inspection, then explicit merge or discard. No merge
+performed. No new dependencies, persisted formats or product controls.
+All 420 tests, quality gates, actual Skia pixel checks and two Android viewport
+reviews pass. Emulator samples do not establish a consistent speed win; cube
+textures add memory. See `docs/superpowers/reports/mobile/2026-09-14-1335-cubemap-background-renderer.md`
+for accuracy, lifecycle, artifact and performance evidence. The tested branch
+APK is staged at the main workspace's `tmp/artifacts/android/app-release.apk`.
+
 ## Registered sky background
 
 **Started:** 2026-08-29 18:51 +03:00 (Europe/Sofia)

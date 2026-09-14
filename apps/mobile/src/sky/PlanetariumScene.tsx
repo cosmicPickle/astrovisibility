@@ -6,12 +6,10 @@ import {
   Fill,
   Group,
   ImageShader,
-  FilterMode,
   matchFont,
   Mask as SkiaMask,
   Oval,
   Path,
-  MipmapMode,
   Skia,
   Text,
   Vertices,
@@ -24,7 +22,7 @@ import { useDerivedValue, type SharedValue } from 'react-native-reanimated';
 import type { SelectedTargetTrajectory } from '../astronomy/trajectory';
 import type { TargetDiurnalOrbit } from '../astronomy/diurnalTrajectory';
 import type { VisibilityMask } from '../mask/visibilityMask';
-import { createDirectionalAtlasMesh } from '../panorama/directionalAtlas';
+import { CubeBackgroundLayer } from './CubeBackgroundLayer';
 import type { EquipmentRecord } from '../storage/equipmentRepository';
 import type {
   ActivePanorama,
@@ -47,7 +45,6 @@ import {
 import {
   createPlanetariumPanoramaMesh,
   projectPlanetariumPanoramaMesh,
-  projectPlanetariumPanoramaMeshes,
   type PlanetariumPanoramaMesh,
 } from './planetariumPanoramaGeometry';
 import { createScreenCenteredFieldOfViewFrame } from './fieldOfViewGeometry';
@@ -774,59 +771,6 @@ function PanoramaTileLayer({
   );
 }
 
-function DirectionalAtlasLayer({
-  camera,
-  canvas,
-  heightPixels,
-  opacity,
-  uri,
-  widthPixels,
-}: {
-  camera: SharedValue<PlanetariumCamera>;
-  canvas: CanvasSizePixels;
-  heightPixels: number;
-  opacity: number;
-  uri: string;
-  widthPixels: number;
-}) {
-  const image = useImage(uri);
-  const mesh = useMemo(
-    () => createDirectionalAtlasMesh({ heightPixels, widthPixels }),
-    [heightPixels, widthPixels],
-  );
-  const textures = useMemo(
-    () => mesh.texturePointsPixels.map(({ x, y }) => vec(x, y)),
-    [mesh.texturePointsPixels],
-  );
-  const projectedMesh = useDerivedValue(() => {
-    const projection = projectPlanetariumPanoramaMesh(
-      mesh,
-      camera.value,
-      canvas,
-    );
-    return {
-      indices: projection.indices,
-      vertices: projection.vertices.map((point) =>
-        vec(point.xPixels, point.yPixels),
-      ),
-    };
-  });
-  const indices = useDerivedValue(() => projectedMesh.value.indices);
-  const vertices = useDerivedValue(() => projectedMesh.value.vertices);
-  if (!image) return null;
-  return (
-    <Group opacity={opacity}>
-      <ImageShader image={image} tx="decal" ty="decal" />
-      <Vertices
-        indices={indices}
-        mode="triangles"
-        textures={textures}
-        vertices={vertices}
-      />
-    </Group>
-  );
-}
-
 function ProjectedImageMesh({
   camera,
   canvas,
@@ -862,74 +806,6 @@ function ProjectedImageMesh({
       textures={textures}
       vertices={vertices}
     />
-  );
-}
-
-function ProjectedImageMeshes({
-  camera,
-  canvas,
-  meshes,
-}: {
-  camera: SharedValue<PlanetariumCamera>;
-  canvas: CanvasSizePixels;
-  meshes: readonly PlanetariumPanoramaMesh[];
-}) {
-  const projectedMeshes = useDerivedValue(() => {
-    const projection = projectPlanetariumPanoramaMeshes(
-      meshes,
-      camera.value,
-      canvas,
-    );
-    return {
-      indices: projection.indices,
-      textures: projection.texturePointsPixels.map((point) =>
-        vec(point.x, point.y),
-      ),
-      vertices: projection.vertices.map((point) =>
-        vec(point.xPixels, point.yPixels),
-      ),
-    };
-  });
-  const indices = useDerivedValue(() => projectedMeshes.value.indices);
-  const textures = useDerivedValue(() => projectedMeshes.value.textures);
-  const vertices = useDerivedValue(() => projectedMeshes.value.vertices);
-  return (
-    <Vertices
-      indices={indices}
-      mode="triangles"
-      textures={textures}
-      vertices={vertices}
-    />
-  );
-}
-
-function MilkyWayAtlasLayer({
-  camera,
-  canvas,
-  meshes,
-}: {
-  camera: SharedValue<PlanetariumCamera>;
-  canvas: CanvasSizePixels;
-  meshes: readonly PlanetariumPanoramaMesh[];
-}) {
-  const image = useImage(milkyWayAtlasImage);
-  const opacity = useDerivedValue(() =>
-    Math.max(
-      0,
-      Math.min(0.62, ((camera.value.fieldOfViewDegrees - 1) / 17) * 0.62),
-    ),
-  );
-  if (!image) return null;
-  return (
-    <Group opacity={opacity}>
-      <ImageShader
-        image={image}
-        sampling={{ filter: FilterMode.Linear, mipmap: MipmapMode.Linear }}
-        tx="decal"
-        ty="decal"
-      />
-      <ProjectedImageMeshes camera={camera} canvas={canvas} meshes={meshes} />
-    </Group>
   );
 }
 
@@ -1102,13 +978,13 @@ function MaskLayer({
 }) {
   if (mask.raster) {
     return (
-      <DirectionalAtlasLayer
+      <CubeBackgroundLayer
+        key={mask.raster.uri}
         camera={camera}
         canvas={canvas}
-        heightPixels={mask.raster.heightPixels}
         opacity={opacity}
-        uri={mask.raster.uri}
-        widthPixels={mask.raster.widthPixels}
+        maskUri={mask.raster.uri}
+        maskColor="#c4cad6"
       />
     );
   }
@@ -1256,13 +1132,12 @@ function PanoramaLayers({
       {panoramaImage?.uri &&
       panoramaImage.widthPixels &&
       panoramaImage.heightPixels ? (
-        <DirectionalAtlasLayer
+        <CubeBackgroundLayer
+          key={panoramaImage.uri}
           camera={camera}
           canvas={canvas}
-          heightPixels={panoramaImage.heightPixels}
           opacity={1}
-          uri={panoramaImage.uri}
-          widthPixels={panoramaImage.widthPixels}
+          source={panoramaImage.uri}
         />
       ) : null}
       {panoramaTiles.map((tile) => (
@@ -1304,14 +1179,27 @@ function MaskPresentationLayer({
   panoramaTiles: readonly ActivePanoramaTile[];
   selectedPanoramaTileId?: string | null;
 }) {
+  if (mask.raster && (mode === 'color' || panoramaImage?.uri)) {
+    return (
+      <CubeBackgroundLayer
+        key={`${mask.raster.uri}|${panoramaImage?.uri ?? ''}`}
+        camera={camera}
+        canvas={canvas}
+        source={mode === 'panorama' ? panoramaImage?.uri : undefined}
+        maskUri={mask.raster.uri}
+        maskColor={color}
+        opacity={opacity}
+      />
+    );
+  }
   const stencil = mask.raster ? (
-    <DirectionalAtlasLayer
+    <CubeBackgroundLayer
+      key={mask.raster.uri}
       camera={camera}
       canvas={canvas}
-      heightPixels={mask.raster.heightPixels}
       opacity={1}
-      uri={mask.raster.uri}
-      widthPixels={mask.raster.widthPixels}
+      maskUri={mask.raster.uri}
+      maskColor="white"
     />
   ) : (
     <LegacyBlockedMaskStencil camera={camera} canvas={canvas} mask={mask} />
@@ -1425,7 +1313,7 @@ export function PlanetariumScene({
   panoramaOpacity,
   panoramaImage,
   panoramaTiles,
-  registeredSky = { atlasMeshes: [], constellations: [], stars: [] },
+  registeredSky = { constellations: [], stars: [] },
   registeredStarBatches = [],
   constellationLabels = [],
   constellationOpacity = 0.3,
@@ -1462,11 +1350,14 @@ export function PlanetariumScene({
   return (
     <Canvas style={{ flex: 1 }}>
       <Fill color={colors.backdrop} />
-      <MilkyWayAtlasLayer
-        camera={camera}
-        canvas={canvas}
-        meshes={registeredSky.atlasMeshes}
-      />
+      {registeredSky.celestialOrientation ? (
+        <CubeBackgroundLayer
+          camera={camera}
+          canvas={canvas}
+          source={milkyWayAtlasImage}
+          orientation={registeredSky.celestialOrientation}
+        />
+      ) : null}
       <RegisteredStarLayer
         batches={registeredStarBatches}
         camera={camera}

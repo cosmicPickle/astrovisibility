@@ -53,6 +53,34 @@ pnpm --filter @astrovisibility/mobile catalogue:check
 See `scripts/catalogue/README.md` before changing a source snapshot. Never edit
 generated catalogue files directly.
 
+## Background rendering
+
+The Milky Way and saved panorama/raster mask use Skia runtime shaders with six
+padded cube faces packed into a 2D texture. The celestial cube stays in J2000;
+small orientation uniforms register it to the current observing instant. Local
+panorama/mask cubes stay in east/up/north. Panning and zooming update the camera
+basis without regenerating background vertices or cube images.
+
+Preparation is serialized and cancelled when its source is replaced. The exact
+source projection renders while preparation is pending or if allocation fails.
+Mixed mask pixels sample the original raster to preserve thin boundaries. The
+binary mask used by visibility calculations and all saved images are unchanged.
+The current mask color/panorama modes and opacity continue to govern rendering.
+
+Verify the actual Skia shaders, synthetic mask boundaries and celestial
+registration from the repository root, using the CanvasKit already bundled with
+React Native Skia:
+
+```powershell
+node apps/mobile/scripts/sky-assets/checkCubeRendering.mjs
+```
+
+An optional output-directory argument writes synthetic comparison PNGs. Jest
+also checks coordinate transforms and image lifecycle. Android device testing
+remains necessary: CanvasKit cannot exercise native graphics-context transfer
+or establish phone performance. Cube caches add texture memory, so this branch
+does not claim a speed improvement without physical-device measurements.
+
 ## Local schema and file lifecycle
 
 Schema version 1 owns profiles, equipment and per-profile selections, panorama

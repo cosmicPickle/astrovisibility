@@ -430,7 +430,7 @@ export const SkyViewScreen = ({
             observer: observerForProfile(data.profile),
             timestampUtc: sceneTimestampUtc,
           })
-        : { atlasMeshes: [], constellations: [], stars: [] },
+        : { constellations: [], stars: [] },
     [data, sceneTimestampUtc],
   );
   const registeredDsoImages = useMemo<RegisteredDsoImage[]>(() => {
