@@ -38,6 +38,27 @@ and test integrations for an adopted technology are also pre-approved when they
 add no separate runtime architecture and are chosen from the same maintained
 ecosystem.
 
+## Panorama Prototype Evaluation (2026-09-14)
+
+The product owner authorized evaluating OpenCV for automatic panorama alignment
+and blending, explicitly confirming that stitching must use an existing library.
+The standalone desktop proof uses `opencv-python-headless` 4.13.0.92 (OpenCV
+4.13.0), with the bundled Python 3.12, NumPy 2.3.5, and Pillow runtimes. These
+are evaluation tools only; none is added to the mobile runtime or APK.
+
+The headless Python wheel is installed into ignored local storage, with no
+manifest or lockfile change to the mobile app. OpenCV supplies feature matching,
+camera estimation, exposure compensation, graph-cut seams, and multiband
+blending. Existing Skia remains responsible for the shipped rendering workflow.
+The proof's adapter only preserves the app's directional projection and coverage
+contract. OpenCV's Apache-2.0 licence, the Python wrapper's MIT licence, and
+bundled third-party notices must be respected if redistributed. This local
+evaluation does not approve a particular Android wrapper, ABI/package layout,
+or new app dependency; those decisions require a focused integration spec and
+version-specific dependency, memory, and APK-size review.
+
+See `docs/superpowers/specs/mobile/2026-09-14-1020-panorama-stitching-prototype.md`.
+
 ## Best-Fit Starting Candidates for This Product
 
 These technologies are pre-approved and align most directly with a mobile,
