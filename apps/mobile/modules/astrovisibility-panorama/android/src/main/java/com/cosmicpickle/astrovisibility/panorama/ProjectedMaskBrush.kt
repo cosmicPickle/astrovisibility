@@ -9,12 +9,7 @@ internal fun selectProjectedMaskBrush(
   width: Int, height: Int, view: DoubleArray, points: List<Point>, radius: Double,
   checkCancelled: () -> Unit
 ): ByteArray {
-  require(width in 1..2048 && height in 1..2048)
-  // View: canvas width/height, projection scale, then right/up/forward xyz.
-  require(view.size == 12 && view.all { it.isFinite() })
-  require(view[0] in 1.0..4096.0 && view[1] in 1.0..4096.0 && view[2] > 0)
-  require(radius in 0.5..72.0 && points.size in 1..4096)
-  require(points.all { it.x.isFinite() && it.y.isFinite() && abs(it.x) <= 10000 && abs(it.y) <= 10000 })
+  validateMaskBrush(width, height, view, points, radius)
   val columns = ceil(view[0] / 64).toInt()
   val rows = ceil(view[1] / 64).toInt()
   val bins = Array(columns * rows) { ArrayList<Int>() }
@@ -36,28 +31,19 @@ internal fun selectProjectedMaskBrush(
       val fraction = (partition + 0.5) / partitions
       val midpointX = start.x + (end.x - start.x) * fraction
       val midpointY = start.y + (end.y - start.y) * fraction
-      val localX = (midpointX - view[0] / 2) / view[2]
-      val localY = (view[1] / 2 - midpointY) / view[2]
-      val squared = localX * localX + localY * localY
-      val east = (2 * localX * view[3] + 2 * localY * view[6] + (1 - squared) * view[9]) / (1 + squared)
-      val up = (2 * localX * view[4] + 2 * localY * view[7] + (1 - squared) * view[10]) / (1 + squared)
-      val north = (2 * localX * view[5] + 2 * localY * view[8] + (1 - squared) * view[11]) / (1 + squared)
-      if (up < 0) {
+      val center = projectMaskAtlasPoint(width, height, view, midpointX, midpointY)
+      if (center == null) {
         // The upper-hemisphere bound below does not apply to a lower-sky centre.
         atlasLeft = 0; atlasRight = width - 1; atlasTop = 0; atlasBottom = height - 1
       } else {
-        val radial = hypot(east, north)
-        val atlasScale = if (radial > 1e-12) acos(up.coerceIn(0.0, 1.0)) / (PI / 2) / radial else 2 / PI
-        val centerX = width / 2.0 + atlasRadius * east * atlasScale
-        val centerY = height / 2.0 - atlasRadius * north * atlasScale
         // Inverse stereographic angular speed <= 2 / projectionScale. The
         // upper-hemisphere azimuthal map stretches geodesic distance by <= atlasRadius.
         // This conservative bound includes the entire segment capsule, not just samples.
         val extent = atlasRadius * 2 / view[2] * (segmentLength / (2 * partitions) + radius) + 1
-        atlasLeft = min(atlasLeft, floor(centerX - extent).toInt().coerceIn(0, width - 1))
-        atlasRight = max(atlasRight, ceil(centerX + extent).toInt().coerceIn(0, width - 1))
-        atlasTop = min(atlasTop, floor(centerY - extent).toInt().coerceIn(0, height - 1))
-        atlasBottom = max(atlasBottom, ceil(centerY + extent).toInt().coerceIn(0, height - 1))
+        atlasLeft = min(atlasLeft, floor(center.x - extent).toInt().coerceIn(0, width - 1))
+        atlasRight = max(atlasRight, ceil(center.x + extent).toInt().coerceIn(0, width - 1))
+        atlasTop = min(atlasTop, floor(center.y - extent).toInt().coerceIn(0, height - 1))
+        atlasBottom = max(atlasBottom, ceil(center.y + extent).toInt().coerceIn(0, height - 1))
       }
     }
     val left = floor((min(start.x, end.x) - radius) / 64).toInt().coerceIn(0, columns - 1)

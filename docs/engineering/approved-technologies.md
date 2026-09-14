@@ -101,6 +101,9 @@ offline, connected colour selection. A local Expo/Kotlin module owns ephemeral
 selection sessions; no dependency, permission, model download or persisted
 format is added. Skia and the existing directional camera render the editor.
 See `docs/superpowers/specs/mobile/2026-09-14-1502-mask-selection-editor.md`.
+Night-image refinement reuses OpenCV mean-shift filtering, Canny boundaries and
+connected-component filtering without another dependency or model. See
+`docs/superpowers/specs/mobile/2026-09-14-1629-night-mask-selection.md`.
 
 ## Best-Fit Starting Candidates for This Product
 

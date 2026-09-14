@@ -55,10 +55,10 @@ class MaskEditingModule : Module() {
           }
           val values = request.getJSONArray("view")
           require(values.length() == 12)
-          val footprint = selectProjectedMaskBrush(width, height,
-            DoubleArray(12) { values.getDouble(it) }, points,
-            request.getDouble("radius"), checkCancelled)
+          val view = DoubleArray(12) { values.getDouble(it) }
+          val radius = request.getDouble("radius")
           val selected = if (request.getString("mode") == "magic") {
+            val seeds = selectProjectedMaskSeeds(width, height, view, points, radius, checkCancelled)
             val sourceUri = Uri.parse(uri)
             require(sourceUri.scheme == "file")
             val source = File(requireNotNull(sourceUri.path)).canonicalFile
@@ -85,10 +85,11 @@ class MaskEditingModule : Module() {
                 rgba.release()
               }
             }
-            requireNotNull(prepared).selectBrush(footprint, checkCancelled)
+            if (seeds.isEmpty()) ByteArray((width * height + 7) / 8)
+            else requireNotNull(prepared).select(seeds, checkCancelled)
           } else {
             require(request.getString("mode") == "manual")
-            footprint
+            selectProjectedMaskBrush(width, height, view, points, radius, checkCancelled)
           }
           checkCancelled()
           cacheRoot.mkdirs()

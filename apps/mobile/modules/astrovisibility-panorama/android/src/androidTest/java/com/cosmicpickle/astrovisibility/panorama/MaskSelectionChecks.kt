@@ -52,6 +52,7 @@ internal fun checkMaskSelection() {
   checkProjectedBrush()
   checkRotatedBrushCaps()
   benchmarkMaskBrush()
+  checkNightMaskSelection()
 }
 
 private fun checkRotatedBrushCaps() {
@@ -97,7 +98,8 @@ private fun benchmarkMaskBrush() {
   try {
     ConnectedMaskSelection(rgba).use { selection ->
       val selectionStart = System.nanoTime()
-      val result = selection.selectBrush(footprint) {}
+      val result = selection.select(selectProjectedMaskSeeds(2048, 2048, view,
+        listOf(Point(160.0, 300.0), Point(240.0, 320.0)), 16.0) {}) {}
       check(result.all { it == 255.toByte() })
       android.util.Log.i("MaskEditorChecks", "Synthetic 2048px manual=${manualMilliseconds}ms connected=${(System.nanoTime() - selectionStart) / 1_000_000}ms")
     }
