@@ -199,7 +199,7 @@ export function shouldRefreshPlanetariumResidentCatalogue(
   );
 }
 
-const getResidentAngularRadiusDegrees = (
+export const getResidentAngularRadiusDegrees = (
   camera: PlanetariumCamera,
   canvas: CanvasSizePixels,
 ) => {

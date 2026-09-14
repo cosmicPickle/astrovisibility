@@ -4,6 +4,12 @@
 **Status:** Implementation authorized; merge requires the owner's inspection.
 **Branch:** `feature/cubemap-background-renderer`, based on `63c87a6`.
 
+**Integration update, 2026-09-14 14:16 +03:00:** The owner approved merging the
+shared-time optimization branch into main and main into this branch. The
+[integration specification](2026-09-14-1405-cubemap-time-integration.md)
+supersedes the earlier exclusion of that branch. Milky Way orientation now
+uses its shared renderer time, retaining the tested cube projection/refraction.
+
 Replace the Milky Way and saved panorama/raster-mask background meshes with
 Skia runtime shaders sampling baked cube faces. Preserve stars, constellation
 figures, DSO cutouts, targets, trajectories, navigation and layer order. The

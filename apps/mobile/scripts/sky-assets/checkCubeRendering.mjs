@@ -7,10 +7,12 @@ import {
 import {
   createInverseRefractionTable,
   createCelestialCubeOrientation,
+  createSharedCelestialCubeOrientation,
   screenDirection,
   observedToJ2000,
   sampleInverseRefraction,
 } from '../../src/sky/backgroundCube.ts';
+import { createCelestialTimeTransform } from '../../src/astronomy/celestialTimeTransform.ts';
 import {
   createPlanetariumCamera,
   createPlanetariumProjectionContext,
@@ -232,41 +234,63 @@ for (let y = 0; y < 1024; y++)
   }
 const mwSource = image(mw, 2048, 1024),
   mwCube = bakeImage(mwSource, true, 512);
-const orientation = createCelestialCubeOrientation({
-  observer: {
-    latitudeDegreesNorth: 42,
-    longitudeDegreesEast: 23,
-    elevationMetersAboveMeanSeaLevel: 100,
+const observer = {
+  latitudeDegreesNorth: 42,
+  longitudeDegreesEast: 23,
+  elevationMetersAboveMeanSeaLevel: 100,
+};
+const timeTransform = createCelestialTimeTransform({
+  observer,
+  window: {
+    startTimestampUtc: '2026-09-14T12:00:00.000Z',
+    endTimestampUtc: '2026-09-15T13:00:00.000Z',
   },
-  timestampUtc: '2026-09-14T18:00:00Z',
 });
 const camera = createPlanetariumCamera({
   centerAltitudeDegrees: 35,
   centerAzimuthDegrees: 359,
   fieldOfViewDegrees: 235,
 });
-const result = render(camera, mwCube, maskImage, 512, 0, 0, orientation);
 let maximumCelestialChannelError = 0;
-for (let y = 0; y < 900; y += 7)
-  for (let x = 0; x < 600; x += 7) {
-    const d = screenDirection({ xPixels: x + 0.5, yPixels: y + 0.5 }, camera, {
-      widthPixels: 600,
-      heightPixels: 900,
-    });
-    const eq = observedToJ2000(
-      d,
-      orientation,
-      sampleInverseRefraction(refraction, d.y),
-    );
-    [eq.x, eq.y, eq.z].forEach((value, channel) => {
-      maximumCelestialChannelError = Math.max(
-        maximumCelestialChannelError,
-        Math.abs(
-          result.pixels[(y * 600 + x) * 4 + channel] - (value + 1) * 127.5,
-        ),
+for (const timestampUtc of [
+  '2026-09-14T12:00:00.000Z',
+  '2026-09-14T22:00:00.000Z',
+  '2026-09-15T13:00:00.000Z',
+]) {
+  const orientation = createSharedCelestialCubeOrientation(
+    timeTransform,
+    Date.parse(timestampUtc),
+  );
+  const authoritativeOrientation = createCelestialCubeOrientation({
+    observer,
+    timestampUtc,
+  });
+  const result = render(camera, mwCube, maskImage, 512, 0, 0, orientation);
+  for (let y = 0; y < 900; y += 7)
+    for (let x = 0; x < 600; x += 7) {
+      const d = screenDirection(
+        { xPixels: x + 0.5, yPixels: y + 0.5 },
+        camera,
+        {
+          widthPixels: 600,
+          heightPixels: 900,
+        },
       );
-    });
-  }
+      const eq = observedToJ2000(
+        d,
+        authoritativeOrientation,
+        sampleInverseRefraction(refraction, d.y),
+      );
+      [eq.x, eq.y, eq.z].forEach((value, channel) => {
+        maximumCelestialChannelError = Math.max(
+          maximumCelestialChannelError,
+          Math.abs(
+            result.pixels[(y * 600 + x) * 4 + channel] - (value + 1) * 127.5,
+          ),
+        );
+      });
+    }
+}
 const report = {
   checked,
   maximumAlphaError,

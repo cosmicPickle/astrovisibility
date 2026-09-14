@@ -1,4 +1,5 @@
 import { equatorialJ2000ToHorizontal } from '../astronomy/horizontalCoordinates';
+import { createCelestialTimeTransform } from '../astronomy/celestialTimeTransform';
 import {
   horizontalDirectionToVector,
   createPlanetariumCamera,
@@ -9,6 +10,7 @@ import {
   cubeUv,
   screenDirection,
   createCelestialCubeOrientation,
+  createSharedCelestialCubeOrientation,
   observedToJ2000,
   createInverseRefractionTable,
   sampleInverseRefraction,
@@ -75,6 +77,55 @@ describe('cube background geometry', () => {
 
 describe('Milky Way registration', () => {
   const table = createInverseRefractionTable();
+  it('keeps shared preview orientation registered throughout 25-hour windows at different latitudes', () => {
+    const start = Date.parse('2026-09-14T12:00:00.000Z');
+    for (const latitudeDegreesNorth of [-80, 0, 40, 80]) {
+      const observer = {
+        latitudeDegreesNorth,
+        longitudeDegreesEast: 23,
+        elevationMetersAboveMeanSeaLevel: 100,
+      };
+      const transform = createCelestialTimeTransform({
+        observer,
+        window: {
+          startTimestampUtc: new Date(start).toISOString(),
+          endTimestampUtc: new Date(start + 25 * 3_600_000).toISOString(),
+        },
+      });
+      for (const hours of [0, 6, 12, 24, 25]) {
+        const timestamp = start + hours * 3_600_000;
+        const actual = createSharedCelestialCubeOrientation(
+          transform,
+          timestamp,
+        );
+        const expected = createCelestialCubeOrientation({
+          observer,
+          timestampUtc: new Date(timestamp).toISOString(),
+        });
+        for (const axis of ['eastJ2000', 'upJ2000', 'northJ2000'] as const) {
+          expect(
+            Math.hypot(
+              ...actual[axis].map((value, i) => value - expected[axis][i]!),
+            ),
+          ).toBeLessThan(1e-6);
+        }
+      }
+      expect(
+        createSharedCelestialCubeOrientation(transform, start - 1),
+      ).toEqual(createSharedCelestialCubeOrientation(transform, start));
+      expect(
+        createSharedCelestialCubeOrientation(
+          transform,
+          transform.endTimestampMilliseconds + 1,
+        ),
+      ).toEqual(
+        createSharedCelestialCubeOrientation(
+          transform,
+          transform.endTimestampMilliseconds,
+        ),
+      );
+    }
+  });
   it('preserves authoritative celestial positions across dates, latitudes and the horizon', () => {
     let maximumErrorDegrees = 0;
     for (const latitude of [-80, -33, 0, 42, 80])

@@ -14,10 +14,11 @@ import {
 import { useDerivedValue, type SharedValue } from 'react-native-reanimated';
 import {
   createInverseRefractionTable,
+  createSharedCelestialCubeOrientation,
   CUBE_FACE_PIXELS,
   REFRACTION_TABLE_WIDTH,
-  type CelestialCubeOrientation,
 } from './backgroundCube';
+import type { CelestialTimeTransform } from '../astronomy/celestialTimeTransform';
 import { cubeBackgroundShader } from './backgroundCubeShaders';
 import {
   createPlanetariumProjectionContext,
@@ -63,7 +64,8 @@ export function CubeBackgroundLayer({
   canvas,
   source,
   opacity = 1,
-  orientation,
+  timeTransform,
+  sceneTimeMilliseconds,
   maskUri,
   maskColor = '#000000',
 }: {
@@ -71,16 +73,18 @@ export function CubeBackgroundLayer({
   canvas: CanvasSizePixels;
   source?: Parameters<typeof useImage>[0];
   opacity?: number;
-  orientation?: CelestialCubeOrientation;
+  timeTransform?: CelestialTimeTransform;
+  sceneTimeMilliseconds?: SharedValue<number>;
   maskUri?: string;
   maskColor?: string;
 }) {
   const original = useImage(source ?? null);
   const originalMask = useImage(maskUri ?? null);
+  const celestial = Boolean(timeTransform && sceneTimeMilliseconds);
   const cube = useCubeImage(
     original,
-    Boolean(orientation),
-    orientation ? 512 : CUBE_FACE_PIXELS,
+    celestial,
+    celestial ? 512 : CUBE_FACE_PIXELS,
   );
   const maskCube = useCubeImage(originalMask, false, CUBE_FACE_PIXELS);
   const color = useMemo(() => Array.from(Skia.Color(maskColor)), [maskColor]);
@@ -91,6 +95,13 @@ export function CubeBackgroundLayer({
   ];
   const uniforms = useDerivedValue(() => {
     const view = camera.value;
+    const orientation =
+      timeTransform && sceneTimeMilliseconds
+        ? createSharedCelestialCubeOrientation(
+            timeTransform,
+            sceneTimeMilliseconds.value,
+          )
+        : null;
     return {
       viewport: [canvas.widthPixels, canvas.heightPixels],
       inverseScale:
@@ -102,7 +113,7 @@ export function CubeBackgroundLayer({
       eastJ2000: orientation?.eastJ2000 ?? [1, 0, 0],
       upJ2000: orientation?.upJ2000 ?? [0, 1, 0],
       northJ2000: orientation?.northJ2000 ?? [0, 0, 1],
-      celestial: orientation ? 1 : 0,
+      celestial: celestial ? 1 : 0,
       faceSize: cube.facePixels,
       sourceSize,
       maskFaceSize: maskCube.facePixels,
@@ -112,7 +123,7 @@ export function CubeBackgroundLayer({
     };
   });
   const layerOpacity = useDerivedValue(() =>
-    orientation
+    celestial
       ? Math.max(
           0,
           Math.min(0.62, ((camera.value.fieldOfViewDegrees - 1) / 17) * 0.62),
@@ -128,12 +139,12 @@ export function CubeBackgroundLayer({
         <Shader source={getRuntimeEffect()} uniforms={uniforms}>
           <ImageShader
             image={image}
-            tx={orientation && !cube.facePixels ? 'repeat' : 'clamp'}
+            tx={celestial && !cube.facePixels ? 'repeat' : 'clamp'}
             ty="clamp"
           />
           <ImageShader image={maskCube.image ?? image} tx="clamp" ty="clamp" />
           <ImageShader
-            image={orientation ? getRefractionImage() : image}
+            image={celestial ? getRefractionImage() : image}
             tx="clamp"
             ty="clamp"
           />

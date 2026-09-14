@@ -1,29 +1,37 @@
 # Active Tasks
 
-## Cube-map background renderer
+## Integrate optimized time rendering and cubemap backgrounds
 
-**Started:** 2026-09-14 12:48 +03:00 (Europe/Sofia)
+**Started:** 2026-09-14 14:00 +03:00 (Europe/Sofia)
 
-- Branch: `feature/cubemap-background-renderer`, base `63c87a6`. Do not merge.
-- Controlling spec: `docs/superpowers/specs/mobile/2026-09-14-1248-cubemap-background-renderer.md`.
-- Objective: replace Milky Way and saved mask/panorama meshes, preserving
-  current mask modes, astrometric registration, saved data and responsiveness.
-- [x] Inspect current code; isolate the owner's experiment from main and the
-      separate pending celestial-time branch.
-- [x] Add failing geometry/accuracy and resource-lifecycle tests.
-- [x] Implement padded cube baking and source-compatible shader rendering.
-- [x] Verify Milky Way coordinates, mask boundaries and actual Skia output.
-- [x] Run quality gates and Android visual/performance comparison.
-- [x] Build branch APK and commit/push branch for owner inspection.
-- [ ] Owner accepts merge or requests discard (pending after delivery).
+The owner explicitly approved merging `feature/atlas-shared-time-transform`
+into `main`, then integrating updated `main` into the cubemap experiment.
+Cubemap-to-main merge remains unapproved.
 
-Current step: owner phone inspection, then explicit merge or discard. No merge
-performed. No new dependencies, persisted formats or product controls.
-All 420 tests, quality gates, actual Skia pixel checks and two Android viewport
-reviews pass. Emulator samples do not establish a consistent speed win; cube
-textures add memory. See `docs/superpowers/reports/mobile/2026-09-14-1335-cubemap-background-renderer.md`
-for accuracy, lifecycle, artifact and performance evidence. The tested branch
-APK is staged at the main workspace's `tmp/artifacts/android/app-release.apk`.
+Controlling specifications:
+
+- `docs/superpowers/specs/mobile/2026-09-01-1445-shared-celestial-time-transform.md`
+- `docs/superpowers/specs/mobile/2026-09-14-1405-cubemap-time-integration.md`
+- Cubemap branch: `docs/superpowers/specs/mobile/2026-09-14-1248-cubemap-background-renderer.md`
+
+- [x] Inspect both clean worktrees and preserve uploaded photos.
+- [x] Merge the optimization branch into main without conflicts.
+- [x] Verify merged main, commit and push it.
+- [x] Merge main into `feature/cubemap-background-renderer` and resolve conflicts.
+- [x] Drive Milky Way cube orientation from the same shared render time as stars.
+- [x] Test live previews, fixed mask/panorama, celestial registration and cache reuse.
+- [x] Run quality gates, fresh Android build and representative/constrained QA.
+- [x] Push only the updated cubemap branch and provide the combined APK.
+- [ ] Owner inspects combined cubemap build and accepts merge or discard.
+
+Current step: owner inspects the combined APK, then accepts merge or discard.
+All 443 combined tests, actual Skia pixel checks and both Android viewports pass.
+Report: `docs/superpowers/reports/mobile/2026-09-14-1416-cubemap-time-integration.md`.
+Main optimization merge: `f9c6b2f`. The cubemap branch includes that merge.
+Merged-main format,
+typecheck, lint, all 432 tests and build passed. No new dependencies,
+formats or product controls. Physical-phone frame-rate budgets from the
+optimization spec remain unverified; owner approval permits merging that work.
 
 ## Registered sky background
 

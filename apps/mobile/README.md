@@ -57,7 +57,8 @@ generated catalogue files directly.
 
 The Milky Way and saved panorama/raster mask use Skia runtime shaders with six
 padded cube faces packed into a 2D texture. The celestial cube stays in J2000;
-small orientation uniforms register it to the current observing instant. Local
+small orientation uniforms register it to the shared preview timestamp on the
+UI path, including while the time slider is held down. Local
 panorama/mask cubes stay in east/up/north. Panning and zooming update the camera
 basis without regenerating background vertices or cube images.
 
@@ -74,6 +75,10 @@ React Native Skia:
 ```powershell
 node apps/mobile/scripts/sky-assets/checkCubeRendering.mjs
 ```
+
+The check includes shared-time orientations at several instants, compared with
+the authoritative astronomy transform. `CubeBackgroundLayer.test.tsx` verifies
+that preview time changes uniforms without a React rerender or another bake.
 
 An optional output-directory argument writes synthetic comparison PNGs. Jest
 also checks coordinate transforms and image lifecycle. Android device testing

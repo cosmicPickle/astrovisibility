@@ -17,13 +17,13 @@ import {
   buildPlanetariumCatalogueIndex,
   layoutPlanetariumTargetLabels,
   selectDeterministicAtlasFloorTargetIds,
-  selectPlanetariumResidentTargets,
   shouldRefreshPlanetariumResidentCatalogue,
   type HorizontalCatalogueTarget,
 } from './planetariumCatalogue';
 import {
   createInitialPlanetariumCamera,
   projectHorizontalDirection,
+  vectorToHorizontalDirection,
   type PlanetariumCamera,
 } from './planetariumProjection';
 import { PlanetariumScene } from './PlanetariumScene';
@@ -31,13 +31,26 @@ import type { MaskMode } from './MaskAppearanceControls';
 import {
   selectRegisteredConstellationLabels,
   selectRegisteredDsoImages,
-  selectRegisteredStarBatches,
+  selectRegisteredCelestialStarBatches,
   selectVisibleRegisteredConstellations,
   type RegisteredDsoImage,
-  type RegisteredSkyProjection,
 } from './registeredSkyProjection';
 import { useLatestValue } from './useLatestValue';
 import { usePlanetariumNavigation } from './usePlanetariumNavigation';
+import type { SharedValue } from 'react-native-reanimated';
+import {
+  projectJ2000ToObservedHorizontalVector,
+  type CelestialTimeTransform,
+} from '../astronomy/celestialTimeTransform';
+import {
+  selectCelestialAtlasMeshesForFieldOfView,
+  type RegisteredCelestialDsoImage,
+  type RegisteredCelestialSky,
+} from './celestialSkyGeometry';
+import {
+  selectCelestialResidentTargets,
+  type CelestialCatalogueTarget,
+} from './celestialCatalogue';
 
 export const TRAJECTORY_MARKER_HIT_RADIUS_PIXELS = 22;
 
@@ -68,9 +81,13 @@ export interface SkyCanvasProps {
     panorama: ActivePanorama | null;
   } | null;
   minimumTargetCount: number;
-  registeredSky: RegisteredSkyProjection;
-  registeredDsoImages: readonly RegisteredDsoImage[];
   constellationOpacityPercent: number;
+  celestialTimeTransform: CelestialTimeTransform;
+  sceneTimeMilliseconds: SharedValue<number>;
+  registeredCelestialSky: RegisteredCelestialSky;
+  registeredCelestialDsoImages: readonly RegisteredCelestialDsoImage[];
+  celestialTargets: readonly CelestialCatalogueTarget[];
+  controlTimeMilliseconds: number;
 }
 
 export const SkyCanvas = ({
@@ -88,9 +105,13 @@ export const SkyCanvas = ({
   trajectory,
   maskPresentation,
   minimumTargetCount,
-  registeredSky,
-  registeredDsoImages,
   constellationOpacityPercent,
+  celestialTimeTransform,
+  sceneTimeMilliseconds,
+  registeredCelestialSky,
+  registeredCelestialDsoImages,
+  celestialTargets,
+  controlTimeMilliseconds,
 }: SkyCanvasProps) => {
   const [canvas, setCanvas] = useState({ widthPixels: 1, heightPixels: 1 });
   const [initialCameraState] = useState<PlanetariumCamera>(() =>
@@ -116,23 +137,23 @@ export const SkyCanvas = ({
   );
   const residentTargets = useMemo(
     () =>
-      selectPlanetariumResidentTargets(
-        catalogueIndex,
-        residentCameraState,
+      selectCelestialResidentTargets({
+        camera: residentCameraState,
         canvas,
-        {
-          densityCandidateCount,
-          floorTargetIds,
-          minimumTargetCount,
-          selectedTargetId,
-        },
-      ),
+        catalogue: celestialTargets,
+        densityCandidateCount,
+        floorTargetIds,
+        selectedTargetId,
+        timeTransform: celestialTimeTransform,
+        timestampMilliseconds: controlTimeMilliseconds,
+      }),
     [
       canvas,
-      catalogueIndex,
+      celestialTargets,
+      celestialTimeTransform,
+      controlTimeMilliseconds,
       densityCandidateCount,
       floorTargetIds,
-      minimumTargetCount,
       residentCameraState,
       selectedTargetId,
     ],
@@ -145,23 +166,62 @@ export const SkyCanvas = ({
       }),
     [canvas, labelCameraState, residentTargets, selectedTargetId],
   );
-  const registeredStarBatches = useMemo(
+  const registeredCelestialStarBatches = useMemo(
     () =>
-      selectRegisteredStarBatches(
-        registeredSky.stars,
-        residentCameraState,
+      selectRegisteredCelestialStarBatches({
+        camera: residentCameraState,
         canvas,
-      ),
-    [canvas, registeredSky.stars, residentCameraState],
+        stars: registeredCelestialSky.stars,
+        timeTransform: celestialTimeTransform,
+        timestampMilliseconds: controlTimeMilliseconds,
+      }),
+    [
+      canvas,
+      celestialTimeTransform,
+      controlTimeMilliseconds,
+      registeredCelestialSky.stars,
+      residentCameraState,
+    ],
+  );
+  const controlRegisteredConstellations = useMemo(
+    () =>
+      registeredCelestialSky.constellations.map((constellation) => ({
+        id: constellation.id,
+        label: vectorToHorizontalDirection(
+          projectJ2000ToObservedHorizontalVector(
+            constellation.labelJ2000UnitVector,
+            celestialTimeTransform,
+            controlTimeMilliseconds,
+          ),
+        ),
+        lines: constellation.lineJ2000UnitVectors.map((line) =>
+          line.map((vector) =>
+            vectorToHorizontalDirection(
+              projectJ2000ToObservedHorizontalVector(
+                vector,
+                celestialTimeTransform,
+                controlTimeMilliseconds,
+              ),
+            ),
+          ),
+        ),
+        name: constellation.name,
+        rank: constellation.rank,
+      })),
+    [
+      celestialTimeTransform,
+      controlTimeMilliseconds,
+      registeredCelestialSky.constellations,
+    ],
   );
   const visibleRegisteredConstellations = useMemo(
     () =>
       selectVisibleRegisteredConstellations(
-        registeredSky.constellations,
+        controlRegisteredConstellations,
         constellationCameraState,
         canvas,
       ),
-    [canvas, constellationCameraState, registeredSky.constellations],
+    [canvas, constellationCameraState, controlRegisteredConstellations],
   );
   const constellationLabels = useMemo(
     () =>
@@ -172,22 +232,89 @@ export const SkyCanvas = ({
       ),
     [canvas, labelCameraState, visibleRegisteredConstellations],
   );
-  const visibleRegisteredSky = useMemo(
-    () => ({
-      ...registeredSky,
-      constellations: visibleRegisteredConstellations,
-    }),
-    [registeredSky, visibleRegisteredConstellations],
+  const celestialConstellationById = useMemo(
+    () =>
+      new Map(
+        registeredCelestialSky.constellations.map((constellation) => [
+          constellation.id,
+          constellation,
+        ]),
+      ),
+    [registeredCelestialSky.constellations],
+  );
+  const visibleCelestialConstellations = useMemo(
+    () =>
+      visibleRegisteredConstellations.flatMap((constellation) => {
+        const celestialConstellation = celestialConstellationById.get(
+          constellation.id,
+        );
+        return celestialConstellation ? [celestialConstellation] : [];
+      }),
+    [celestialConstellationById, visibleRegisteredConstellations],
+  );
+  const celestialConstellationLabels = useMemo(
+    () =>
+      constellationLabels.flatMap((constellation) => {
+        const celestialConstellation = celestialConstellationById.get(
+          constellation.id,
+        );
+        return celestialConstellation ? [celestialConstellation] : [];
+      }),
+    [celestialConstellationById, constellationLabels],
   );
   const visibleRegisteredDsoImages = useMemo(
     () =>
       selectRegisteredDsoImages(
-        registeredDsoImages,
+        registeredCelestialDsoImages.map((image): RegisteredDsoImage => {
+          const centerDirection = vectorToHorizontalDirection(
+            projectJ2000ToObservedHorizontalVector(
+              image.mesh.centerJ2000UnitVector,
+              celestialTimeTransform,
+              controlTimeMilliseconds,
+            ),
+          );
+          return {
+            mesh: {
+              angularRadiusDegrees: image.mesh.angularRadiusDegrees,
+              centerDirection,
+              columnCount: 0,
+              directions: [],
+              directionVectors: [],
+              indices: [],
+              rowCount: 0,
+              texturePointsPixels: [],
+            },
+            source: image.source,
+            targetId: image.targetId,
+          };
+        }),
         labelCameraState,
         canvas,
         selectedTargetId,
       ),
-    [canvas, labelCameraState, registeredDsoImages, selectedTargetId],
+    [
+      canvas,
+      celestialTimeTransform,
+      controlTimeMilliseconds,
+      labelCameraState,
+      registeredCelestialDsoImages,
+      selectedTargetId,
+    ],
+  );
+  const celestialDsoImageById = useMemo(
+    () =>
+      new Map(
+        registeredCelestialDsoImages.map((image) => [image.targetId, image]),
+      ),
+    [registeredCelestialDsoImages],
+  );
+  const visibleCelestialDsoImages = useMemo(
+    () =>
+      visibleRegisteredDsoImages.flatMap((image) => {
+        const celestialImage = celestialDsoImageById.get(image.targetId);
+        return celestialImage ? [celestialImage] : [];
+      }),
+    [celestialDsoImageById, visibleRegisteredDsoImages],
   );
 
   const getTapContext = useLatestValue(
@@ -342,11 +469,20 @@ export const SkyCanvas = ({
             panoramaOpacity={(maskPresentation?.opacityPercent ?? 0) / 100}
             panoramaImage={maskPresentation?.panorama}
             panoramaTiles={maskPresentation?.panorama?.tiles ?? []}
-            registeredSky={visibleRegisteredSky}
-            registeredStarBatches={registeredStarBatches}
-            constellationLabels={constellationLabels}
+            registeredCelestialSky={{
+              ...registeredCelestialSky,
+              atlasMeshes: selectCelestialAtlasMeshesForFieldOfView(
+                registeredCelestialSky,
+                residentCameraState.fieldOfViewDegrees,
+              ),
+              constellations: visibleCelestialConstellations,
+            }}
+            registeredCelestialStarBatches={registeredCelestialStarBatches}
+            celestialConstellationLabels={celestialConstellationLabels}
+            celestialTimeTransform={celestialTimeTransform}
+            sceneTimeMilliseconds={sceneTimeMilliseconds}
             constellationOpacity={constellationOpacityPercent / 100}
-            registeredDsoImages={visibleRegisteredDsoImages}
+            registeredCelestialDsoImages={visibleCelestialDsoImages}
             selectedTargetId={selectedTargetId}
             targets={visibleTargets}
             trajectory={trajectory}

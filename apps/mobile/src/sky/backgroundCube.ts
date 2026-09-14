@@ -1,4 +1,8 @@
 import { Observer, Refraction, Rotation_HOR_EQJ } from 'astronomy-engine';
+import {
+  createCelestialObservedFrame,
+  type CelestialTimeTransform,
+} from '../astronomy/celestialTimeTransform.ts';
 import type { ObserverLocation } from '../astronomy/horizontalCoordinates';
 import {
   createPlanetariumProjectionContext,
@@ -91,6 +95,29 @@ export interface CelestialCubeOrientation {
   eastJ2000: number[];
   upJ2000: number[];
   northJ2000: number[];
+}
+
+/** Inverse of the same geometric rotation used by live celestial layers. */
+export function createSharedCelestialCubeOrientation(
+  timeTransform: CelestialTimeTransform,
+  timestampMilliseconds: number,
+): CelestialCubeOrientation {
+  'worklet';
+  const boundedTimestamp = Math.max(
+    timeTransform.startTimestampMilliseconds,
+    Math.min(timeTransform.endTimestampMilliseconds, timestampMilliseconds),
+  );
+  const matrix = createCelestialObservedFrame(
+    timeTransform,
+    boundedTimestamp,
+  ).j2000ToGeometricHorizontal;
+  // An orthogonal rotation's inverse is its transpose. These rows are the
+  // J2000 basis vectors of local east/up/north, before optical refraction.
+  return {
+    eastJ2000: [matrix[0], matrix[1], matrix[2]],
+    upJ2000: [matrix[3], matrix[4], matrix[5]],
+    northJ2000: [matrix[6], matrix[7], matrix[8]],
+  };
 }
 
 export function createCelestialCubeOrientation(input: {

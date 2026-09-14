@@ -5,6 +5,10 @@ import {
 import constellationsJson from './generated/constellations.json';
 import starsJson from './generated/stars.json';
 import {
+  observedHorizontalVectorToJ2000,
+  type CelestialTimeTransform,
+} from '../astronomy/celestialTimeTransform';
+import {
   createInstantHorizontalProjector,
   type ObserverLocation,
 } from '../astronomy/horizontalCoordinates';
@@ -26,6 +30,10 @@ import {
   type EquatorialDirection,
   type EquatorialImageMesh,
 } from './registeredSkyGeometry';
+import type {
+  RegisteredCelestialStar,
+  RegisteredCelestialStarBatch,
+} from './celestialSkyGeometry';
 
 type RegisteredStarRow = readonly [
   id: string,
@@ -221,7 +229,7 @@ export const getRegisteredDsoImageOpacity = (
   return Math.max(0, Math.min(0.9, opacity));
 };
 
-const getCameraCornerAngularRadiusDegrees = (
+export const getCameraCornerAngularRadiusDegrees = (
   camera: PlanetariumCamera,
   canvas: CanvasSizePixels,
 ) => {
@@ -269,7 +277,7 @@ export const selectRegisteredDsoImages = (
 };
 
 const MAXIMUM_RENDERED_STAR_MAGNITUDE = 6.7;
-const STAR_BAND_PREFETCH_FIELD_OF_VIEW_RATIO = 1.25;
+const STAR_BAND_PREFETCH_FIELD_OF_VIEW_RATIO = 1.08;
 
 interface RegisteredStarStyle extends Omit<
   RegisteredStarBatch,
@@ -310,8 +318,8 @@ const STAR_MAGNITUDE_STYLES: readonly RegisteredStarMagnitudeStyle[] = [
     radiusPixels: 1.45,
   },
   {
-    fadeStartFieldOfViewDegrees: null,
-    fullOpacityFieldOfViewDegrees: null,
+    fadeStartFieldOfViewDegrees: 90,
+    fullOpacityFieldOfViewDegrees: 65,
     haloRadiusPixels: 2.05,
     key: '3',
     maximumMagnitude: 4,
@@ -319,8 +327,8 @@ const STAR_MAGNITUDE_STYLES: readonly RegisteredStarMagnitudeStyle[] = [
     radiusPixels: 1.1,
   },
   {
-    fadeStartFieldOfViewDegrees: 105,
-    fullOpacityFieldOfViewDegrees: 65,
+    fadeStartFieldOfViewDegrees: 65,
+    fullOpacityFieldOfViewDegrees: 45,
     haloRadiusPixels: 1.8,
     key: '4',
     maximumMagnitude: 4.8,
@@ -328,8 +336,8 @@ const STAR_MAGNITUDE_STYLES: readonly RegisteredStarMagnitudeStyle[] = [
     radiusPixels: 0.9,
   },
   {
-    fadeStartFieldOfViewDegrees: 70,
-    fullOpacityFieldOfViewDegrees: 40,
+    fadeStartFieldOfViewDegrees: 45,
+    fullOpacityFieldOfViewDegrees: 30,
     haloRadiusPixels: 1.55,
     key: '5',
     maximumMagnitude: 5.5,
@@ -337,8 +345,8 @@ const STAR_MAGNITUDE_STYLES: readonly RegisteredStarMagnitudeStyle[] = [
     radiusPixels: 0.72,
   },
   {
-    fadeStartFieldOfViewDegrees: 45,
-    fullOpacityFieldOfViewDegrees: 24,
+    fadeStartFieldOfViewDegrees: 28,
+    fullOpacityFieldOfViewDegrees: 18,
     haloRadiusPixels: 1.4,
     key: '6',
     maximumMagnitude: 6,
@@ -346,8 +354,8 @@ const STAR_MAGNITUDE_STYLES: readonly RegisteredStarMagnitudeStyle[] = [
     radiusPixels: 0.62,
   },
   {
-    fadeStartFieldOfViewDegrees: 26,
-    fullOpacityFieldOfViewDegrees: 13,
+    fadeStartFieldOfViewDegrees: 18,
+    fullOpacityFieldOfViewDegrees: 10,
     haloRadiusPixels: 1.3,
     key: '7',
     maximumMagnitude: 6.4,
@@ -355,8 +363,8 @@ const STAR_MAGNITUDE_STYLES: readonly RegisteredStarMagnitudeStyle[] = [
     radiusPixels: 0.56,
   },
   {
-    fadeStartFieldOfViewDegrees: 14,
-    fullOpacityFieldOfViewDegrees: 7,
+    fadeStartFieldOfViewDegrees: 10,
+    fullOpacityFieldOfViewDegrees: 5,
     haloRadiusPixels: 1.2,
     key: '8',
     maximumMagnitude: MAXIMUM_RENDERED_STAR_MAGNITUDE,
@@ -391,7 +399,9 @@ const getMaximumResidentStarMagnitude = (fieldOfViewDegrees: number) => {
   return maximumMagnitude;
 };
 
-const starStyle = (star: HorizontalRegisteredStar): RegisteredStarStyle => {
+const starStyle = (
+  star: Pick<HorizontalRegisteredStar, 'colorIndexBv' | 'magnitude'>,
+): RegisteredStarStyle => {
   const colorStyle = getStarColorStyle(star.colorIndexBv);
   const magnitudeStyle = STAR_MAGNITUDE_STYLES.find(
     ({ maximumMagnitude }) => star.magnitude <= maximumMagnitude,
@@ -467,6 +477,65 @@ export const selectRegisteredStarBatches = (
     ) {
       continue;
     }
+    const { styleKey: key, ...batchStyle } = style;
+    const batch = batches.get(key) ?? {
+      ...batchStyle,
+      directions: [],
+      key,
+    };
+    batch.directions.push(star);
+    batches.set(key, batch);
+  }
+  return [...batches.values()];
+};
+
+export const selectRegisteredCelestialStarBatches = (input: {
+  camera: PlanetariumCamera;
+  canvas: CanvasSizePixels;
+  stars: readonly RegisteredCelestialStar[];
+  timeTransform: CelestialTimeTransform;
+  timestampMilliseconds: number;
+}): RegisteredCelestialStarBatch[] => {
+  const timestampMilliseconds = Math.max(
+    input.timeTransform.startTimestampMilliseconds,
+    Math.min(
+      input.timeTransform.endTimestampMilliseconds,
+      input.timestampMilliseconds,
+    ),
+  );
+  const cameraCenterJ2000 = observedHorizontalVectorToJ2000(
+    input.camera.forward,
+    input.timeTransform,
+    timestampMilliseconds,
+  );
+  const maximumResidentMagnitude = getMaximumResidentStarMagnitude(
+    input.camera.fieldOfViewDegrees,
+  );
+  const cornerAngularRadiusDegrees = getCameraCornerAngularRadiusDegrees(
+    input.camera,
+    input.canvas,
+  );
+  const residentRadiusDegrees = Math.min(
+    180,
+    cornerAngularRadiusDegrees + input.camera.fieldOfViewDegrees * 0.15,
+  );
+  const minimumResidentDotProduct = Math.cos(
+    (residentRadiusDegrees * Math.PI) / 180,
+  );
+  const batches = new Map<string, RegisteredCelestialStarBatch>();
+  for (const star of input.stars) {
+    if (star.magnitude > maximumResidentMagnitude) continue;
+    const centerDotProduct =
+      star.j2000UnitVector.x * cameraCenterJ2000.x +
+      star.j2000UnitVector.y * cameraCenterJ2000.y +
+      star.j2000UnitVector.z * cameraCenterJ2000.z;
+    if (
+      residentRadiusDegrees < 180 &&
+      centerDotProduct < minimumResidentDotProduct
+    ) {
+      continue;
+    }
+    const style = starStyle(star);
     const { styleKey: key, ...batchStyle } = style;
     const batch = batches.get(key) ?? {
       ...batchStyle,
