@@ -13,6 +13,11 @@ import {
   type PlanetariumCamera,
 } from './planetariumProjection';
 import { SkyCanvas } from './SkyCanvas';
+import { createCelestialTimeTransform } from '../astronomy/celestialTimeTransform';
+import type { SharedValue } from 'react-native-reanimated';
+import { observedHorizontalVectorToJ2000 } from '../astronomy/celestialTimeTransform';
+import { createCelestialCatalogue } from './celestialCatalogue';
+import { horizontalDirectionToVector } from './planetariumProjection';
 
 const mockObservedCameras: PlanetariumCamera[] = [];
 const mockObservedSceneTargetIds: string[][] = [];
@@ -113,9 +118,30 @@ const commonProps = {
   minimumTargetCount: 100,
   onInspectTrajectoryMarker: jest.fn(),
   onSelectTarget: jest.fn(),
-  registeredSky: { atlasMeshes: [], constellations: [], stars: [] },
-  registeredDsoImages: [],
   constellationOpacityPercent: 30,
+  celestialTimeTransform: createCelestialTimeTransform({
+    observer: {
+      elevationMetersAboveMeanSeaLevel: 550,
+      latitudeDegreesNorth: 42.7,
+      longitudeDegreesEast: 23.3,
+    },
+    window: {
+      startTimestampUtc: '2026-08-20T12:00:00.000Z',
+      endTimestampUtc: '2026-08-21T12:00:00.000Z',
+    },
+  }),
+  sceneTimeMilliseconds: {
+    value: Date.parse('2026-08-20T20:00:00.000Z'),
+  } as SharedValue<number>,
+  registeredCelestialSky: {
+    atlasMeshes: [],
+    constellations: [],
+    stars: [],
+    wideAtlasMeshes: [],
+  },
+  registeredCelestialDsoImages: [],
+  celestialTargets: [],
+  controlTimeMilliseconds: Date.parse('2026-08-20T20:00:00.000Z'),
   targets: [],
 };
 
@@ -235,12 +261,26 @@ describe('SkyCanvas selection camera stability', () => {
 
   it('updates the bounded catalogue during pan preview without moving the committed camera or recreating tap handling', async () => {
     const onSelectTarget = jest.fn();
+    const southTarget = createCatalogueTarget('south-target', 180);
+    const southJ2000 = observedHorizontalVectorToJ2000(
+      horizontalDirectionToVector({
+        altitudeDegrees: southTarget.altitudeDegrees,
+        azimuthDegrees: southTarget.azimuthDegrees,
+      }),
+      commonProps.celestialTimeTransform,
+      commonProps.controlTimeMilliseconds,
+    );
+    southTarget.target.rightAscensionJ2000Hours =
+      ((Math.atan2(southJ2000.y, southJ2000.x) * 12) / Math.PI + 24) % 24;
+    southTarget.target.declinationJ2000Degrees =
+      (Math.asin(southJ2000.z) * 180) / Math.PI;
     await render(
       <SkyCanvas
         {...commonProps}
         onSelectTarget={onSelectTarget}
         selectedTargetId={null}
-        targets={[createCatalogueTarget('south-target', 180)]}
+        celestialTargets={createCelestialCatalogue([southTarget.target])}
+        targets={[southTarget]}
         trajectory={null}
       />,
     );

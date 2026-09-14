@@ -19,7 +19,7 @@ const assertPositivePixels = (value: number, name: string) => {
 
 const wrapRightAscensionHours = (hours: number) => ((hours % 24) + 24) % 24;
 
-const createGridIndices = (columnCount: number, rowCount: number) => {
+export const createGridIndices = (columnCount: number, rowCount: number) => {
   const indices: number[] = [];
   for (let row = 0; row < rowCount - 1; row += 1) {
     for (let column = 0; column < columnCount - 1; column += 1) {
