@@ -89,6 +89,9 @@ export function PoseDrivenCaptureView({
   poseReadiness,
   profile,
   tiles,
+  previewOverride,
+  actionsOverride,
+  statusText,
 }: {
   busy: boolean;
   cameraGranted: boolean;
@@ -102,6 +105,9 @@ export function PoseDrivenCaptureView({
   poseReadiness: CapturePoseReadiness;
   profile: ProfileRecord;
   tiles: readonly CapturedProofTile[];
+  previewOverride?: React.ReactNode;
+  actionsOverride?: React.ReactNode;
+  statusText?: string;
 }) {
   const [canvas, setCanvas] = useState<CanvasSizePixels>({
     heightPixels: 1,
@@ -162,16 +168,18 @@ export function PoseDrivenCaptureView({
     <View style={styles.screen}>
       <View accessibilityLabel="Live camera preview" style={styles.previewHalf}>
         {cameraGranted ? (
-          <CameraView
-            accessibilityLabel="Rear camera preview at 1x"
-            facing="back"
-            onCameraReady={() => void selectPictureSize()}
-            pictureSize={pictureSize ?? undefined}
-            ratio="4:3"
-            ref={cameraRef}
-            style={StyleSheet.absoluteFill}
-            zoom={0}
-          />
+          (previewOverride ?? (
+            <CameraView
+              accessibilityLabel="Rear camera preview at 1x"
+              facing="back"
+              onCameraReady={() => void selectPictureSize()}
+              pictureSize={pictureSize ?? undefined}
+              ratio="4:3"
+              ref={cameraRef}
+              style={StyleSheet.absoluteFill}
+              zoom={0}
+            />
+          ))
         ) : (
           <View style={styles.fallback}>
             <AppText tone="label">Camera access unavailable</AppText>
@@ -236,7 +244,10 @@ export function PoseDrivenCaptureView({
               {captureAltitudeMessage(altitudeStatus)}
             </AppText>
           ) : null}
-          {readinessMessage ? (
+          {statusText ? (
+            <AppText style={styles.fieldOfViewText}>{statusText}</AppText>
+          ) : null}
+          {!statusText && readinessMessage ? (
             <AppText accessibilityRole="alert" style={styles.limitText}>
               {readinessMessage}
             </AppText>
@@ -246,18 +257,22 @@ export function PoseDrivenCaptureView({
           ) : null}
         </View>
         <View style={styles.actions}>
-          <ActionButton
-            disabled={!captureAllowed}
-            label="Capture"
-            loading={busy}
-            onPress={onCapture}
-          />
-          <ActionButton
-            disabled={tiles.length === 0}
-            label="Create panorama"
-            onPress={onFinish}
-            variant="secondary"
-          />
+          {actionsOverride ?? (
+            <>
+              <ActionButton
+                disabled={!captureAllowed}
+                label="Capture"
+                loading={busy}
+                onPress={onCapture}
+              />
+              <ActionButton
+                disabled={tiles.length === 0}
+                label="Create panorama"
+                onPress={onFinish}
+                variant="secondary"
+              />
+            </>
+          )}
         </View>
       </View>
     </View>
@@ -282,6 +297,7 @@ const styles = StyleSheet.create({
   atlasStatus: {
     backgroundColor: 'rgba(5, 7, 13, 0.76)',
     left: 8,
+    right: 8,
     paddingHorizontal: 8,
     paddingVertical: 5,
     position: 'absolute',

@@ -1,0 +1,66 @@
+import java.security.MessageDigest
+import java.util.zip.ZipFile
+
+// Build-time download only. The installed app always has its offline model.
+def modelDigest = '38431bc66b883404e8397f74c3579404315b9b52b04a46c6346fe906a7309b03'
+def modelUrl = 'https://storage.googleapis.com/mediapipe-models/interactive_segmenter_v2/magic_touch/int8/1/interactive_segmentation.task'
+def modelCache = new File(gradle.gradleUserHomeDir, 'caches/astrovisibility/magic-touch-v2-int8-1.task')
+def generatedAssets = layout.buildDirectory.dir('generated/mediapipe-assets')
+configurations { mediaPipeNotices { transitive = false } }
+dependencies {
+  mediaPipeNotices 'com.google.mediapipe:tasks-core:1.0.0@aar'
+}
+def prepareModel = tasks.register('prepareMagicTouchModel') {
+  inputs.property('modelDigest', modelDigest)
+  inputs.files(configurations.mediaPipeNotices)
+  outputs.dir(generatedAssets)
+  doLast {
+    modelCache.parentFile.mkdirs()
+    if (!modelCache.exists()) {
+      def partial = new File(modelCache.parentFile, modelCache.name + '.partial')
+      try {
+        def connection = new URI(modelUrl).toURL().openConnection()
+        connection.connectTimeout = 30000
+        connection.readTimeout = 60000
+        connection.inputStream.withCloseable { input -> partial.withOutputStream { output ->
+          byte[] buffer = new byte[65536]
+          long total = 0
+          int length
+          while ((length = input.read(buffer)) != -1) {
+            total += length
+            if (total > 30525312) throw new GradleException('MagicTouch download exceeded expected size')
+            output.write(buffer, 0, length)
+          }
+        } }
+        java.nio.file.Files.move(partial.toPath(), modelCache.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+      } finally { partial.delete() }
+    }
+    def hash = MessageDigest.getInstance('SHA-256')
+    modelCache.withInputStream { input ->
+      byte[] buffer = new byte[65536]
+      int length
+      while ((length = input.read(buffer)) != -1) hash.update(buffer, 0, length)
+    }
+    if (hash.digest().encodeHex().toString() != modelDigest)
+      throw new GradleException('MagicTouch model checksum mismatch. Remove the cached model and rebuild.')
+    def assets = generatedAssets.get().asFile
+    assets.mkdirs()
+    java.nio.file.Files.copy(modelCache.toPath(), new File(assets, 'interactive_segmentation.task').toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+    def notices = new File(assets, 'opencv-licenses')
+    notices.mkdirs()
+    new File(notices, 'MagicTouch.txt').text = "Google MagicTouch interactive_segmenter_v2, int8 version 1.\nModel source: $modelUrl\nSHA-256: $modelDigest\nApache License 2.0. Model card: https://storage.googleapis.com/mediapipe-assets/Model%20Card%20MagicTouch.pdf\n"
+    configurations.mediaPipeNotices.files.each { file ->
+      new ZipFile(file).withCloseable { archive ->
+        def entry = archive.getEntry('META-INF/NOTICE')
+        if (entry == null) throw new GradleException('MediaPipe licence notices missing')
+        archive.getInputStream(entry).withCloseable { input ->
+          new File(notices, 'MediaPipe-NOTICE.txt').withOutputStream { it << input }
+        }
+      }
+    }
+  }
+}
+android.sourceSets.main.assets.srcDir(prepareModel.map { generatedAssets.get().asFile })
+tasks.configureEach { task ->
+  if (task.name.endsWith('Assets') || task.name.toLowerCase().contains('lint')) task.dependsOn(prepareModel)
+}

@@ -40,9 +40,9 @@ internal fun prepareInputs(
       require(value.isFinite())
       require(when (offset) {
         0 -> value >= 0 && value < 360
-        1 -> value in 0.0..90.0
+        1 -> value in -90.0..90.0
         2 -> value in -180.0..180.0
-        else -> value in 1.0..150.0
+        else -> value > 0.0 && value < 180.0
       })
       placements[index * 5 + offset] = value
     }

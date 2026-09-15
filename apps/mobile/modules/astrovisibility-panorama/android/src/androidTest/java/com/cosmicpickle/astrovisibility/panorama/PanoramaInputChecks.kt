@@ -48,6 +48,8 @@ class PanoramaInputChecks : Instrumentation() {
       val decoded = BitmapFactory.decodeFile(prepared.paths[0])
       check(decoded.width == 180 && decoded.height == 320) { "EXIF rotation was lost" }
       decoded.recycle()
+      check(prepare(JSONArray().put(input(altitude = -3.0))).placements[1] == -3.0)
+      rejects { prepare(JSONArray().put(input(altitude = -91.0))) }
       rejects { prepare(JSONArray().put(input("file:///sdcard/outside.jpg"))) }
       rejects { prepare(JSONArray().put(input("https://example.com/photo.jpg"))) }
       rejects { prepare(JSONArray().put(input(altitude = 91.0))) }
@@ -58,6 +60,11 @@ class PanoramaInputChecks : Instrumentation() {
       val large = File(directory, "large.jpg")
       RandomAccessFile(large, "rw").use { it.setLength(33L * 1024 * 1024) }
       rejects { prepare(JSONArray().put(input(large.toURI().toString()))) }
+      checkMaskSelection()
+      checkObjectMaskGeometry()
+      checkObjectMaskModel(targetContext)
+      checkPartialObjectMask(targetContext)
+      checkContinuousCapture(targetContext)
       sendStatus(0, status)
       finish(Activity.RESULT_OK, Bundle().apply { putString("stream", "Panorama Android input checks passed\n") })
     } catch (_: Exception) {

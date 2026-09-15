@@ -155,10 +155,14 @@ export const applyTileCorrection = (
       centerAltitudeDegrees: clamp(
         tile.reviewedPlacement.centerAltitudeDegrees +
           correction.altitudeDeltaDegrees,
-        0,
+        -90,
         90,
       ),
       rollDegrees:
-        tile.reviewedPlacement.rollDegrees + correction.rollDeltaDegrees,
+        normalizeAzimuthDegrees(
+          tile.reviewedPlacement.rollDegrees +
+            correction.rollDeltaDegrees +
+            180,
+        ) - 180,
     },
   });

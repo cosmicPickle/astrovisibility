@@ -1,33 +1,5 @@
 # Active Tasks
 
-## Integrate optimized time rendering and cubemap backgrounds
-
-**Started:** 2026-09-14 14:00 +03:00 (Europe/Sofia)
-
-The owner explicitly approved merging `feature/atlas-shared-time-transform`
-into `main`, then integrating updated `main` into the cubemap experiment.
-Cubemap-to-main merge remains unapproved.
-
-Controlling specifications:
-
-- `docs/superpowers/specs/mobile/2026-09-01-1445-shared-celestial-time-transform.md`
-- Cubemap branch: `docs/superpowers/specs/mobile/2026-09-14-1248-cubemap-background-renderer.md`
-
-- [x] Inspect both clean worktrees and preserve uploaded photos.
-- [x] Merge the optimization branch into main without conflicts.
-- [x] Verify merged main, commit and push it.
-- [ ] Merge main into `feature/cubemap-background-renderer` and resolve conflicts.
-- [ ] Drive Milky Way cube orientation from the same shared render time as stars.
-- [ ] Test live previews, fixed mask/panorama, celestial registration and cache reuse.
-- [ ] Run quality gates, fresh Android build and representative/constrained QA.
-- [ ] Push only the updated cubemap branch and provide the combined APK.
-- [ ] Owner inspects combined cubemap build and accepts merge or discard.
-
-Current step: integrate updated main into the cubemap branch. Merged-main format,
-typecheck, lint, all 432 tests and build passed. No new dependencies,
-formats or product controls. Physical-phone frame-rate budgets from the
-optimization spec remain unverified; owner approval permits merging that work.
-
 ## Registered sky background
 
 **Started:** 2026-08-29 18:51 +03:00 (Europe/Sofia)

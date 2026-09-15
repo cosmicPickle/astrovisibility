@@ -255,6 +255,36 @@ const migrations: Migration[] = [
       WHERE sensor_width_pixels IS NULL OR sensor_height_pixels IS NULL;
     `,
   },
+  {
+    version: 9,
+    sql: `
+      CREATE TABLE panorama_capture_draft_tiles_v9 (
+        id TEXT PRIMARY KEY NOT NULL,
+        draft_id TEXT NOT NULL REFERENCES panorama_capture_drafts(id) ON DELETE CASCADE,
+        ordinal INTEGER NOT NULL CHECK(ordinal >= 0),
+        file_relative_path TEXT NOT NULL UNIQUE,
+        file_extension TEXT NOT NULL,
+        source_kind TEXT NOT NULL CHECK(source_kind IN ('camera', 'import')),
+        width_pixels INTEGER NOT NULL CHECK(width_pixels > 0),
+        height_pixels INTEGER NOT NULL CHECK(height_pixels > 0),
+        captured_at_utc TEXT NOT NULL,
+        orientation_snapshot_json TEXT NOT NULL,
+        orientation_confidence TEXT NOT NULL CHECK(orientation_confidence IN ('high', 'medium', 'low', 'manual')),
+        center_azimuth_degrees REAL NOT NULL CHECK(center_azimuth_degrees >= 0 AND center_azimuth_degrees < 360),
+        center_altitude_degrees REAL NOT NULL CHECK(center_altitude_degrees BETWEEN -90 AND 90),
+        roll_degrees REAL NOT NULL,
+        horizontal_fov_degrees REAL NOT NULL CHECK(horizontal_fov_degrees > 0 AND horizontal_fov_degrees <= 180),
+        vertical_fov_degrees REAL NOT NULL CHECK(vertical_fov_degrees > 0 AND vertical_fov_degrees <= 180),
+        coverage_polygon_json TEXT NOT NULL,
+        UNIQUE(draft_id, ordinal)
+      );
+
+      INSERT INTO panorama_capture_draft_tiles_v9 SELECT * FROM panorama_capture_draft_tiles;
+      DROP TABLE panorama_capture_draft_tiles;
+      ALTER TABLE panorama_capture_draft_tiles_v9 RENAME TO panorama_capture_draft_tiles;
+      CREATE INDEX panorama_capture_draft_tiles_draft_idx ON panorama_capture_draft_tiles(draft_id);
+    `,
+  },
 ];
 
 async function ensureEquipmentResolutionColumns(database: SqlDatabase) {

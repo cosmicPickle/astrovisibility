@@ -13,9 +13,9 @@ export default function PanoramaAlignmentRoute() {
           router.replace(
             `/profiles/${encodeURIComponent(profileId)}/capture-panorama?resume=1` as Href,
           ),
-        onAccepted: () =>
+        restitch: () =>
           router.replace(
-            `/profiles/${encodeURIComponent(profileId)}/mask` as Href,
+            `/profiles/${encodeURIComponent(profileId)}/align-panorama?placement=reviewed` as Href,
           ),
       }}
       profileId={profileId}

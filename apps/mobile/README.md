@@ -53,6 +53,39 @@ pnpm --filter @astrovisibility/mobile catalogue:check
 See `scripts/catalogue/README.md` before changing a source snapshot. Never edit
 generated catalogue files directly.
 
+## Background rendering
+
+The Milky Way and saved panorama/raster mask use Skia runtime shaders with six
+padded cube faces packed into a 2D texture. The celestial cube stays in J2000;
+small orientation uniforms register it to the shared preview timestamp on the
+UI path, including while the time slider is held down. Local
+panorama/mask cubes stay in east/up/north. Panning and zooming update the camera
+basis without regenerating background vertices or cube images.
+
+Preparation is serialized and cancelled when its source is replaced. The exact
+source projection renders while preparation is pending or if allocation fails.
+Mixed mask pixels sample the original raster to preserve thin boundaries. The
+binary mask used by visibility calculations and all saved images are unchanged.
+The current mask color/panorama modes and opacity continue to govern rendering.
+
+Verify the actual Skia shaders, synthetic mask boundaries and celestial
+registration from the repository root, using the CanvasKit already bundled with
+React Native Skia:
+
+```powershell
+node apps/mobile/scripts/sky-assets/checkCubeRendering.mjs
+```
+
+The check includes shared-time orientations at several instants, compared with
+the authoritative astronomy transform. `CubeBackgroundLayer.test.tsx` verifies
+that preview time changes uniforms without a React rerender or another bake.
+
+An optional output-directory argument writes synthetic comparison PNGs. Jest
+also checks coordinate transforms and image lifecycle. Android device testing
+remains necessary: CanvasKit cannot exercise native graphics-context transfer
+or establish phone performance. Cube caches add texture memory, so this branch
+does not claim a speed improvement without physical-device measurements.
+
 ## Local schema and file lifecycle
 
 Schema version 1 owns profiles, equipment and per-profile selections, panorama
@@ -254,6 +287,16 @@ a separate release-engineering change.
   before uninstalling.
 
 ## Known prototype limits
+
+The magic mask brush uses bundled MediaPipe MagicTouch object segmentation.
+Android builds download the versioned model once into the Gradle
+`caches/astrovisibility` directory, verify its pinned SHA-256 and include it in
+the APK. Subsequent builds reuse the cache; using the installed brush is offline.
+A checksum failure stops the build: remove only the named cached model file and
+retry. The brush selects filled object silhouettes, including windows and small
+canopy holes; use Manual to make precise corrections. Draw adds the selected
+object to the obstruction mask and Erase removes it. Processing happens when a
+stroke ends; the first selection prepares the model view and can take longer.
 
 - V1 is Android-first and uses target-centre obstruction classification; it does
   not test the entire camera frame against branches or roofs.

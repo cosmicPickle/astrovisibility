@@ -30,6 +30,14 @@ const native = {
 const remove = jest.fn();
 const complete = jest.fn();
 const getForProfile = jest.fn();
+const updateTilePlacements = jest.fn();
+const recoveredPlacement = {
+  centerAltitudeDegrees: 78,
+  centerAzimuthDegrees: 358,
+  rollDegrees: 17,
+  horizontalFieldOfViewDegrees: 61,
+  verticalFieldOfViewDegrees: 46,
+};
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -48,13 +56,14 @@ beforeEach(() => {
     return files.get(uri);
   }) as unknown as (...args: ConstructorParameters<typeof File>) => File);
   jest.mocked(requireOptionalNativeModule).mockReturnValue(native);
-  jest
-    .mocked(bootstrapStorage)
-    .mockResolvedValue({ panoramas: { complete, getForProfile } } as never);
+  jest.mocked(bootstrapStorage).mockResolvedValue({
+    panoramas: { complete, getForProfile, updateTilePlacements },
+  } as never);
   getForProfile.mockResolvedValue({
     id: 'draft',
     tiles: [
       {
+        id: 'tile',
         uri: 'file:///photo.jpg',
         reviewedPlacement: {
           centerAltitudeDegrees: 80,
@@ -71,9 +80,27 @@ beforeEach(() => {
     uri: 'file:///cache/job/panorama.png',
     coverageUri: 'file:///cache/job/panorama.coverage',
     unmatchedCount: 0,
+    placements: [recoveredPlacement],
   });
   native.discard.mockResolvedValue(undefined);
   complete.mockResolvedValue(undefined);
+});
+
+it('retains recovered rotations and intrinsics for manual adjustment and explicitly recomposes reviewed poses', async () => {
+  const preview = await controller.create(
+    'profile',
+    new AbortController().signal,
+    jest.fn(),
+    true,
+  );
+  expect(native.stitch.mock.calls[0][2]).toBe(true);
+  expect(updateTilePlacements).not.toHaveBeenCalled();
+  await controller.prepareManual(preview);
+  expect(updateTilePlacements).toHaveBeenCalledWith(
+    'draft',
+    [{ tileId: 'tile', placement: recoveredPlacement }],
+    expect.any(String),
+  );
 });
 
 it('passes only local photo and placement data, then creates one directional preview', async () => {

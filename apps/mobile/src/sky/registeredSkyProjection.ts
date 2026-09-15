@@ -1,3 +1,7 @@
+import {
+  createCelestialCubeOrientation,
+  type CelestialCubeOrientation,
+} from './backgroundCube';
 import constellationsJson from './generated/constellations.json';
 import starsJson from './generated/stars.json';
 import {
@@ -22,7 +26,6 @@ import type {
   HorizontalDirectionDegrees,
 } from './projection';
 import {
-  createEquatorialAtlasTiles,
   createEquatorialCutoutMesh,
   type EquatorialDirection,
   type EquatorialImageMesh,
@@ -65,7 +68,7 @@ export interface HorizontalRegisteredConstellation {
 }
 
 export interface RegisteredSkyProjection {
-  atlasMeshes: PlanetariumPanoramaMesh[];
+  celestialOrientation?: CelestialCubeOrientation;
   constellations: HorizontalRegisteredConstellation[];
   stars: HorizontalRegisteredStar[];
 }
@@ -100,13 +103,6 @@ export const MINIMUM_CONSTELLATION_CANVAS_AREA_FRACTION = 0.05;
 
 const stars = starsJson as unknown as RegisteredStarRow[];
 const constellations = constellationsJson as RegisteredConstellation[];
-const equatorialAtlasTiles = createEquatorialAtlasTiles({
-  heightPixels: 1024,
-  rightAscensionAtLeftEdgeHours: 6,
-  rightAscensionIncreasesToRight: false,
-  widthPixels: 2048,
-});
-
 const projectMesh = (
   mesh: EquatorialImageMesh,
   project: (coordinate: EquatorialDirection) => {
@@ -144,7 +140,7 @@ export const createRegisteredSkyProjection = (input: {
 }): RegisteredSkyProjection => {
   const project = createInstantHorizontalProjector(input);
   return {
-    atlasMeshes: equatorialAtlasTiles.map((mesh) => projectMesh(mesh, project)),
+    celestialOrientation: createCelestialCubeOrientation(input),
     constellations: constellations.map((constellation) => ({
       id: constellation.id,
       label: (() => {

@@ -21,6 +21,13 @@ class AstrovisibilityPanoramaModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("AstrovisibilityPanorama")
     Events("onProgress")
+    View(ContinuousCaptureView::class) {
+      Events("onTracking", "onFrame", "onStopped", "onInterruption")
+      Prop("recording") { view: ContinuousCaptureView, value: Boolean -> view.setRecording(value) }
+      Prop("observer") { view: ContinuousCaptureView, value: Map<String, Double> -> view.configureObserver(value) }
+      Prop("initialTiles") { view: ContinuousCaptureView, value: String -> view.setInitialTiles(value) }
+      Prop("acknowledgement") { view: ContinuousCaptureView, value: Int -> view.acknowledge(value) }
+    }
     AsyncFunction("licences") {
       val assets = context.assets
       assets.list("opencv-licenses")!!.sorted().joinToString("\n\n") { name ->
@@ -29,17 +36,21 @@ class AstrovisibilityPanoramaModule : Module() {
     }
     AsyncFunction("clearCache") { promise: Promise ->
       val cacheRoot = root
+      val captureCache = File(context.cacheDir, "continuous-panorama")
       activeJob?.let { it.cancelled.set(true); cancelNative(it.id) }
       worker.execute {
-        if (!cacheRoot.exists() || cacheRoot.deleteRecursively()) promise.resolve(null)
+        val stitchingCleared = !cacheRoot.exists() || cacheRoot.deleteRecursively()
+        val captureCleared = !captureCache.exists() || captureCache.deleteRecursively()
+        if (stitchingCleared && captureCleared) promise.resolve(null)
         else promise.reject("ERR_PANORAMA_CACHE", "Panorama cache could not be cleared", null)
       }
     }
     OnCreate {
       System.loadLibrary("opencv_java4")
+      org.opencv.core.Core.setNumThreads(2)
       System.loadLibrary("astrovisibility_panorama")
     }
-    AsyncFunction("stitch") { jobId: String, tiles: String, promise: Promise ->
+    AsyncFunction("stitch") { jobId: String, tiles: String, useReviewedPlacements: Boolean, promise: Promise ->
       val job = synchronized(this@AstrovisibilityPanoramaModule) {
         require(!destroyed && activeJob == null) { "Panorama processing is busy" }
         require(jobId.matches(Regex("[A-Za-z0-9-]{1,100}"))) { "Invalid panorama job" }
@@ -64,7 +75,8 @@ class AstrovisibilityPanoramaModule : Module() {
           }
           check()
           val prefix = File(directory, "panorama").path
-          val unmatched = stitchNative(job.id, inputs.paths, inputs.placements, prefix)
+          val result = stitchNative(job.id, inputs.paths, inputs.placements, prefix, useReviewedPlacements)
+          check(result.size == 1 + inputs.placements.size && result.all { it.isFinite() })
           check()
           inputs.paths.forEach { File(it).delete() }
           synchronized(this@AstrovisibilityPanoramaModule) {
@@ -74,7 +86,15 @@ class AstrovisibilityPanoramaModule : Module() {
           promise.resolve(mapOf(
             "uri" to File("$prefix.png").toURI().toString(),
             "coverageUri" to File("$prefix.coverage").toURI().toString(),
-            "unmatchedCount" to unmatched
+            "unmatchedCount" to result[0].toInt(),
+            "placements" to inputs.paths.indices.map { index ->
+              val offset = 1 + index * 5
+              mapOf("centerAzimuthDegrees" to result[offset],
+                "centerAltitudeDegrees" to result[offset + 1],
+                "rollDegrees" to result[offset + 2],
+                "horizontalFieldOfViewDegrees" to result[offset + 3],
+                "verticalFieldOfViewDegrees" to result[offset + 4])
+            }
           ))
         } catch (_: Exception) {
           if (created) directory.deleteRecursively()
@@ -122,6 +142,7 @@ class AstrovisibilityPanoramaModule : Module() {
     ))
   }
 
-  private external fun stitchNative(jobId: String, paths: Array<String>, placements: DoubleArray, prefix: String): Int
+  private external fun stitchNative(jobId: String, paths: Array<String>, placements: DoubleArray, prefix: String,
+    useReviewedPlacements: Boolean): DoubleArray
   private external fun cancelNative(jobId: String)
 }

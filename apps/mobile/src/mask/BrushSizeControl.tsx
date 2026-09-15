@@ -62,6 +62,7 @@ export function BrushSizeControl({
         <AppText tone="muted">{boundedValue} px</AppText>
       </View>
       <View
+        accessible
         accessibilityActions={[
           { name: 'decrement', label: 'Decrease brush size' },
           { name: 'increment', label: 'Increase brush size' },

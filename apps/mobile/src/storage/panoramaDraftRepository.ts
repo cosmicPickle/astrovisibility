@@ -253,28 +253,48 @@ export class PanoramaDraftRepository {
     placement: PanoramaTilePlacement & { rollDegrees: number },
     updatedAtUtc: string,
   ): Promise<void> {
-    validatePlacement(placement);
+    return this.updateTilePlacements(
+      draftId,
+      [{ tileId, placement }],
+      updatedAtUtc,
+    );
+  }
+
+  async updateTilePlacements(
+    draftId: string,
+    updates: readonly { tileId: string; placement: PanoramaTilePlacement }[],
+    updatedAtUtc: string,
+  ): Promise<void> {
+    if (
+      updates.length < 1 ||
+      updates.length > 200 ||
+      new Set(updates.map(({ tileId }) => tileId)).size !== updates.length
+    )
+      throw new RangeError('Invalid tile placement batch');
+    for (const { placement } of updates) validatePlacement(placement);
     utcInstant.parse(updatedAtUtc);
     await inImmediateTransaction(this.database, async () => {
-      const result = await this.database.runAsync(
-        `UPDATE panorama_capture_draft_tiles SET
+      for (const { tileId, placement } of updates) {
+        const result = await this.database.runAsync(
+          `UPDATE panorama_capture_draft_tiles SET
           center_azimuth_degrees = ?, center_altitude_degrees = ?,
           roll_degrees = ?, horizontal_fov_degrees = ?, vertical_fov_degrees = ?,
           coverage_polygon_json = ?
          WHERE id = ? AND draft_id = ?`,
-        [
-          normalizeAzimuthDegrees(placement.centerAzimuthDegrees),
-          placement.centerAltitudeDegrees,
-          placement.rollDegrees,
-          placement.horizontalFieldOfViewDegrees,
-          placement.verticalFieldOfViewDegrees,
-          JSON.stringify(createTileCoveragePolygon(placement)),
-          tileId,
-          draftId,
-        ],
-      );
-      if (result.changes !== 1)
-        throw new Error(`Draft tile not found: ${tileId}`);
+          [
+            normalizeAzimuthDegrees(placement.centerAzimuthDegrees),
+            placement.centerAltitudeDegrees,
+            placement.rollDegrees,
+            placement.horizontalFieldOfViewDegrees,
+            placement.verticalFieldOfViewDegrees,
+            JSON.stringify(createTileCoveragePolygon(placement)),
+            tileId,
+            draftId,
+          ],
+        );
+        if (result.changes !== 1)
+          throw new Error(`Draft tile not found: ${tileId}`);
+      }
       await this.database.runAsync(
         'UPDATE panorama_capture_drafts SET updated_at_utc = ? WHERE id = ?',
         [updatedAtUtc, draftId],

@@ -1,5 +1,9 @@
 import { requireOptionalNativeModule } from 'expo';
 import { File } from 'expo-file-system';
+import {
+  createTileCoveragePolygon,
+  type PanoramaTilePlacement,
+} from './tileGeometry';
 
 import { bootstrapStorage } from '../storage/bootstrapStorage';
 import type {
@@ -23,7 +27,13 @@ interface NativeStitching {
   stitch(
     jobId: string,
     tiles: string,
-  ): Promise<{ uri: string; coverageUri: string; unmatchedCount: number }>;
+    useReviewedPlacements: boolean,
+  ): Promise<{
+    uri: string;
+    coverageUri: string;
+    unmatchedCount: number;
+    placements: PanoramaTilePlacement[];
+  }>;
   cancel(jobId: string): void;
   discard(jobId: string): Promise<void>;
   addListener(
@@ -39,14 +49,17 @@ export interface StitchedPreview {
   centerAzimuthDegrees: number;
   centerAltitudeDegrees: number;
   unmatchedCount: number;
+  tilePlacements: { tileId: string; placement: PanoramaTilePlacement }[];
 }
 export interface StitchingController {
   create(
     profileId: string,
     signal: AbortSignal,
     progress: (value: StitchingProgress) => void,
+    useReviewedPlacements?: boolean,
   ): Promise<StitchedPreview>;
   save(preview: StitchedPreview): Promise<void>;
+  prepareManual(preview: StitchedPreview): Promise<void>;
   discard(preview: StitchedPreview): Promise<void>;
 }
 
@@ -66,7 +79,7 @@ export async function clearPanoramaStitchingCache(): Promise<void> {
 }
 
 export const panoramaStitchingController: StitchingController = {
-  async create(profileId, signal, progress) {
+  async create(profileId, signal, progress, useReviewedPlacements = false) {
     const native = nativeModule();
     const storage = await bootstrapStorage();
     const draft = await storage.panoramas.getForProfile(profileId);
@@ -88,8 +101,15 @@ export const panoramaStitchingController: StitchingController = {
             reviewedPlacement,
           })),
         ),
+        useReviewedPlacements,
       );
       if (signal.aborted) throw new Error('Cancelled');
+      if (result.placements.length !== draft.tiles.length)
+        throw new Error('Invalid panorama placements');
+      const tilePlacements = result.placements.map((placement, index) => {
+        createTileCoveragePolygon(placement);
+        return { tileId: draft.tiles[index]!.id, placement };
+      });
       const coverageBitset = await new File(result.coverageUri).bytes();
       const size = DIRECTIONAL_ATLAS_SIZE_PIXELS;
       if (coverageBitset.length !== (size * size) / 8)
@@ -106,6 +126,7 @@ export const panoramaStitchingController: StitchingController = {
         jobId,
         draftId: draft.id,
         asset,
+        tilePlacements,
         unmatchedCount: result.unmatchedCount,
         centerAzimuthDegrees: anchor.centerAzimuthDegrees,
         centerAltitudeDegrees: anchor.centerAltitudeDegrees,
@@ -125,6 +146,14 @@ export const panoramaStitchingController: StitchingController = {
       subscription.remove();
     }
   },
+  async prepareManual(preview) {
+    const storage = await bootstrapStorage();
+    await storage.panoramas.updateTilePlacements(
+      preview.draftId,
+      preview.tilePlacements,
+      new Date().toISOString(),
+    );
+  },
   async save(preview) {
     const storage = await bootstrapStorage();
     // Promotion consumes its input. Keep the preview intact for transaction
@@ -135,6 +164,11 @@ export const panoramaStitchingController: StitchingController = {
       `${createLocalRecordId('panorama')}.png`,
     );
     try {
+      await storage.panoramas.updateTilePlacements(
+        preview.draftId,
+        preview.tilePlacements,
+        new Date().toISOString(),
+      );
       await source.copy(staging, { overwrite: false });
       await storage.panoramas.complete(
         preview.draftId,

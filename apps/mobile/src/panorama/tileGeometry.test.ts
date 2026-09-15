@@ -5,6 +5,19 @@ import {
 } from '../mask/visibilityMask';
 
 describe('direction-aware panorama tile geometry', () => {
+  it('preserves a recovered centre below the horizon while clipping its visible footprint', () => {
+    const polygon = createTileCoveragePolygon({
+      centerAzimuthDegrees: 359,
+      centerAltitudeDegrees: -3,
+      rollDegrees: 12,
+      horizontalFieldOfViewDegrees: 60,
+      verticalFieldOfViewDegrees: 45,
+    });
+    expect(polygon.length).toBeGreaterThan(3);
+    expect(polygon.every(({ altitudeDegrees }) => altitudeDegrees >= 0)).toBe(
+      true,
+    );
+  });
   it('clips a low camera footprint to the astronomical horizon', () => {
     const polygon = createTileCoveragePolygon({
       centerAzimuthDegrees: 0,
