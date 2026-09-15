@@ -1,6 +1,8 @@
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 
 import { PanoramaCaptureScreen } from '../../../src/capture/PanoramaCaptureScreen';
+import { ContinuousCaptureScreen } from '../../../src/capture/ContinuousCaptureScreen';
+import { PANORAMA_CAPTURE_MODE } from '../../../src/capture/panoramaCaptureMode';
 
 export default function PanoramaCaptureRoute() {
   const router = useRouter();
@@ -9,12 +11,18 @@ export default function PanoramaCaptureRoute() {
     resume?: string;
   }>();
   const profileId = typeof id === 'string' ? id : '';
+  const CaptureScreen =
+    PANORAMA_CAPTURE_MODE === 'continuous'
+      ? ContinuousCaptureScreen
+      : PanoramaCaptureScreen;
   return (
-    <PanoramaCaptureScreen
+    <CaptureScreen
       navigation={{
         goBack: router.back,
         onAlign: () =>
-          router.push(
+          (PANORAMA_CAPTURE_MODE === 'continuous'
+            ? router.replace
+            : router.push)(
             `/profiles/${encodeURIComponent(profileId)}/align-panorama` as Href,
           ),
         onSaved: () =>

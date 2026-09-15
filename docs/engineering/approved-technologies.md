@@ -96,6 +96,14 @@ Controlling implementation:
 
 ## Android Mask Selection Reuse (2026-09-14)
 
+Continuous capture (2026-09-15) also reuses this approved OpenCV module for ORB,
+RANSAC and rotation fitting. A native view uses Android Camera2 and the existing
+camera permission, with the already installed React Android library explicitly
+linked for view lifecycle callbacks. No new library version, permission or
+persisted format is introduced. The experimental mode is selected in
+`apps/mobile/src/capture/panoramaCaptureMode.ts` and is enabled for owner testing.
+See `docs/superpowers/specs/mobile/2026-09-15-1046-continuous-panorama-capture.md`.
+
 The mask editor also reuses the adopted OpenCV 4.13.0 Android library for
 offline, connected colour selection. A local Expo/Kotlin module owns ephemeral
 selection sessions; no dependency, permission, model download or persisted

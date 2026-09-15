@@ -61,6 +61,7 @@ class PanoramaInputChecks : Instrumentation() {
       RandomAccessFile(large, "rw").use { it.setLength(33L * 1024 * 1024) }
       rejects { prepare(JSONArray().put(input(large.toURI().toString()))) }
       checkMaskSelection()
+      checkContinuousCapture(targetContext)
       sendStatus(0, status)
       finish(Activity.RESULT_OK, Bundle().apply { putString("stream", "Panorama Android input checks passed\n") })
     } catch (_: Exception) {

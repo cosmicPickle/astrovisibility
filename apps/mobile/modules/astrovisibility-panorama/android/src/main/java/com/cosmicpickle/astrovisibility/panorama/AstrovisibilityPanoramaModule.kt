@@ -21,6 +21,13 @@ class AstrovisibilityPanoramaModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("AstrovisibilityPanorama")
     Events("onProgress")
+    View(ContinuousCaptureView::class) {
+      Events("onTracking", "onFrame", "onStopped", "onInterruption")
+      Prop("recording") { view: ContinuousCaptureView, value: Boolean -> view.setRecording(value) }
+      Prop("observer") { view: ContinuousCaptureView, value: Map<String, Double> -> view.configureObserver(value) }
+      Prop("initialTiles") { view: ContinuousCaptureView, value: String -> view.setInitialTiles(value) }
+      Prop("acknowledgement") { view: ContinuousCaptureView, value: Int -> view.acknowledge(value) }
+    }
     AsyncFunction("licences") {
       val assets = context.assets
       assets.list("opencv-licenses")!!.sorted().joinToString("\n\n") { name ->
@@ -29,14 +36,18 @@ class AstrovisibilityPanoramaModule : Module() {
     }
     AsyncFunction("clearCache") { promise: Promise ->
       val cacheRoot = root
+      val captureCache = File(context.cacheDir, "continuous-panorama")
       activeJob?.let { it.cancelled.set(true); cancelNative(it.id) }
       worker.execute {
-        if (!cacheRoot.exists() || cacheRoot.deleteRecursively()) promise.resolve(null)
+        val stitchingCleared = !cacheRoot.exists() || cacheRoot.deleteRecursively()
+        val captureCleared = !captureCache.exists() || captureCache.deleteRecursively()
+        if (stitchingCleared && captureCleared) promise.resolve(null)
         else promise.reject("ERR_PANORAMA_CACHE", "Panorama cache could not be cleared", null)
       }
     }
     OnCreate {
       System.loadLibrary("opencv_java4")
+      org.opencv.core.Core.setNumThreads(2)
       System.loadLibrary("astrovisibility_panorama")
     }
     AsyncFunction("stitch") { jobId: String, tiles: String, useReviewedPlacements: Boolean, promise: Promise ->

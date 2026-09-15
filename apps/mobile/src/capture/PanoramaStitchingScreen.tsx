@@ -34,12 +34,14 @@ export function PanoramaStitchingScreen({
   controller = panoramaStitchingController,
   renderPreview: Preview = PanoramaPreview,
   useReviewedPlacements = false,
+  allowManualAdjustment = true,
 }: {
   profileId: string;
   navigation: { backToCapture(): void; onAccepted(): void; manual(): void };
   controller?: StitchingController;
   renderPreview?: (props: { preview: StitchedPreview }) => React.ReactNode;
   useReviewedPlacements?: boolean;
+  allowManualAdjustment?: boolean;
 }) {
   const [attempt, setAttempt] = useState(0);
   const [preview, setPreview] = useState<StitchedPreview | null>(null);
@@ -226,7 +228,7 @@ export function PanoramaStitchingScreen({
             onPress={() => leave(navigation.backToCapture)}
             variant="text"
           />
-          {!working ? (
+          {!working && allowManualAdjustment ? (
             <ActionButton
               label="Adjust manually"
               style={styles.secondaryAction}
