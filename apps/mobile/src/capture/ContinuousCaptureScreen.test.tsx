@@ -148,7 +148,11 @@ it('starts once and waits for the native stop and durable image before stitching
   );
   const { pending, navigation } = setup(save);
   const screen = await pending;
-  await fireEvent.press(await screen.findByText('Start'));
+  await fireEvent.press(
+    await screen.findByRole('button', { name: 'Start panorama' }),
+  );
+  expect(screen.queryByText('Start')).toBeNull();
+  expect(screen.queryByText('Stop')).toBeNull();
   expect(Camera.requestCameraPermissionsAsync).not.toHaveBeenCalled();
   const camera = () => screen.getByTestId('continuous-camera');
   expect(camera().props.recording).toBe(true);
@@ -161,8 +165,11 @@ it('starts once and waits for the native stop and durable image before stitching
   };
   expect(savedTile.orientationSnapshot.rollDegrees).toBeCloseTo(10);
   expect(savedTile.reviewedPlacement.rollDegrees).toBeCloseTo(0);
-  await fireEvent.press(screen.getByText('Stop'));
+  await fireEvent.press(screen.getByRole('button', { name: 'Stop panorama' }));
   expect(camera().props.recording).toBe(false);
+  expect(
+    screen.getByRole('button', { name: 'Processing panorama' }),
+  ).toBeDisabled();
   await act(async () => {
     camera().props.onStopped();
   });
@@ -177,7 +184,9 @@ it('keeps a failed image out of the map and does not finish an empty draft', asy
     jest.fn().mockRejectedValue(new Error('disk')),
   );
   const screen = await pending;
-  await fireEvent.press(await screen.findByText('Start'));
+  await fireEvent.press(
+    await screen.findByRole('button', { name: 'Start panorama' }),
+  );
   const camera = () => screen.getByTestId('continuous-camera');
   await act(async () => {
     camera().props.onFrame({ nativeEvent: frame });
@@ -189,23 +198,25 @@ it('keeps a failed image out of the map and does not finish an empty draft', asy
 it('pauses on interruption without completing and allows an explicit restart', async () => {
   const { pending, navigation } = setup();
   const screen = await pending;
-  await fireEvent.press(await screen.findByText('Start'));
+  await fireEvent.press(
+    await screen.findByRole('button', { name: 'Start panorama' }),
+  );
   const camera = () => screen.getByTestId('continuous-camera');
   await act(async () => {
     camera().props.onInterruption();
   });
   expect(camera().props.recording).toBe(false);
   expect(navigation.onAlign).not.toHaveBeenCalled();
-  await fireEvent.press(screen.getByText('Start'));
+  await fireEvent.press(screen.getByRole('button', { name: 'Start panorama' }));
   expect(camera().props.recording).toBe(true);
 });
 
 it('does not start collecting frames while the app is in the background', async () => {
   const { pending } = setup();
   const screen = await pending;
-  await screen.findByText('Start');
+  await screen.findByRole('button', { name: 'Start panorama' });
   AppState.currentState = 'background';
-  await fireEvent.press(screen.getByText('Start'));
+  await fireEvent.press(screen.getByRole('button', { name: 'Start panorama' }));
   expect(screen.getByTestId('continuous-camera').props.recording).toBe(false);
   await screen.findByText(/Return to the app/);
 });

@@ -32,6 +32,7 @@ import {
   type PanoramaCaptureController,
 } from './PanoramaCaptureScreen';
 import { PoseDrivenCaptureView } from './PoseDrivenCaptureView';
+import { PanoramaRecordButton } from './PanoramaRecordButton';
 import { useDevicePose } from './useDevicePose';
 
 const trackingMessages: Record<string, string> = {
@@ -41,10 +42,11 @@ const trackingMessages: Record<string, string> = {
     'Hold steady and aim at a detailed edge. This view has too little sharp detail.',
   lost: 'Return slowly to a captured area to recover alignment.',
   horizon: 'Aim the camera center at or above the horizon.',
-  capacity: 'Capture limit reached. Press Stop to create your panorama.',
+  capacity:
+    'Capture limit reached. Tap the stop button to create your panorama.',
   sensor: 'Acquiring phone direction. Move away from metal if this persists.',
   error:
-    'Camera processing paused. Press Start to retry, or start over with a new draft.',
+    'Camera processing paused. Tap the record button to retry, or start over with a new draft.',
 };
 
 export function ContinuousCaptureScreen({
@@ -126,7 +128,7 @@ export function ContinuousCaptureScreen({
       else if (recordingRef.current) {
         pause();
         setError(
-          'Capture paused. Saved images are safe. Press Start to continue.',
+          'Capture paused. Saved images are safe. Tap the record button to continue.',
         );
       }
     });
@@ -180,7 +182,7 @@ export function ContinuousCaptureScreen({
           pause();
           setAcknowledgement(-frame.sequence);
           setError(
-            'This image could not be saved. Saved images are safe. Free some space and press Start to retry.',
+            'This image could not be saved. Saved images are safe. Free some space and tap the record button to retry.',
           );
         }
       });
@@ -203,7 +205,7 @@ export function ContinuousCaptureScreen({
     if (saveFailed.current) return;
     if (!draftRef.current?.tiles.length) {
       setError(
-        'No sharp, aligned images captured yet. Press Start and aim at detailed surroundings.',
+        'No sharp, aligned images captured yet. Tap the record button and aim at detailed surroundings.',
       );
       return;
     }
@@ -245,7 +247,9 @@ export function ContinuousCaptureScreen({
         return;
       }
       if (AppState.currentState && AppState.currentState !== 'active') {
-        setError('Camera ready. Return to the app and press Start to begin.');
+        setError(
+          'Camera ready. Return to the app and tap the record button to begin.',
+        );
         return;
       }
       const current =
@@ -348,7 +352,7 @@ export function ContinuousCaptureScreen({
           error ??
           (recording
             ? trackingMessages[tracking?.status ?? 'sensor']
-            : 'Press Start, then move slowly left, right or upward. Press Stop when finished.')
+            : 'Tap the record button, then move slowly left, right or upward. Tap stop when finished.')
         }
         previewOverride={
           <NativeContinuousCamera
@@ -364,7 +368,7 @@ export function ContinuousCaptureScreen({
             onInterruption={() => {
               pause();
               setError(
-                'Capture paused. Saved images are safe. Press Start to continue.',
+                'Capture paused. Saved images are safe. Tap the record button to continue.',
               );
             }}
             onTracking={(event) => {
@@ -381,9 +385,9 @@ export function ContinuousCaptureScreen({
         }
         actionsOverride={
           <View style={styles.actions}>
-            <ActionButton
-              label={recording ? 'Stop' : 'Start'}
-              loading={busy}
+            <PanoramaRecordButton
+              recording={recording}
+              busy={busy}
               onPress={() => (recording ? stop('stitch') : void start())}
             />
             {!recording && draft?.tiles.length ? (
@@ -444,6 +448,7 @@ const styles = StyleSheet.create({
   copy: { flex: 1 },
   actions: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
     flexWrap: 'wrap',
     gap: 8,
