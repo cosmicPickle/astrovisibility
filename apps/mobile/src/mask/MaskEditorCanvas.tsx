@@ -186,7 +186,7 @@ export function MaskEditorCanvas({
           <AppText>
             {processing
               ? paintMode === 'magic'
-                ? 'Finding connected areas…'
+                ? 'Selecting object…'
                 : 'Applying brush…'
               : error}
           </AppText>

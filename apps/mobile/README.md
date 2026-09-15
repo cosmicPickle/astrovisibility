@@ -288,6 +288,16 @@ a separate release-engineering change.
 
 ## Known prototype limits
 
+The magic mask brush uses bundled MediaPipe MagicTouch object segmentation.
+Android builds download the versioned model once into the Gradle
+`caches/astrovisibility` directory, verify its pinned SHA-256 and include it in
+the APK. Subsequent builds reuse the cache; using the installed brush is offline.
+A checksum failure stops the build: remove only the named cached model file and
+retry. The brush selects filled object silhouettes, including windows and small
+canopy holes; use Manual to make precise corrections. Draw adds the selected
+object to the obstruction mask and Erase removes it. Processing happens when a
+stroke ends; the first selection prepares the model view and can take longer.
+
 - V1 is Android-first and uses target-centre obstruction classification; it does
   not test the entire camera frame against branches or roofs.
 - Phone magnetometers can be disturbed by buildings and telescope hardware.

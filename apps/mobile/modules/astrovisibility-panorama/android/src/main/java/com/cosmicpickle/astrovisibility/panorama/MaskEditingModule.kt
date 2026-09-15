@@ -7,8 +7,6 @@ import expo.modules.kotlin.exception.Exceptions
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import org.json.JSONObject
-import org.opencv.android.Utils
-import org.opencv.core.Mat
 import org.opencv.core.Point
 import java.io.File
 import java.util.concurrent.Executors
@@ -20,7 +18,7 @@ class MaskEditingModule : Module() {
   private val session = AtomicReference<String?>(null)
   @Volatile private var busy = false
   @Volatile private var destroyed = false
-  private var prepared: ConnectedMaskSelection? = null
+  private var prepared: ObjectMaskSelection? = null
   private var preparedKey: String? = null
   private val context get() = appContext.reactContext ?: throw Exceptions.ReactContextLost()
 
@@ -42,7 +40,7 @@ class MaskEditingModule : Module() {
       val cacheRoot = File(appContext.cacheDir, "mask-editing")
       worker.execute {
         try {
-          val deadlineNanos = System.nanoTime() + 5_000_000_000L
+          val deadlineNanos = System.nanoTime() + 30_000_000_000L
           val checkCancelled = { check(!destroyed && session.get() == id && System.nanoTime() <= deadlineNanos) }
           checkCancelled()
           val request = JSONObject(json)
@@ -58,7 +56,6 @@ class MaskEditingModule : Module() {
           val view = DoubleArray(12) { values.getDouble(it) }
           val radius = request.getDouble("radius")
           val selected = if (request.getString("mode") == "magic") {
-            val seeds = selectProjectedMaskSeeds(width, height, view, points, radius, checkCancelled)
             val sourceUri = Uri.parse(uri)
             require(sourceUri.scheme == "file")
             val source = File(requireNotNull(sourceUri.path)).canonicalFile
@@ -75,18 +72,14 @@ class MaskEditingModule : Module() {
               require(bounds.outWidth == width && bounds.outHeight == height)
               checkCancelled()
               val bitmap = requireNotNull(BitmapFactory.decodeFile(source.path))
-              val rgba = Mat()
               try {
-                Utils.bitmapToMat(bitmap, rgba, true)
-                prepared = ConnectedMaskSelection(rgba)
+                prepared = ObjectMaskSelection(appContext, bitmap)
                 preparedKey = key
               } finally {
                 bitmap.recycle()
-                rgba.release()
               }
             }
-            if (seeds.isEmpty()) ByteArray((width * height + 7) / 8)
-            else requireNotNull(prepared).select(seeds, checkCancelled)
+            requireNotNull(prepared).select(view, points, radius, checkCancelled)
           } else {
             require(request.getString("mode") == "manual")
             selectProjectedMaskBrush(width, height, view, points, radius, checkCancelled)
@@ -100,6 +93,10 @@ class MaskEditingModule : Module() {
           checkCancelled()
           promise.resolve(output.toURI().toString())
         } catch (_: Exception) {
+          // A failed/cancelled inference may leave native cached state incomplete.
+          try { prepared?.close() } catch (_: Exception) { /* Report the original brush failure. */ }
+          prepared = null
+          preparedKey = null
           promise.reject("ERR_MASK_SELECTION", "The brush could not be applied. Your edits are safe.", null)
         } finally {
           busy = false

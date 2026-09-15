@@ -96,6 +96,36 @@ Controlling implementation:
 
 ## Android Mask Selection Reuse (2026-09-14)
 
+### MediaPipe object silhouettes (2026-09-15)
+
+The owner approved MediaPipe for whole-object magic painting after a research
+comparison, explicitly preferring solid canopies/buildings over fine internal
+holes. Adopt `com.google.mediapipe:tasks-vision:1.0.0` and its matching core,
+with Google's `interactive_segmenter_v2/magic_touch/int8/1` model. The model is
+30,525,312 bytes, downloaded at build time, verified with SHA-256
+`38431bc66b883404e8397f74c3579404315b9b52b04a46c6346fe906a7309b03`, and bundled
+for offline inference. Runtime and model attribution/Apache-2.0 notices are
+available in About. The AAR supports Android API 24 and all four existing ABIs.
+
+The selected stateful JNI API runs on the existing native worker and caches one
+perspective image embedding. It does not use TaskRunner's remote statistics
+client; exclude `com.google.android.datatransport` from the MediaPipe dependency edge.
+Existing Expo camera/ML Kit dependencies still bring their older transport libraries.
+There is no new permission, image upload, runtime model download or migration.
+Manual painting retains its existing geometry and precision. OpenCV fills holes
+and simplifies the selected object's exterior before applying the bitset.
+
+Override old transitive Guava with `33.7.1-android` and protobuf-javalite with
+`4.36.1`: the published defaults are affected by GHSA-5mg8-w23w-74h3,
+GHSA-7g45-4rm6-3mm3 and GHSA-735f-pc8j-v9w8. OSV queries on 2026-09-15 returned
+no advisories for the selected patched versions, MediaPipe core/vision 1.0.0
+or its Flogger 0.6 components. Actual Android inference uses the stateful JNI API
+without adding MediaPipe's transport dependencies. Upstream issue 6364 concerns other graph-builder Any APIs; no vendor
+binary is patched and no linkage/build failure is waived.
+
+Source/API: https://developers.google.com/edge/mediapipe/solutions/vision/interactive_segmenter/android
+Controlling spec: `docs/superpowers/specs/mobile/2026-09-15-1415-mediapipe-object-mask.md`.
+
 Continuous capture (2026-09-15) also reuses this approved OpenCV module for ORB,
 RANSAC and rotation fitting. A native view uses Android Camera2 and the existing
 camera permission, with the already installed React Android library explicitly

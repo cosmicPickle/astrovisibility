@@ -28,8 +28,9 @@ Current step: owner inspects the combined APK, then accepts merge or discard.
 All 469 current tests, actual Skia pixel checks and both Android viewports pass.
 Report: `docs/superpowers/reports/mobile/2026-09-14-1416-cubemap-time-integration.md`.
 The branch now also contains the owner's requested manual/magic directional mask
-editor and code-selected continuous panorama capture. Its latest APK and verification
-are recorded in `docs/superpowers/reports/mobile/2026-09-15-1145-continuous-panorama-capture.md`.
+editor, code-selected continuous panorama capture, and MediaPipe object masking.
+Latest mask build: `docs/superpowers/reports/mobile/2026-09-15-1457-mediapipe-object-mask.md`.
+Continuous capture verification is recorded in `docs/superpowers/reports/mobile/2026-09-15-1145-continuous-panorama-capture.md`.
 Mask-editor, stitching and continuous capture changes remain committed locally: automatic approval review blocked
 the prior push and publication still awaits owner approval. Do not retry it implicitly.
 Main optimization merge: `f9c6b2f`. The cubemap branch includes that merge.

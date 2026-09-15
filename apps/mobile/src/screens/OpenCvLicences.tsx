@@ -24,10 +24,11 @@ export function OpenCvLicences() {
   return (
     <>
       <SectionCard>
-        <AppText tone="label">OpenCV 4.13.0</AppText>
+        <AppText tone="label">OpenCV 4.13.0 · MediaPipe 1.0.0</AppText>
         <AppText>
-          Automatic panorama matching and blending use OpenCV, licensed under
-          Apache 2.0. Processing runs on this device.
+          Panorama stitching uses OpenCV. Magic masking uses MediaPipe and
+          Google's MagicTouch model. These are licensed under Apache 2.0. Images
+          are processed on this device; the model is included in the app.
         </AppText>
         <ActionButton
           label="Open panorama licences"
@@ -37,7 +38,7 @@ export function OpenCvLicences() {
         />
       </SectionCard>
       <ModalSheet
-        title="OpenCV licences"
+        title="Image processing licences"
         closeAccessibilityLabel="Close OpenCV licences"
         visible={text !== null}
         onClose={() => setText(null)}
