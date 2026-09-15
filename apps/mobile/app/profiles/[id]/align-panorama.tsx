@@ -4,10 +4,14 @@ import { PanoramaStitchingScreen } from '../../../src/capture/PanoramaStitchingS
 
 export default function PanoramaStitchingRoute() {
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, placement } = useLocalSearchParams<{
+    id: string;
+    placement?: string;
+  }>();
   const profileId = typeof id === 'string' ? id : '';
   return (
     <PanoramaStitchingScreen
+      useReviewedPlacements={placement === 'reviewed'}
       navigation={{
         backToCapture: () =>
           router.replace(

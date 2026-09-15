@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionButton } from '../components/ui/ActionButton';
 import { AppText } from '../components/ui/AppText';
 import { bootstrapStorage } from '../storage/bootstrapStorage';
 import type { PanoramaCaptureDraft } from '../storage/panoramaDraftRepository';
-import { createLocalRecordId } from '../storage/recordIdentity';
-import { createDirectionalPanoramaImage } from '../panorama/directionalAtlasImage';
 import { colors, layout } from '../theme/tokens';
 import { applyTileCorrection, type CapturedProofTile } from './captureSession';
 import { PanoramaAlignmentAtlas } from './PanoramaAlignmentAtlas';
@@ -28,7 +26,6 @@ export interface PanoramaAlignmentController {
     tileId: string,
     placement: CapturedProofTile['reviewedPlacement'],
   ): Promise<PanoramaCaptureDraft>;
-  completeDraft(draftId: string): Promise<void>;
 }
 
 export const panoramaAlignmentController: PanoramaAlignmentController = {
@@ -53,18 +50,6 @@ export const panoramaAlignmentController: PanoramaAlignmentController = {
     if (!draft) throw new Error('The panorama draft could not be reopened.');
     return draft;
   },
-  async completeDraft(draftId) {
-    const storage = await bootstrapStorage();
-    const draft = await storage.panoramas.getById(draftId);
-    if (!draft) throw new Error('The panorama draft could not be reopened.');
-    const asset = await createDirectionalPanoramaImage(draft);
-    await storage.panoramas.complete(
-      draftId,
-      createLocalRecordId('panorama'),
-      new Date().toISOString(),
-      asset,
-    );
-  },
 };
 
 export function PanoramaAlignmentScreen({
@@ -74,7 +59,7 @@ export function PanoramaAlignmentScreen({
   renderAtlas: Atlas = PanoramaAlignmentAtlas,
 }: {
   controller?: PanoramaAlignmentController;
-  navigation: { backToCapture(): void; onAccepted(): void };
+  navigation: { backToCapture(): void; restitch(): void };
   profileId: string;
   renderAtlas?: (props: PanoramaAlignmentAtlasProps) => React.ReactNode;
 }) {
@@ -127,6 +112,7 @@ export function PanoramaAlignmentScreen({
   const nudge = async (
     azimuthDeltaDegrees: number,
     altitudeDeltaDegrees: number,
+    rollDeltaDegrees = 0,
   ) => {
     if (!draft || !selectedTile || busy) return;
     setBusy(true);
@@ -135,7 +121,7 @@ export function PanoramaAlignmentScreen({
       const corrected = applyTileCorrection(selectedTile, {
         altitudeDeltaDegrees,
         azimuthDeltaDegrees,
-        rollDeltaDegrees: 0,
+        rollDeltaDegrees,
       });
       setDraft(
         await controller.updateTilePlacement(
@@ -146,21 +132,6 @@ export function PanoramaAlignmentScreen({
       );
     } catch {
       setError('The tile position could not be saved.');
-    } finally {
-      setBusy(false);
-    }
-  };
-  const accept = async () => {
-    if (!draft || draft.tiles.length === 0 || busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await controller.completeDraft(draft.id);
-      navigation.onAccepted();
-    } catch {
-      setError(
-        'The panorama could not be created. Your aligned tiles remain available.',
-      );
     } finally {
       setBusy(false);
     }
@@ -214,27 +185,87 @@ export function PanoramaAlignmentScreen({
       />
       <View style={styles.controls}>
         <View style={styles.selectionCopy}>
-          <AppText tone="label">
-            {selectedTile
-              ? `Tile ${draft.tiles.findIndex(({ id }) => id === selectedTile.id) + 1} selected`
-              : 'Tap a tile to select it'}
-          </AppText>
-          <AppText tone="muted">
-            Move the selected photo one degree per press.
-          </AppText>
+          <View style={styles.tilePicker}>
+            <ActionButton
+              label="‹"
+              accessibilityLabel="Select previous tile"
+              disabled={busy}
+              onPress={() =>
+                setSelectedTileId(
+                  draft.tiles[
+                    (draft.tiles.findIndex(({ id }) => id === selectedTileId) -
+                      1 +
+                      draft.tiles.length) %
+                      draft.tiles.length
+                  ]!.id,
+                )
+              }
+              variant="text"
+            />
+            <AppText tone="label">
+              {selectedTile
+                ? `Tile ${draft.tiles.findIndex(({ id }) => id === selectedTile.id) + 1} selected`
+                : 'Tap a tile to select it'}
+            </AppText>
+            <ActionButton
+              label="›"
+              accessibilityLabel="Select next tile"
+              disabled={busy}
+              onPress={() =>
+                setSelectedTileId(
+                  draft.tiles[
+                    (draft.tiles.findIndex(({ id }) => id === selectedTileId) +
+                      1) %
+                      draft.tiles.length
+                  ]!.id,
+                )
+              }
+              variant="text"
+            />
+          </View>
+          <AppText tone="muted">Move or rotate one degree per press.</AppText>
         </View>
-        <TileNudgeControl
-          disabled={!selectedTile || busy}
-          onDown={() => void nudge(0, -1)}
-          onLeft={() => void nudge(-1, 0)}
-          onRight={() => void nudge(1, 0)}
-          onUp={() => void nudge(0, 1)}
-        />
+        <View style={styles.alignmentControls}>
+          <Pressable
+            accessibilityLabel="Rotate selected tile counterclockwise"
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !selectedTile || busy }}
+            disabled={!selectedTile || busy}
+            onPress={() => void nudge(0, 0, 1)}
+            style={({ pressed }) => [
+              styles.rollButton,
+              pressed && styles.pressed,
+            ]}
+          >
+            <AppText style={styles.rollIcon}>↶</AppText>
+          </Pressable>
+          <TileNudgeControl
+            disabled={!selectedTile || busy}
+            onDown={() => void nudge(0, -1)}
+            onLeft={() => void nudge(-1, 0)}
+            onRight={() => void nudge(1, 0)}
+            onUp={() => void nudge(0, 1)}
+          />
+          <Pressable
+            accessibilityLabel="Rotate selected tile clockwise"
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !selectedTile || busy }}
+            disabled={!selectedTile || busy}
+            onPress={() => void nudge(0, 0, -1)}
+            style={({ pressed }) => [
+              styles.rollButton,
+              pressed && styles.pressed,
+            ]}
+          >
+            <AppText style={styles.rollIcon}>↷</AppText>
+          </Pressable>
+        </View>
         {error ? <AppText style={styles.error}>{error}</AppText> : null}
         <ActionButton
-          label="Use panorama"
+          label="Re-stitch panorama"
           loading={busy}
-          onPress={() => void accept()}
+          disabled={busy}
+          onPress={navigation.restitch}
         />
       </View>
     </SafeAreaView>
@@ -242,6 +273,19 @@ export function PanoramaAlignmentScreen({
 }
 
 const styles = StyleSheet.create({
+  rollButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  rollIcon: { fontSize: 32, lineHeight: 36 },
+  pressed: { backgroundColor: colors.primaryPressed },
+  alignmentControls: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   centered: {
     alignItems: 'center',
     backgroundColor: colors.background,
@@ -262,4 +306,5 @@ const styles = StyleSheet.create({
   headerCopy: { flex: 1 },
   screen: { backgroundColor: colors.background, flex: 1 },
   selectionCopy: { alignItems: 'center' },
+  tilePicker: { flexDirection: 'row', alignItems: 'center' },
 });

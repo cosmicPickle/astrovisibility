@@ -10,8 +10,8 @@ import org.opencv.imgproc.Imgproc
 import java.io.Closeable
 
 /** Original-resolution, edge-constrained wand. Owns its prepared matrices.
- * Denoising and boundary detection are cached for the editing session. A bounded
- * seed-relative colour range prevents a gradual ramp leaking across the image.
+ * Denoising and boundary detection are cached for the editing session. Local
+ * colour continuity follows shading without a cutoff relative to the tap.
  * https://docs.opencv.org/4.13.0/d7/d1b/group__imgproc__misc.html
  */
 internal class ConnectedMaskSelection(rgba: Mat) : Closeable {
@@ -72,8 +72,7 @@ internal class ConnectedMaskSelection(rgba: Mat) : Closeable {
     checkCancelled()
     val floodMask = barriers.clone()
     try {
-      val flags = 4 or Imgproc.FLOODFILL_FIXED_RANGE or
-        Imgproc.FLOODFILL_MASK_ONLY or (2 shl 8)
+      val flags = 4 or Imgproc.FLOODFILL_MASK_ONLY or (2 shl 8)
       val visited = ByteArray((width + 2) * (height + 2))
       val row = ByteArray(width + 2)
       floodMask.get(0, 0, visited)
@@ -81,20 +80,12 @@ internal class ConnectedMaskSelection(rgba: Mat) : Closeable {
       for (seed in seeds) {
         checkCancelled()
         if (visited[(seed.y.toInt() + 1) * (width + 2) + seed.x.toInt() + 1] != 0.toByte()) continue
-        val seedOffset = (seed.y.toInt() * width + seed.x.toInt()) * 3
-        val original = colourPixels.copyOfRange(seedOffset, seedOffset + 3)
-        val reference = referenceColour(seed)
-        val lightness = reference[0].toInt() and 255
-        val tolerance = Scalar((4.0 + lightness * 0.12).coerceIn(6.0, 18.0), 8.0, 8.0)
+        val tolerance = Scalar(6.0, 6.0, 6.0)
         check(++regions <= 512) { "Selection is too detailed; use a smaller brush" }
         val changed = Rect()
-        // Fixed-range floodFill compares against the seed pixel. Temporarily use
-        // its local, same-surface colour estimate; the worker is serial and the
-        // cached image is restored even if OpenCV fails.
-        colours.put(seed.y.toInt(), seed.x.toInt(), reference)
-        try {
-          Imgproc.floodFill(colours, floodMask, seed, Scalar(0.0), changed, tolerance, tolerance, flags)
-        } finally { colours.put(seed.y.toInt(), seed.x.toInt(), original) }
+        // Floating range compares neighbouring pixels symmetrically. Canny
+        // boundaries stop growth; gradual shading within a surface does not.
+        Imgproc.floodFill(colours, floodMask, seed, Scalar(0.0), changed, tolerance, tolerance, flags)
         // Avoid a JNI call and double-array allocation for every brush pixel.
         for (y in changed.y until changed.y + changed.height) {
           floodMask.get(y + 1, 0, row)
@@ -113,22 +104,6 @@ internal class ConnectedMaskSelection(rgba: Mat) : Closeable {
     } finally {
       floodMask.release()
     }
-  }
-
-  private fun referenceColour(seed: Point): ByteArray {
-    val center = (seed.y.toInt() * width + seed.x.toInt()) * 3
-    val sum = IntArray(3)
-    var count = 0
-    for (y in maxOf(0, seed.y.toInt() - 2)..minOf(height - 1, seed.y.toInt() + 2)) {
-      for (x in maxOf(0, seed.x.toInt() - 2)..minOf(width - 1, seed.x.toInt() + 2)) {
-        val offset = (y * width + x) * 3
-        if ((0..2).any { kotlin.math.abs((colourPixels[offset + it].toInt() and 255) -
-            (colourPixels[center + it].toInt() and 255)) > 4 }) continue
-        count++
-        for (channel in 0..2) sum[channel] += colourPixels[offset + channel].toInt() and 255
-      }
-    }
-    return ByteArray(3) { ((sum[it] + count / 2) / count).toByte() }
   }
 
   private fun isSelected(visited: ByteArray, x: Int, y: Int): Boolean {
@@ -163,7 +138,7 @@ internal class ConnectedMaskSelection(rgba: Mat) : Closeable {
 }
 
 /** Remove short, isolated edge responses before region growth, not holes or
- * branches in the resulting mask. Colour limits still constrain every fill. */
+ * branches in the resulting mask. Local colour steps still constrain growth. */
 private fun removeIsolatedMaskEdges(edges: Mat) {
   val labels = Mat()
   try {

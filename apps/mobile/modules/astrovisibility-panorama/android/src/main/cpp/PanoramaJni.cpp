@@ -25,9 +25,10 @@ Java_com_cosmicpickle_astrovisibility_panorama_AstrovisibilityPanoramaModule_can
   if (activeJob == stringValue(env, job)) cancelled.store(true);
 }
 
-extern "C" JNIEXPORT jint JNICALL
+extern "C" JNIEXPORT jdoubleArray JNICALL
 Java_com_cosmicpickle_astrovisibility_panorama_AstrovisibilityPanoramaModule_stitchNative(
-    JNIEnv* env, jobject module, jstring job, jobjectArray paths, jdoubleArray placements, jstring prefix) {
+    JNIEnv* env, jobject module, jstring job, jobjectArray paths, jdoubleArray placements, jstring prefix,
+    jboolean useReviewedPlacements) {
   try {
     const auto jobId = stringValue(env, job);
     {
@@ -67,13 +68,25 @@ Java_com_cosmicpickle_astrovisibility_panorama_AstrovisibilityPanoramaModule_sti
       env->DeleteLocalRef(label);
       if (env->ExceptionCheck()) throw std::runtime_error("Unavailable progress");
     };
-    const auto registration = panorama::registerCameras(tiles, progress, check);
+    panorama::Registration registration;
+    if (useReviewedPlacements) {
+      for (const auto& tile : tiles) registration.cameras.push_back(panorama::measuredCamera(tile));
+    } else registration = panorama::registerCameras(tiles, progress, check);
     panorama::compose(tiles, registration.cameras, stringValue(env, prefix), progress, check);
-    return registration.unmatchedCount;
+    std::vector<double> result{static_cast<double>(registration.unmatchedCount)};
+    for (const auto& camera : registration.cameras) {
+      const auto placement = panorama::cameraPlacement(camera);
+      result.insert(result.end(), {placement.azimuthDegrees, placement.altitudeDegrees,
+        placement.rollDegrees, placement.horizontalFovDegrees, placement.verticalFovDegrees});
+    }
+    const auto output = env->NewDoubleArray(static_cast<jsize>(result.size()));
+    if (!output) throw std::runtime_error("Unavailable result");
+    env->SetDoubleArrayRegion(output, 0, static_cast<jsize>(result.size()), result.data());
+    return output;
   } catch (...) {
     // Never propagate OpenCV exceptions containing private paths or payloads.
     if (env->ExceptionCheck()) env->ExceptionClear();
     env->ThrowNew(env->FindClass("java/lang/RuntimeException"), "Panorama processing failed");
-    return -1;
+    return nullptr;
   }
 }

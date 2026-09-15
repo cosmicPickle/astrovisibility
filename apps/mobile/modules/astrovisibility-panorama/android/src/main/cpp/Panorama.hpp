@@ -25,6 +25,7 @@ struct Registration {
 using Progress = std::function<void(const char*, int, int)>;
 using CheckCancelled = std::function<void()>;
 Camera measuredCamera(const Tile& tile);
+Tile cameraPlacement(const Camera& camera);
 cv::Mat readImage(const std::string& path, int longestEdge);
 Registration registerCameras(const std::vector<Tile>& tiles, const Progress& progress,
                              const CheckCancelled& checkCancelled);

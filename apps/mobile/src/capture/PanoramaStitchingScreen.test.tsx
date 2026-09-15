@@ -19,6 +19,7 @@ function setup(overrides: Partial<StitchingController> = {}) {
     create: jest.fn().mockResolvedValue(preview),
     save: jest.fn().mockResolvedValue(undefined),
     discard: jest.fn().mockResolvedValue(undefined),
+    prepareManual: jest.fn().mockResolvedValue(undefined),
     ...overrides,
   };
   const navigation = {
@@ -57,6 +58,23 @@ it('automatically stitches, discloses unmatched photos, and saves only on accept
   await fireEvent.press(view.getByText('Use panorama'));
   await waitFor(() => expect(navigation.onAccepted).toHaveBeenCalledTimes(1));
   expect(controller.save).toHaveBeenCalledWith(preview);
+});
+
+it('preserves recovered placements before entering manual adjustment and keeps the preview on failure', async () => {
+  const prepareManual = jest
+    .fn()
+    .mockRejectedValueOnce(new Error('storage'))
+    .mockResolvedValue(undefined);
+  const { navigation, view: pending } = setup({ prepareManual });
+  const view = await pending;
+  await view.findByText('single panorama');
+  await fireEvent.press(view.getByText('Adjust manually'));
+  await view.findByText(/adjustments could not be opened/);
+  expect(navigation.manual).not.toHaveBeenCalled();
+  expect(view.getByText('single panorama')).toBeTruthy();
+  await fireEvent.press(view.getByText('Adjust manually'));
+  await waitFor(() => expect(navigation.manual).toHaveBeenCalledTimes(1));
+  expect(prepareManual).toHaveBeenLastCalledWith(preview);
 });
 
 it('keeps the preview for retry after a failed save', async () => {

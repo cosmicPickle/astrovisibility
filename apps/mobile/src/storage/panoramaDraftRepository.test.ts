@@ -133,6 +133,80 @@ async function setup() {
 }
 
 describe('panorama capture drafts', () => {
+  it('migrates existing version-eight draft rows without changing captured data or ownership', async () => {
+    const { native, database, files } = await setup();
+    files.temporary.add(tile.temporaryUri);
+    const repository = new PanoramaDraftRepository(database, files);
+    await repository.create('draft-1', profile.id, profile.createdAtUtc);
+    await repository.addTile('draft-1', tile, tile.capturedAtUtc);
+    const before = await repository.getById('draft-1');
+    const schema = await database.getFirstAsync<{ sql: string }>(
+      "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'panorama_capture_draft_tiles'",
+    );
+    await database.execAsync(
+      schema!.sql
+        .replace('"panorama_capture_draft_tiles"', 'old_tiles')
+        .replace('BETWEEN -90 AND 90', 'BETWEEN 0 AND 90'),
+    );
+    await database.execAsync(`INSERT INTO old_tiles SELECT * FROM panorama_capture_draft_tiles;
+      DROP TABLE panorama_capture_draft_tiles;
+      ALTER TABLE old_tiles RENAME TO panorama_capture_draft_tiles;
+      CREATE INDEX panorama_capture_draft_tiles_draft_idx ON panorama_capture_draft_tiles(draft_id);
+      PRAGMA user_version = 8;`);
+    await migrateDatabase(database);
+    await migrateDatabase(database);
+    expect(await repository.getById('draft-1')).toEqual(before);
+    expect(await database.getAllAsync('PRAGMA foreign_key_check')).toEqual([]);
+    await repository.updateTilePlacement(
+      'draft-1',
+      tile.id,
+      { ...tile.reviewedPlacement, centerAltitudeDegrees: -2 },
+      tile.capturedAtUtc,
+    );
+    await repository.discard('draft-1');
+    expect(
+      await database.getAllAsync('SELECT * FROM panorama_capture_draft_tiles'),
+    ).toEqual([]);
+    native.close();
+  });
+  it('preserves a whole recovered alignment atomically and leaves sensor snapshots untouched', async () => {
+    const { native, database, files } = await setup();
+    const repository = new PanoramaDraftRepository(database, files);
+    files.temporary.add(tile.temporaryUri);
+    await repository.create('draft-1', profile.id, profile.createdAtUtc);
+    await repository.addTile('draft-1', tile, tile.capturedAtUtc);
+    const placement = {
+      ...tile.reviewedPlacement,
+      centerAltitudeDegrees: -2,
+      rollDegrees: 20,
+    };
+    await expect(
+      repository.updateTilePlacements(
+        'draft-1',
+        [
+          { tileId: tile.id, placement },
+          { tileId: 'missing', placement },
+        ],
+        tile.capturedAtUtc,
+      ),
+    ).rejects.toThrow();
+    expect(
+      (await repository.getById('draft-1'))?.tiles[0]?.reviewedPlacement,
+    ).toEqual(tile.reviewedPlacement);
+    await repository.updateTilePlacements(
+      'draft-1',
+      [{ tileId: tile.id, placement }],
+      tile.capturedAtUtc,
+    );
+    const reopened = await new PanoramaDraftRepository(database, files).getById(
+      'draft-1',
+    );
+    expect(reopened?.tiles[0]?.reviewedPlacement).toEqual(placement);
+    expect(reopened?.tiles[0]?.orientationSnapshot).toEqual(
+      tile.orientationSnapshot,
+    );
+    native.close();
+  });
   it('persists accepted camera/import tiles and reviewed correction across restart', async () => {
     const { native, database, files } = await setup();
     files.temporary.add(tile.temporaryUri);

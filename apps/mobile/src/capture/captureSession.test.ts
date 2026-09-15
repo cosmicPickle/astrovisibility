@@ -15,6 +15,32 @@ const orientation: OrientationSnapshot = {
 };
 
 describe('capture proof tile representation', () => {
+  it('keeps capture framing at the horizon but preserves reviewed negative altitude and wraps roll', () => {
+    const tile = createCapturedTile({
+      id: 'horizon',
+      uri: 'file:///horizon.jpg',
+      widthPixels: 1600,
+      heightPixels: 1200,
+      capturedAtUtc: '2026-09-15T06:00:00.000Z',
+      orientation: {
+        ...orientation,
+        estimatedAltitudeDegrees: -10,
+        rollDegrees: 179,
+      },
+      horizontalFieldOfViewDegrees: 60,
+      verticalFieldOfViewDegrees: 45,
+    });
+    expect(tile.reviewedPlacement.centerAltitudeDegrees).toBe(0);
+    const corrected = applyTileCorrection(tile, {
+      azimuthDeltaDegrees: 0,
+      altitudeDeltaDegrees: -3,
+      rollDeltaDegrees: 2,
+    });
+    expect(corrected.reviewedPlacement.centerAltitudeDegrees).toBe(-3);
+    expect(corrected.reviewedPlacement.rollDegrees).toBe(-179);
+    expect(corrected.orientationSnapshot.estimatedAltitudeDegrees).toBe(-10);
+    expect(corrected.orientationSnapshot.rollDegrees).toBe(179);
+  });
   it('rejects oversized or invalid image dimensions before durable storage', () => {
     expect(() =>
       assertCaptureDimensionsWithinLimits(12_000, 3_000),

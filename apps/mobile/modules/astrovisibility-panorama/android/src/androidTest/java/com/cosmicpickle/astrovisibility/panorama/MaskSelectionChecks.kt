@@ -7,6 +7,7 @@ import org.opencv.core.Point
 /** Synthetic pixels only; checks the exact OpenCV path used by the editor. */
 internal fun checkMaskSelection() {
   System.loadLibrary("opencv_java4")
+  checkDaylightMaskSelection()
   val width = 32
   val height = 24
   val pixels = ByteArray(width * height * 4)

@@ -6,7 +6,7 @@ import { GestureDetector } from 'react-native-gesture-handler';
 import type { PanoramaCaptureDraft } from '../storage/panoramaDraftRepository';
 import { PlanetariumScene } from '../sky/PlanetariumScene';
 import {
-  createInitialPlanetariumCamera,
+  createPlanetariumCamera,
   unprojectCanvasPoint,
   type PlanetariumCamera,
 } from '../sky/planetariumProjection';
@@ -50,7 +50,15 @@ export function PanoramaAlignmentAtlas({
 }: PanoramaAlignmentAtlasProps) {
   const [canvas, setCanvas] = useState({ heightPixels: 1, widthPixels: 1 });
   const [initialCamera] = useState<PlanetariumCamera>(() =>
-    createInitialPlanetariumCamera(),
+    createPlanetariumCamera({
+      centerAzimuthDegrees:
+        tiles[0]?.reviewedPlacement.centerAzimuthDegrees ?? 0,
+      centerAltitudeDegrees: Math.max(
+        0,
+        tiles[0]?.reviewedPlacement.centerAltitudeDegrees ?? 45,
+      ),
+      fieldOfViewDegrees: 90,
+    }),
   );
   const sceneTiles = useMemo(() => tiles.map(asSceneTile), [tiles]);
   const getTapContext = useLatestValue({ canvas, onSelectTile, tiles });

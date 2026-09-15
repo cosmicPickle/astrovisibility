@@ -48,6 +48,8 @@ class PanoramaInputChecks : Instrumentation() {
       val decoded = BitmapFactory.decodeFile(prepared.paths[0])
       check(decoded.width == 180 && decoded.height == 320) { "EXIF rotation was lost" }
       decoded.recycle()
+      check(prepare(JSONArray().put(input(altitude = -3.0))).placements[1] == -3.0)
+      rejects { prepare(JSONArray().put(input(altitude = -91.0))) }
       rejects { prepare(JSONArray().put(input("file:///sdcard/outside.jpg"))) }
       rejects { prepare(JSONArray().put(input("https://example.com/photo.jpg"))) }
       rejects { prepare(JSONArray().put(input(altitude = 91.0))) }

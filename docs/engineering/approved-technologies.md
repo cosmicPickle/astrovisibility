@@ -104,6 +104,10 @@ See `docs/superpowers/specs/mobile/2026-09-14-1502-mask-selection-editor.md`.
 Night-image refinement reuses OpenCV mean-shift filtering, Canny boundaries and
 connected-component filtering without another dependency or model. See
 `docs/superpowers/specs/mobile/2026-09-14-1629-night-mask-selection.md`.
+Daylight refinement replaces fixed seed-colour growth with neighbour-relative
+OpenCV flood fill constrained by those boundaries. Stitching also retains
+near-duplicate matches and reuses recovered poses for manual recomposition. See
+`docs/superpowers/specs/mobile/2026-09-15-0918-stitching-and-connected-surfaces.md`.
 
 ## Best-Fit Starting Candidates for This Product
 

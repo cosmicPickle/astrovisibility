@@ -39,7 +39,7 @@ class AstrovisibilityPanoramaModule : Module() {
       System.loadLibrary("opencv_java4")
       System.loadLibrary("astrovisibility_panorama")
     }
-    AsyncFunction("stitch") { jobId: String, tiles: String, promise: Promise ->
+    AsyncFunction("stitch") { jobId: String, tiles: String, useReviewedPlacements: Boolean, promise: Promise ->
       val job = synchronized(this@AstrovisibilityPanoramaModule) {
         require(!destroyed && activeJob == null) { "Panorama processing is busy" }
         require(jobId.matches(Regex("[A-Za-z0-9-]{1,100}"))) { "Invalid panorama job" }
@@ -64,7 +64,8 @@ class AstrovisibilityPanoramaModule : Module() {
           }
           check()
           val prefix = File(directory, "panorama").path
-          val unmatched = stitchNative(job.id, inputs.paths, inputs.placements, prefix)
+          val result = stitchNative(job.id, inputs.paths, inputs.placements, prefix, useReviewedPlacements)
+          check(result.size == 1 + inputs.placements.size && result.all { it.isFinite() })
           check()
           inputs.paths.forEach { File(it).delete() }
           synchronized(this@AstrovisibilityPanoramaModule) {
@@ -74,7 +75,15 @@ class AstrovisibilityPanoramaModule : Module() {
           promise.resolve(mapOf(
             "uri" to File("$prefix.png").toURI().toString(),
             "coverageUri" to File("$prefix.coverage").toURI().toString(),
-            "unmatchedCount" to unmatched
+            "unmatchedCount" to result[0].toInt(),
+            "placements" to inputs.paths.indices.map { index ->
+              val offset = 1 + index * 5
+              mapOf("centerAzimuthDegrees" to result[offset],
+                "centerAltitudeDegrees" to result[offset + 1],
+                "rollDegrees" to result[offset + 2],
+                "horizontalFieldOfViewDegrees" to result[offset + 3],
+                "verticalFieldOfViewDegrees" to result[offset + 4])
+            }
           ))
         } catch (_: Exception) {
           if (created) directory.deleteRecursively()
@@ -122,6 +131,7 @@ class AstrovisibilityPanoramaModule : Module() {
     ))
   }
 
-  private external fun stitchNative(jobId: String, paths: Array<String>, placements: DoubleArray, prefix: String): Int
+  private external fun stitchNative(jobId: String, paths: Array<String>, placements: DoubleArray, prefix: String,
+    useReviewedPlacements: Boolean): DoubleArray
   private external fun cancelNative(jobId: String)
 }

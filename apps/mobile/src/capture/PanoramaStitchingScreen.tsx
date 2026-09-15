@@ -33,11 +33,13 @@ export function PanoramaStitchingScreen({
   navigation,
   controller = panoramaStitchingController,
   renderPreview: Preview = PanoramaPreview,
+  useReviewedPlacements = false,
 }: {
   profileId: string;
   navigation: { backToCapture(): void; onAccepted(): void; manual(): void };
   controller?: StitchingController;
   renderPreview?: (props: { preview: StitchedPreview }) => React.ReactNode;
+  useReviewedPlacements?: boolean;
 }) {
   const [attempt, setAttempt] = useState(0);
   const [preview, setPreview] = useState<StitchedPreview | null>(null);
@@ -56,9 +58,14 @@ export function PanoramaStitchingScreen({
     const abort = new AbortController();
     cancelRef.current = abort;
     void controller
-      .create(profileId, abort.signal, (value) => {
-        if (active) setProgress(value);
-      })
+      .create(
+        profileId,
+        abort.signal,
+        (value) => {
+          if (active) setProgress(value);
+        },
+        useReviewedPlacements,
+      )
       .then(
         (value) => {
           result = value;
@@ -84,7 +91,7 @@ export function PanoramaStitchingScreen({
       if (result && !savingRef.current)
         void controller.discard(result).catch(() => undefined);
     };
-  }, [attempt, controller, profileId]);
+  }, [attempt, controller, profileId, useReviewedPlacements]);
 
   const leave = (destination: () => void) => {
     if (savingRef.current) return;
@@ -123,6 +130,27 @@ export function PanoramaStitchingScreen({
       savingRef.current = false;
       if (mountedRef.current) setSaving(false);
       else await controller.discard(preview).catch(() => undefined);
+    }
+  };
+
+  const adjustManually = async () => {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    setError(null);
+    try {
+      if (preview) await controller.prepareManual(preview);
+      if (mountedRef.current) navigation.manual();
+    } catch {
+      if (mountedRef.current)
+        setError(
+          'The adjustments could not be opened. Your preview is safe. Try again.',
+        );
+    } finally {
+      savingRef.current = false;
+      if (mountedRef.current) setSaving(false);
+      else if (preview)
+        await controller.discard(preview).catch(() => undefined);
     }
   };
 
@@ -203,7 +231,7 @@ export function PanoramaStitchingScreen({
               label="Adjust manually"
               style={styles.secondaryAction}
               disabled={saving}
-              onPress={() => leave(navigation.manual)}
+              onPress={() => void adjustManually()}
               variant="text"
             />
           ) : null}

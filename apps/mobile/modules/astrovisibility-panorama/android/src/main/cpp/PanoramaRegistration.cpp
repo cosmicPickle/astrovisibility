@@ -8,6 +8,20 @@
 #include <stdexcept>
 
 namespace panorama {
+Tile cameraPlacement(const Camera& camera) {
+  const auto forward = camera.worldFromCamera * cv::Vec3d(0, 0, 1);
+  const auto imageRight = camera.worldFromCamera * cv::Vec3d(1, 0, 0);
+  const double azimuth = std::atan2(forward[0], forward[2]);
+  const double altitude = std::atan2(forward[1], std::hypot(forward[0], forward[2]));
+  const cv::Vec3d right(std::cos(azimuth), 0, -std::sin(azimuth));
+  const cv::Vec3d up(-std::sin(altitude) * std::sin(azimuth), std::cos(altitude),
+                    -std::sin(altitude) * std::cos(azimuth));
+  return {"", std::fmod(azimuth * 180 / CV_PI + 360, 360), altitude * 180 / CV_PI,
+          std::atan2(imageRight.dot(up), imageRight.dot(right)) * 180 / CV_PI,
+          2 * std::atan(.5 / camera.focalXFraction) * 180 / CV_PI,
+          2 * std::atan(.5 / camera.focalYFraction) * 180 / CV_PI};
+}
+
 Camera measuredCamera(const Tile& tile) {
   const double azimuth = tile.azimuthDegrees * CV_PI / 180;
   const double altitude = tile.altitudeDegrees * CV_PI / 180;
@@ -35,6 +49,11 @@ static cv::UMat candidatePairs(const std::vector<Tile>& tiles,
     const auto forward = cameras[source].worldFromCamera * cv::Vec3d(0, 0, 1);
     for (int target = 0; target < count; ++target) {
       if (source == target) continue;
+      // Small captures can afford all pairs. In longer captures, chronological
+      // neighbours bridge clusters of heavily overlapping shots even when all
+      // six nearest sensor poses belong to the same cluster.
+      if (count <= 12 || std::abs(source - target) <= 2)
+        mask.at<uchar>(source, target) = 1;
       const auto other = cameras[target].worldFromCamera * cv::Vec3d(0, 0, 1);
       const double distance = std::acos(std::clamp(forward.dot(other), -1.0, 1.0)) * 180 / CV_PI;
       // Sensor error allowance plus both frame diagonals. Sensor poses choose
@@ -73,8 +92,19 @@ static bool solveGroup(const std::vector<int>& group,
     }
   }
   try {
-    std::vector<cv::detail::CameraParams> recovered;
-    cv::detail::HomographyBasedEstimator estimator;
+    // Near-identical photos cannot determine focal length from their motion.
+    // Initialize with the captured lens FOV; bundle adjustment can still refine
+    // focal length when the matched rotations provide enough information.
+    std::vector<cv::detail::CameraParams> recovered(count);
+    for (int index = 0; index < count; ++index) {
+      const auto& measured = cameras[group[index]];
+      const auto size = features[index].img_size;
+      recovered[index].focal = measured.focalXFraction * size.width;
+      recovered[index].aspect = measured.focalYFraction * size.height / recovered[index].focal;
+      recovered[index].ppx = .5 * size.width;
+      recovered[index].ppy = .5 * size.height;
+    }
+    cv::detail::HomographyBasedEstimator estimator(true);
     if (!estimator(features, matches, recovered)) return false;
     for (auto& camera : recovered) camera.R.convertTo(camera.R, CV_32F);
     checkCancelled();
@@ -126,7 +156,9 @@ Registration registerCameras(const std::vector<Tile>& tiles, const Progress& pro
   checkCancelled();
   progress("aligning", 0, 1);
   std::vector<cv::detail::MatchesInfo> matches;
-  cv::detail::BestOf2NearestMatcher matcher(false, .3f);
+  // Default confidence >3 rejection drops near-duplicate captures. Keep their
+  // RANSAC-verified matches: every supplied tile still participates in blending.
+  cv::detail::BestOf2NearestMatcher matcher(false, .3f, 6, 6, 4.0);
   matcher(features, matches, candidatePairs(tiles, result.cameras));
   matcher.collectGarbage();
   const int count = static_cast<int>(tiles.size());

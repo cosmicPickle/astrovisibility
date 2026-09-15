@@ -76,13 +76,12 @@ describe('PanoramaAlignmentScreen', () => {
     const controller: PanoramaAlignmentController = {
       load: jest.fn().mockResolvedValue({ draft, profileName: 'Balcony' }),
       updateTilePlacement,
-      completeDraft: jest.fn(),
     };
 
     const view = await renderWithSafeArea(
       <PanoramaAlignmentScreen
         controller={controller}
-        navigation={{ backToCapture: jest.fn(), onAccepted: jest.fn() }}
+        navigation={{ backToCapture: jest.fn(), restitch: jest.fn() }}
         profileId="profile-1"
         renderAtlas={Atlas}
       />,
@@ -96,23 +95,25 @@ describe('PanoramaAlignmentScreen', () => {
       centerAltitudeDegrees: 36,
       centerAzimuthDegrees: 120,
     });
-    expect(view.queryByText(/Az [+-]|Alt [+-]|Roll/i)).toBeNull();
+    await fireEvent.press(
+      view.getByLabelText('Rotate selected tile clockwise'),
+    );
+    await waitFor(() => expect(updateTilePlacement).toHaveBeenCalledTimes(2));
+    expect(updateTilePlacement.mock.calls[1]![2].rollDegrees).toBe(-1);
   });
 
-  it('returns to capture or accepts the immutable panorama', async () => {
+  it('returns to capture or re-stitches the reviewed placements', async () => {
     const backToCapture = jest.fn();
-    const onAccepted = jest.fn();
-    const completeDraft = jest.fn().mockResolvedValue(undefined);
+    const restitch = jest.fn();
     const controller: PanoramaAlignmentController = {
       load: jest.fn().mockResolvedValue({ draft, profileName: 'Balcony' }),
       updateTilePlacement: jest.fn(),
-      completeDraft,
     };
 
     const view = await renderWithSafeArea(
       <PanoramaAlignmentScreen
         controller={controller}
-        navigation={{ backToCapture, onAccepted }}
+        navigation={{ backToCapture, restitch }}
         profileId="profile-1"
         renderAtlas={Atlas}
       />,
@@ -122,8 +123,7 @@ describe('PanoramaAlignmentScreen', () => {
     await fireEvent.press(view.getByText('Back to camera'));
     expect(backToCapture).toHaveBeenCalledTimes(1);
 
-    await fireEvent.press(view.getByText('Use panorama'));
-    await waitFor(() => expect(completeDraft).toHaveBeenCalledWith('draft-1'));
-    expect(onAccepted).toHaveBeenCalledTimes(1);
+    await fireEvent.press(view.getByText('Re-stitch panorama'));
+    expect(restitch).toHaveBeenCalledTimes(1);
   });
 });

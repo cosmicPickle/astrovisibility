@@ -55,10 +55,10 @@ const validatePlacement = (placement: PanoramaTilePlacement) => {
     throw new RangeError('Tile fields of view must be within 0..180 degrees');
   }
   if (
-    placement.centerAltitudeDegrees < 0 ||
+    placement.centerAltitudeDegrees < -90 ||
     placement.centerAltitudeDegrees > 90
   ) {
-    throw new RangeError('centerAltitudeDegrees must be 0..90');
+    throw new RangeError('centerAltitudeDegrees must be -90..90');
   }
 };
 
