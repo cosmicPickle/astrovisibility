@@ -10,9 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { CatalogueTarget } from '../../scripts/catalogue/catalogueImporter';
 import {
-  createVisibilityCalculationContextKey,
   type ObstructionVisibilityInput,
-  type ObstructionVisibilitySummary,
   type VisibilityCalculationOptions,
 } from '../astronomy/obstructionVisibility';
 import {
@@ -36,7 +34,7 @@ import type { VisibilityCalculationCacheRepository } from '../storage/visibility
 import { colors, layout } from '../theme/tokens';
 import { evaluateEquipmentSuitability } from './equipmentSuitability';
 import {
-  calculateRankedTargetsProgressively,
+  compareRankedTargets,
   TargetListCalculationCancelledError,
   type RankedTarget,
   type RankedTargetProgress,
@@ -45,10 +43,11 @@ import {
   filterDiscoveredTargets,
   isDefaultDiscoverableTarget,
   searchCatalogueTargets,
-  type TargetCategory,
 } from './targetDiscoveryFilter';
 import { TargetDiscoveryControls } from './TargetDiscoveryControls';
 import { useTargetDiscoveryState } from './targetDiscoveryState';
+import { rankedTargetMatchesLimits } from './advancedTargetFilters';
+import { calculateCachedRankedTargets } from './cachedRankedTargets';
 import { useDebouncedValue } from './useDebouncedValue';
 
 export type TargetListData = Readonly<{
@@ -176,12 +175,13 @@ export function TargetListScreen({
   const [progress, setProgress] = useState<RankedTargetProgress>(emptyProgress);
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [calculationAttempt, setCalculationAttempt] = useState(0);
+  const discovery = useTargetDiscoveryState(profileId);
   const {
     searchText: catalogueSearch,
     selectedCategories,
-    setSearchText: setCatalogueSearch,
-    toggleCategory,
-  } = useTargetDiscoveryState(profileId);
+    filterLimits,
+    order,
+  } = discovery;
   const debouncedCatalogueSearch = useDebouncedValue(catalogueSearch, 250);
   const activeCalculation = useRef<AbortController | null>(null);
 
@@ -229,55 +229,15 @@ export function TargetListScreen({
       timeZoneId: data.profile.timeZoneId,
       window: data.window,
     };
-    const runCalculation = async () => {
-      const persistentCache = data.visibilityCache;
-      let contextKey: string | null = null;
-      let summaryCache:
-        ReadonlyMap<string, ObstructionVisibilitySummary> | undefined;
-      if (persistentCache) {
-        // Search, category, and equipment filters deliberately do not enter
-        // this context, so UI-only changes reuse the same sky calculations.
-        contextKey = createVisibilityCalculationContextKey({
-          maskRevision: data.maskRevision
-            ? {
-                id: data.maskRevision.id,
-                mask: data.maskRevision,
-                panoramaRevisionId: data.maskRevision.panoramaRevisionId,
-              }
-            : null,
-          observer: observerForProfile(data.profile),
-          panoramaRevisionId: data.panoramaRevisionId,
-          profileId: data.profile.id,
-          timeZoneId: data.profile.timeZoneId,
-          window: data.window,
-        });
-        try {
-          await persistentCache.activateContext(data.profile.id, contextKey);
-          summaryCache = await persistentCache.getSummaries(contextKey);
-        } catch {
-          summaryCache = undefined;
-        }
-      }
-      return calculateRankedTargetsProgressively(calculationInput, {
+    const runCalculation = () =>
+      calculateCachedRankedTargets(calculationInput, data.visibilityCache, {
         calculateVisibility,
         onProgress: (nextProgress) => {
-          if (active && !abortController.signal.aborted) {
+          if (active && !abortController.signal.aborted)
             setProgress(nextProgress);
-          }
         },
-        onSummaryBatch:
-          persistentCache && contextKey
-            ? (entries) =>
-                persistentCache.putSummaries(
-                  data.profile.id,
-                  contextKey,
-                  entries,
-                )
-            : undefined,
         signal: abortController.signal,
-        summaryCache,
       });
-    };
     void runCalculation().then(
       () => {
         if (active && !abortController.signal.aborted) {
@@ -325,8 +285,23 @@ export function TargetListScreen({
         progress.results,
         debouncedCatalogueSearch,
         selectedCategories,
-      ),
-    [debouncedCatalogueSearch, progress.results, selectedCategories],
+      )
+        .filter((result) =>
+          rankedTargetMatchesLimits(
+            result,
+            data?.equipment ?? null,
+            filterLimits,
+          ),
+        )
+        .sort((left, right) => compareRankedTargets(left, right, order)),
+    [
+      data?.equipment,
+      debouncedCatalogueSearch,
+      filterLimits,
+      order,
+      progress.results,
+      selectedCategories,
+    ],
   );
   const directSearchTargets = useMemo(() => {
     if (!data || debouncedCatalogueSearch.trim().length === 0) return [];
@@ -393,7 +368,7 @@ export function TargetListScreen({
   const emptyMessage =
     calculationStatus === 'complete' && listItems.length === 0
       ? progress.results.length > 0
-        ? 'No targets match the current search and categories.'
+        ? 'No targets match the current filters.'
         : progress.eligibleTargetCount === 0
           ? 'No catalogue targets fit the selected imaging setup.'
           : 'No eligible catalogue targets rise during this observing window.'
@@ -405,6 +380,7 @@ export function TargetListScreen({
         contentContainerStyle={styles.content}
         data={listItems}
         initialNumToRender={8}
+        keyboardShouldPersistTaps="handled"
         keyExtractor={({ target }) => target.id}
         ListEmptyComponent={
           emptyMessage ? (
@@ -417,15 +393,12 @@ export function TargetListScreen({
         ListHeaderComponent={
           <TargetListHeader
             calculationStatus={calculationStatus}
-            catalogueSearch={catalogueSearch}
+            discovery={discovery}
             data={data}
             onBack={navigation.goBack}
             onCancel={cancelCalculation}
             onRetry={retryCalculation}
-            onSearchChange={setCatalogueSearch}
-            onToggleCategory={toggleCategory}
             progress={progress}
-            selectedCategories={selectedCategories}
           />
         }
         maxToRenderPerBatch={8}
@@ -466,27 +439,21 @@ export function TargetListScreen({
 
 function TargetListHeader({
   calculationStatus,
-  catalogueSearch,
+  discovery,
   data,
   onBack,
   onCancel,
   onRetry,
-  onSearchChange,
-  onToggleCategory,
   progress,
-  selectedCategories,
 }: Readonly<{
   calculationStatus:
     'idle' | 'calculating' | 'complete' | 'cancelled' | 'error';
-  catalogueSearch: string;
+  discovery: ReturnType<typeof useTargetDiscoveryState>;
   data: TargetListData;
   onBack: () => void;
   onCancel: () => void;
   onRetry: () => void;
-  onSearchChange: (value: string) => void;
-  onToggleCategory: (category: TargetCategory) => void;
   progress: RankedTargetProgress;
-  selectedCategories: readonly TargetCategory[];
 }>) {
   const percent =
     progress.eligibleTargetCount === 0
@@ -514,10 +481,8 @@ function TargetListHeader({
         {formatObservingWindowRange(data.window, data.profile.timeZoneId)}
       </AppText>
       <TargetDiscoveryControls
-        onSearchTextChange={onSearchChange}
-        onToggleCategory={onToggleCategory}
-        searchText={catalogueSearch}
-        selectedCategories={selectedCategories}
+        discovery={discovery}
+        hasEquipment={data.equipment !== null}
       />
       <View style={styles.explanationCard}>
         <AppText style={styles.explanationTitle}>

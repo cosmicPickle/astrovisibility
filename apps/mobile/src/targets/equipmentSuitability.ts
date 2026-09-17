@@ -14,7 +14,7 @@ export type EquipmentSuitability = Readonly<{
   verticalFovDegrees: number;
 }>;
 
-const MINIMUM_MINOR_AXIS_PIXELS = 60;
+export const MINIMUM_MINOR_AXIS_PIXELS = 60;
 const ARCSECONDS_PER_RADIAN = 206_264.806;
 
 /**

@@ -28,6 +28,7 @@ import {
   type EquipmentSuitability,
 } from './equipmentSuitability';
 import { isDefaultDiscoverableTarget } from './targetDiscoveryFilter';
+import type { TargetOrder } from './advancedTargetFilters';
 
 export type RankedTarget = Readonly<{
   durationKind: 'visible' | 'aboveHorizonUnassessed';
@@ -91,6 +92,7 @@ const defaultYieldToEventLoop = () =>
 export function compareRankedTargets(
   left: RankedTarget,
   right: RankedTarget,
+  order: TargetOrder = 'longestVisible',
 ): number {
   const compareText = (leftText: string, rightText: string) =>
     leftText === rightText ? 0 : leftText < rightText ? -1 : 1;
@@ -106,6 +108,7 @@ export function compareRankedTargets(
     ? rightSize * (right.target.minorAxisArcminutes ?? rightSize)
     : 0;
   return (
+    (order === 'biggest' ? rightArea - leftArea : 0) ||
     right.totalDurationMilliseconds - left.totalDurationMilliseconds ||
     rightArea - leftArea ||
     left.target.prominenceTier - right.target.prominenceTier ||

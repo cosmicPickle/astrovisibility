@@ -120,6 +120,67 @@ const navigation = (): TargetListNavigation => ({
 });
 
 describe('TargetListScreen', () => {
+  it('applies advanced duration limits and both orders without recalculating', async () => {
+    const largeTarget = {
+      ...target,
+      id: 'large',
+      preferredName: 'Large fixture',
+      majorAxisArcminutes: 400,
+    };
+    const loaded = await controller(true).load(profile.id, window);
+    const calculate = jest.fn().mockImplementation(async (input) =>
+      input.target.id === 'large'
+        ? {
+            ...trajectory,
+            visibilityIntervals: [
+              {
+                startTimestampUtc: '2026-08-19T20:00:00Z',
+                endTimestampUtc: '2026-08-19T21:00:00Z',
+                durationMilliseconds: 60 * 60000,
+              },
+            ],
+            totalVisibleMilliseconds: 60 * 60000,
+          }
+        : trajectory,
+    );
+    const screen = await renderWithSafeArea(
+      <TargetListScreen
+        calculateVisibility={calculate}
+        controller={{
+          load: async () => ({ ...loaded, targets: [largeTarget, target] }),
+        }}
+        navigation={navigation()}
+        profileId={profile.id}
+      />,
+    );
+    await waitFor(() =>
+      expect(
+        screen
+          .getAllByLabelText(/^Inspect /)
+          .map((row) => row.props.accessibilityLabel),
+      ).toEqual([
+        'Inspect Andromeda Galaxy in Sky View',
+        'Inspect Large fixture in Sky View',
+      ]),
+    );
+    await fireEvent.press(screen.getByRole('button', { name: 'Biggest' }));
+    expect(
+      screen.getAllByLabelText(/^Inspect /)[0]!.props.accessibilityLabel,
+    ).toBe('Inspect Large fixture in Sky View');
+    await fireEvent.press(screen.getByRole('button', { name: 'Advanced' }));
+    await fireEvent.changeText(
+      screen.getByLabelText('Min visibility duration in minutes'),
+      '61',
+    );
+    expect(screen.queryByText('Large fixture')).toBeNull();
+    expect(screen.getByText('Andromeda Galaxy')).toBeTruthy();
+    await fireEvent.changeText(
+      screen.getByLabelText('Min visibility duration in minutes'),
+      '',
+    );
+    expect(screen.getByText('Large fixture')).toBeTruthy();
+    expect(calculate).toHaveBeenCalledTimes(2);
+  });
   beforeEach(() => {
     selectedTrajectoryCache.clear();
     resetTargetDiscoveryStateForTests();

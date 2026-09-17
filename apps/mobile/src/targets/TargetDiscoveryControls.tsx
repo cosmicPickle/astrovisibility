@@ -3,6 +3,8 @@ import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { AppText } from '../components/ui/AppText';
 import { colors, layout } from '../theme/tokens';
 import { type TargetCategory } from './targetDiscoveryFilter';
+import { AdvancedTargetFilterFields } from './AdvancedTargetFilterFields';
+import type { useTargetDiscoveryState } from './targetDiscoveryState';
 
 const targetCategories: readonly Readonly<{
   key: TargetCategory;
@@ -14,28 +16,30 @@ const targetCategories: readonly Readonly<{
 ];
 
 export function TargetDiscoveryControls({
-  onSearchTextChange,
-  onToggleCategory,
-  searchText,
-  selectedCategories,
+  discovery,
+  hasEquipment,
 }: Readonly<{
-  onSearchTextChange: (value: string) => void;
-  onToggleCategory: (category: TargetCategory) => void;
-  searchText: string;
-  selectedCategories: readonly TargetCategory[];
+  discovery: ReturnType<typeof useTargetDiscoveryState>;
+  hasEquipment: boolean;
 }>) {
+  const { searchText, selectedCategories, setSearchText, toggleCategory } =
+    discovery;
   return (
     <View style={styles.controls}>
       <TextInput
         accessibilityLabel="Search catalogue numbers or popular names"
         autoCapitalize="none"
         autoCorrect={false}
-        onChangeText={onSearchTextChange}
+        onChangeText={setSearchText}
         placeholder="Search catalogue or name"
         placeholderTextColor={colors.mutedText}
         returnKeyType="search"
         style={styles.searchInput}
         value={searchText}
+      />
+      <AdvancedTargetFilterFields
+        discovery={discovery}
+        hasEquipment={hasEquipment}
       />
       <View accessibilityRole="toolbar" style={styles.categoryFilter}>
         {targetCategories.map(({ key, label }, index) => {
@@ -46,7 +50,7 @@ export function TargetDiscoveryControls({
               accessibilityRole="button"
               accessibilityState={{ selected }}
               key={key}
-              onPress={() => onToggleCategory(key)}
+              onPress={() => toggleCategory(key)}
               style={[
                 styles.categorySegment,
                 index === 0 && styles.categorySegmentLeft,
@@ -67,11 +71,48 @@ export function TargetDiscoveryControls({
           );
         })}
       </View>
+      <View style={styles.orderGroup}>
+        <AppText tone="label">Order by:</AppText>
+        <View style={styles.categoryFilter}>
+          {(
+            [
+              { key: 'biggest', label: 'Biggest' },
+              { key: 'longestVisible', label: 'Longest Visible' },
+            ] as const
+          ).map(({ key, label }, index) => (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={label}
+              accessibilityState={{ selected: discovery.order === key }}
+              key={key}
+              onPress={() => discovery.setOrder(key)}
+              style={[
+                styles.categorySegment,
+                index === 0
+                  ? styles.categorySegmentLeft
+                  : styles.categorySegmentRight,
+                discovery.order === key && styles.categorySegmentSelected,
+              ]}
+            >
+              <AppText
+                style={
+                  discovery.order === key
+                    ? styles.categoryTextSelected
+                    : styles.categoryText
+                }
+              >
+                {label}
+              </AppText>
+            </Pressable>
+          ))}
+        </View>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  orderGroup: { gap: 6 },
   categoryFilter: { flexDirection: 'row' },
   categorySegment: {
     alignItems: 'center',

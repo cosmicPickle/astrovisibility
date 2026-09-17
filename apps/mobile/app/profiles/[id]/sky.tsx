@@ -17,16 +17,20 @@ export default function ProfileSkyRoute() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const profileId = typeof id === 'string' ? id : '';
   const [focusVersion, setFocusVersion] = useState(0);
+  const [isActive, setIsActive] = useState(false);
   const [selectionHandoff, setSelectionHandoff] =
     useState<SkySelectionHandoff | null>(null);
   useFocusEffect(
     useCallback(() => {
+      setIsActive(true);
       setSelectionHandoff(consumeSkySelectionHandoff(profileId));
       setFocusVersion((current) => current + 1);
+      return () => setIsActive(false);
     }, [profileId]),
   );
   return (
     <SkyViewScreen
+      isActive={isActive}
       initialObservingWindow={
         selectionHandoff
           ? {

@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import type { CatalogueTarget } from '../../scripts/catalogue/catalogueImporter';
 import {
   selectedTrajectoryCache,
+  createVisibilityCalculationTargetKey,
   VisibilityCalculationCache,
 } from '../astronomy/obstructionVisibility';
 import type { SelectedTargetTrajectory } from '../astronomy/trajectory';
@@ -15,6 +16,7 @@ import type { ProfileRecord } from '../storage/profileRepository';
 import type { VisibilityCalculationCacheRepository } from '../storage/visibilityCalculationCacheRepository';
 import {
   resetTargetDiscoveryStateForTests,
+  setTargetDiscoveryFilterInput,
   setTargetDiscoverySearchText,
 } from '../targets/targetDiscoveryState';
 import {
@@ -321,6 +323,100 @@ describe('SkyViewScreen', () => {
   afterEach(() => {
     jest.useRealTimers();
     jest.restoreAllMocks();
+  });
+
+  it('filters sky targets using cached duration and pixel limits while retaining explicit selection', async () => {
+    const other = {
+      ...catalogueTarget,
+      id: 'other',
+      preferredName: 'Other fixture',
+    };
+    const summary = {
+      ...obstructionAwareTrajectory,
+      aboveHorizonIntervals: [
+        {
+          startTimestampUtc: '2026-08-19T20:00:00Z',
+          endTimestampUtc: '2026-08-19T21:00:00Z',
+          durationMilliseconds: 60 * 60000,
+        },
+      ],
+      totalAboveHorizonMilliseconds: 60 * 60000,
+    };
+    const cache = {
+      activateContext: jest.fn().mockResolvedValue(undefined),
+      getSummaries: jest
+        .fn()
+        .mockResolvedValue(
+          new Map(
+            [catalogueTarget, other].map((target) => [
+              createVisibilityCalculationTargetKey(target),
+              summary,
+            ]),
+          ),
+        ),
+      putSummaries: jest.fn().mockResolvedValue(undefined),
+    } as unknown as VisibilityCalculationCacheRepository;
+    const screen = await renderWithSafeArea(
+      <SkyViewScreen
+        controller={controller({
+          catalogueTargets: [catalogueTarget, other],
+          equipment: [equipment],
+          selectedEquipmentId: equipment.id,
+          visibilityCache: cache,
+        })}
+        navigation={navigation()}
+        profileId={profile.id}
+        renderSky={renderer}
+        initialObservingWindow={{
+          kind: 'custom',
+          startTimestampUtc: '2026-08-19T19:00:00Z',
+          endTimestampUtc: '2026-08-20T03:00:00Z',
+          note: null,
+          warnings: [],
+        }}
+        initialSelectedTargetId={catalogueTarget.id}
+      />,
+    );
+    await waitFor(() => screen.getByText('Other fixture'));
+    await act(() =>
+      setTargetDiscoveryFilterInput(profile.id, 'minDurationMinutes', '61'),
+    );
+    await waitFor(() => expect(cache.getSummaries).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(screen.queryByText(/Calculating duration filter/)).toBeNull(),
+    );
+    expect(screen.queryByText('Other fixture')).toBeNull();
+    expect(screen.getAllByText('Orion Nebula').length).toBeGreaterThan(0);
+    await act(() =>
+      setTargetDiscoveryFilterInput(profile.id, 'minDurationMinutes', '60'),
+    );
+    await waitFor(() => screen.getByText('Other fixture'));
+    await act(() =>
+      setTargetDiscoveryFilterInput(profile.id, 'maxSizePixels', '100'),
+    );
+    expect(screen.queryByText('Other fixture')).toBeNull();
+    expect(screen.getAllByText('Orion Nebula').length).toBeGreaterThan(0);
+    expect(cache.getSummaries).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not calculate duration filters while another route is active', async () => {
+    setTargetDiscoveryFilterInput(profile.id, 'minDurationMinutes', '60');
+    const cache = {
+      activateContext: jest.fn().mockResolvedValue(undefined),
+      getSummaries: jest.fn().mockResolvedValue(new Map()),
+      putSummaries: jest.fn().mockResolvedValue(undefined),
+    } as unknown as VisibilityCalculationCacheRepository;
+    const screen = await renderWithSafeArea(
+      <SkyViewScreen
+        controller={controller({ visibilityCache: cache })}
+        navigation={navigation()}
+        profileId={profile.id}
+        renderSky={renderer}
+        isActive={false}
+      />,
+    );
+    await waitFor(() => screen.getByText(profile.name));
+    expect(cache.getSummaries).not.toHaveBeenCalled();
   });
 
   it('shows a deliberate loading failure and retries local data', async () => {

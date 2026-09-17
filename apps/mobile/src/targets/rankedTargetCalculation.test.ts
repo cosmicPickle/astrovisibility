@@ -105,6 +105,39 @@ const baseInput = {
 } as const;
 
 describe('ranked target ordering', () => {
+  it('orders Biggest by angular area then total duration with deterministic final ties', () => {
+    const small = ranked(catalogueTarget('small', 'Small'), 100, 100);
+    const large = ranked(
+      catalogueTarget('large', 'Large', 2, {
+        majorAxisArcminutes: 100,
+        minorAxisArcminutes: 60,
+      }),
+      10,
+      10,
+    );
+    const largeLong = {
+      ...large,
+      target: { ...large.target, id: 'large-long' },
+      totalDurationMilliseconds: 20 * 60000,
+    };
+    const unknown = ranked(
+      catalogueTarget('unknown', 'Unknown', 1, {}),
+      200,
+      200,
+    );
+    expect(
+      [small, large, unknown, largeLong]
+        .sort((left, right) => compareRankedTargets(left, right, 'biggest'))
+        .map(({ target }) => target.id),
+    ).toEqual(['large-long', 'large', 'small', 'unknown']);
+    expect(
+      compareRankedTargets(
+        large,
+        { ...large, target: { ...large.target, id: 'zzz' } },
+        'biggest',
+      ),
+    ).toBeLessThan(0);
+  });
   it('puts unknown sizes last, then sorts known sizes by dark duration and angular area', () => {
     const results = [
       ranked(catalogueTarget('small', 'Small', 2), 50, 30),

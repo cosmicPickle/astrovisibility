@@ -79,6 +79,11 @@ import type { ProfileRecord } from '../storage/profileRepository';
 import type { VisibilityCalculationCacheRepository } from '../storage/visibilityCalculationCacheRepository';
 import { colors, layout } from '../theme/tokens';
 import { evaluateEquipmentSuitability } from '../targets/equipmentSuitability';
+import {
+  rankedTargetMatchesLimits,
+  targetMatchesSizeLimits,
+} from '../targets/advancedTargetFilters';
+import { useSkyTargetDurations } from '../targets/useSkyTargetDurations';
 import { filterCatalogueForDiscovery } from '../targets/targetDiscoveryFilter';
 import { TargetDiscoveryControls } from '../targets/TargetDiscoveryControls';
 import { useTargetDiscoveryState } from '../targets/targetDiscoveryState';
@@ -252,6 +257,7 @@ const createDefaultObservingWindow = (data: SkyViewData) => {
 };
 
 export const SkyViewScreen = ({
+  isActive = true,
   calculateVisibility = calculateObstructionAwareTrajectory,
   controller = skyViewController,
   initialObservingWindow,
@@ -268,6 +274,7 @@ export const SkyViewScreen = ({
   controller?: SkyViewController;
   initialObservingWindow?: ObservingWindow;
   initialSelectedTargetId?: string;
+  isActive?: boolean;
   navigation: SkyViewNavigation;
   profileId: string;
   renderSky?: (props: SkyRendererProps) => React.ReactNode;
@@ -326,12 +333,12 @@ export const SkyViewScreen = ({
     'idle' | 'calculating' | 'ready' | 'error'
   >('idle');
   const [calculationAttempt, setCalculationAttempt] = useState(0);
+  const discovery = useTargetDiscoveryState(profileId);
   const {
     searchText: targetSearchText,
     selectedCategories,
-    setSearchText: setTargetSearchText,
-    toggleCategory: toggleTargetCategory,
-  } = useTargetDiscoveryState(profileId);
+    filterLimits,
+  } = discovery;
   const debouncedTargetSearchText = useDebouncedValue(targetSearchText, 250);
 
   const load = useCallback(
@@ -415,6 +422,39 @@ export const SkyViewScreen = ({
       null,
     [data],
   );
+  const durationCalculationInput = useMemo(
+    () =>
+      data && observingWindow
+        ? {
+            equipment: selectedEquipment,
+            maskRevision: data.mask,
+            observer: observerForProfile(data.profile),
+            panoramaRevisionId: data.panorama?.id ?? null,
+            profileId: data.profile.id,
+            targets: data.catalogueTargets,
+            timeZoneId: data.profile.timeZoneId,
+            window: observingWindow,
+          }
+        : null,
+    [data, observingWindow, selectedEquipment],
+  );
+  const durationFilterActive = (filterLimits.minDurationMinutes ?? 0) > 0;
+  const targetDurations = useSkyTargetDurations(
+    durationCalculationInput,
+    data?.visibilityCache,
+    durationFilterActive && isActive,
+  );
+  const durationEligibleTargetIds = useMemo(
+    () =>
+      new Set(
+        targetDurations.results
+          .filter((result) =>
+            rankedTargetMatchesLimits(result, selectedEquipment, filterLimits),
+          )
+          .map(({ target }) => target.id),
+      ),
+    [filterLimits, selectedEquipment, targetDurations.results],
+  );
   const discoverableCatalogueTargets = useMemo(() => {
     if (!data) return [];
     return filterCatalogueForDiscovery(
@@ -423,10 +463,18 @@ export const SkyViewScreen = ({
       selectedCategories,
     ).filter(
       (target) =>
-        !selectedEquipment ||
-        evaluateEquipmentSuitability(target, selectedEquipment).eligible,
+        targetMatchesSizeLimits(target, selectedEquipment, filterLimits) &&
+        (!durationFilterActive || durationEligibleTargetIds.has(target.id)),
     );
-  }, [data, debouncedTargetSearchText, selectedCategories, selectedEquipment]);
+  }, [
+    data,
+    debouncedTargetSearchText,
+    selectedCategories,
+    selectedEquipment,
+    filterLimits,
+    durationFilterActive,
+    durationEligibleTargetIds,
+  ]);
   const atlasCatalogueTargets = useMemo(() => {
     if (
       !selectedTarget ||
@@ -1073,6 +1121,23 @@ export const SkyViewScreen = ({
         ) : null}
       </View>
 
+      {durationFilterActive && targetDurations.status !== 'complete' ? (
+        <View style={styles.durationFilterStatus}>
+          <AppText accessibilityLiveRegion="polite" tone="muted">
+            {targetDurations.status === 'error'
+              ? 'Duration filter calculation failed. Partial results shown.'
+              : `Calculating duration filter · ${targetDurations.processedCount} of ${targetDurations.totalCount} · partial results`}
+          </AppText>
+          {targetDurations.status === 'error' ? (
+            <ActionButton
+              label="Retry duration filter"
+              onPress={targetDurations.retry}
+              variant="secondary"
+            />
+          ) : null}
+        </View>
+      ) : null}
+
       {mutationError ? (
         <AppText accessibilityLiveRegion="polite" style={styles.errorText}>
           {mutationError}
@@ -1090,10 +1155,8 @@ export const SkyViewScreen = ({
           value={minimumTargetCount}
         />
         <TargetDiscoveryControls
-          onSearchTextChange={setTargetSearchText}
-          onToggleCategory={toggleTargetCategory}
-          searchText={targetSearchText}
-          selectedCategories={selectedCategories}
+          discovery={discovery}
+          hasEquipment={selectedEquipment !== null}
         />
         <ActionButton
           label={`Constellation opacity · ${constellationOpacityPercent}%`}
@@ -1382,6 +1445,12 @@ const Detail = ({ label, value }: { label: string; value: string }) => (
 );
 
 const styles = StyleSheet.create({
+  durationFilterStatus: {
+    backgroundColor: colors.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    gap: 6,
+  },
   assessmentSummary: {
     gap: 3,
   },

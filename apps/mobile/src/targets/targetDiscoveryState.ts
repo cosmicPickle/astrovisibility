@@ -1,4 +1,12 @@
 import { useCallback, useSyncExternalStore } from 'react';
+import {
+  DEFAULT_TARGET_FILTER_INPUTS,
+  DEFAULT_TARGET_FILTER_LIMITS,
+  resolveTargetFilterInputs,
+  type TargetFilterInputs,
+  type TargetFilterLimits,
+  type TargetOrder,
+} from './advancedTargetFilters';
 
 import {
   ALL_TARGET_CATEGORIES,
@@ -6,11 +14,17 @@ import {
 } from './targetDiscoveryFilter';
 
 export type TargetDiscoverySnapshot = Readonly<{
+  filterInputs: TargetFilterInputs;
+  filterLimits: TargetFilterLimits;
+  order: TargetOrder;
   searchText: string;
   selectedCategories: readonly TargetCategory[];
 }>;
 
 const defaultSnapshot: TargetDiscoverySnapshot = Object.freeze({
+  filterInputs: DEFAULT_TARGET_FILTER_INPUTS,
+  filterLimits: DEFAULT_TARGET_FILTER_LIMITS,
+  order: 'longestVisible',
   searchText: '',
   selectedCategories: Object.freeze([...ALL_TARGET_CATEGORIES]),
 });
@@ -70,6 +84,38 @@ export const toggleTargetDiscoveryCategory = (
   });
 };
 
+export function setTargetDiscoveryFilterInput(
+  profileId: string,
+  field: keyof TargetFilterInputs,
+  value: string,
+): void {
+  const current = getTargetDiscoverySnapshot(profileId);
+  const filterInputs = Object.freeze({
+    ...current.filterInputs,
+    [field]: value,
+  });
+  const { limits } = resolveTargetFilterInputs(
+    filterInputs,
+    current.filterLimits,
+  );
+  const unchanged = (Object.keys(limits) as (keyof TargetFilterInputs)[]).every(
+    (key) => limits[key] === current.filterLimits[key],
+  );
+  publish(profileId, {
+    ...current,
+    filterInputs,
+    filterLimits: unchanged ? current.filterLimits : Object.freeze(limits),
+  });
+}
+
+export function setTargetDiscoveryOrder(
+  profileId: string,
+  order: TargetOrder,
+): void {
+  const current = getTargetDiscoverySnapshot(profileId);
+  if (current.order !== order) publish(profileId, { ...current, order });
+}
+
 export const useTargetDiscoveryState = (profileId: string) => {
   const subscribe = useCallback(
     (listener: () => void) =>
@@ -83,6 +129,9 @@ export const useTargetDiscoveryState = (profileId: string) => {
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
   return {
     ...snapshot,
+    setFilterInput: (field: keyof TargetFilterInputs, value: string) =>
+      setTargetDiscoveryFilterInput(profileId, field, value),
+    setOrder: (order: TargetOrder) => setTargetDiscoveryOrder(profileId, order),
     setSearchText: (searchText: string) =>
       setTargetDiscoverySearchText(profileId, searchText),
     toggleCategory: (category: TargetCategory) =>

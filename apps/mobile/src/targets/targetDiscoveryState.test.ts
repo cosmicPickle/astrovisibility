@@ -1,4 +1,8 @@
 import {
+  DEFAULT_TARGET_FILTER_INPUTS,
+  DEFAULT_TARGET_FILTER_LIMITS,
+} from './advancedTargetFilters';
+import {
   getTargetDiscoverySnapshot,
   resetTargetDiscoveryStateForTests,
   setTargetDiscoverySearchText,
@@ -18,10 +22,16 @@ describe('profile-scoped target discovery state', () => {
 
     expect(listener).toHaveBeenCalledTimes(2);
     expect(getTargetDiscoverySnapshot('profile-1')).toEqual({
+      filterInputs: DEFAULT_TARGET_FILTER_INPUTS,
+      filterLimits: DEFAULT_TARGET_FILTER_LIMITS,
+      order: 'longestVisible',
       searchText: 'Andromeda',
       selectedCategories: ['nebulae', 'starClusters'],
     });
     expect(getTargetDiscoverySnapshot('profile-2')).toEqual({
+      filterInputs: DEFAULT_TARGET_FILTER_INPUTS,
+      filterLimits: DEFAULT_TARGET_FILTER_LIMITS,
+      order: 'longestVisible',
       searchText: '',
       selectedCategories: ['galaxies', 'nebulae', 'starClusters'],
     });
