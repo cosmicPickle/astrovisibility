@@ -483,6 +483,7 @@ function TargetListHeader({
       <TargetDiscoveryControls
         discovery={discovery}
         hasEquipment={data.equipment !== null}
+        showOrder
       />
       <View style={styles.explanationCard}>
         <AppText style={styles.explanationTitle}>

@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { StyleSheet, TextInput, View } from 'react-native';
 import { AppText } from '../components/ui/AppText';
 import { colors, layout } from '../theme/tokens';
 import {
@@ -36,54 +35,31 @@ export function AdvancedTargetFilterFields({
   discovery: ReturnType<typeof useTargetDiscoveryState>;
   hasEquipment: boolean;
 }>) {
-  const [expanded, setExpanded] = useState(false);
   const { errors } = resolveTargetFilterInputs(
     discovery.filterInputs,
     discovery.filterLimits,
   );
-  const activeCount = Object.entries(discovery.filterLimits).filter(
-    ([key, value]) =>
-      value !== null && (hasEquipment || key === 'minDurationMinutes'),
-  ).length;
   return (
-    <View>
-      <Pressable
-        accessibilityLabel="Advanced"
-        accessibilityRole="button"
-        accessibilityState={{ expanded }}
-        onPress={() => setExpanded(!expanded)}
-        style={styles.disclosure}
-      >
-        <AppText tone="label">
-          Advanced{activeCount > 0 ? ` (${activeCount})` : ''}
-        </AppText>
-        <AppText tone="muted">{expanded ? '⌃' : '⌄'}</AppText>
-      </Pressable>
-      {expanded ? (
-        <View style={styles.fields}>
-          <View style={styles.sizeRow}>
-            {fields.slice(0, 2).map((field) => (
-              <FilterField
-                key={field.key}
-                field={field}
-                discovery={discovery}
-                disabled={!hasEquipment}
-                error={hasEquipment ? errors[field.key] : undefined}
-              />
-            ))}
-          </View>
-          {!hasEquipment ? (
-            <AppText tone="muted">
-              Select optics to filter by pixel size.
-            </AppText>
-          ) : null}
+    <View style={styles.fields}>
+      <View style={styles.sizeRow}>
+        {fields.slice(0, 2).map((field) => (
           <FilterField
-            field={fields[2]}
+            key={field.key}
+            field={field}
             discovery={discovery}
-            error={errors.minDurationMinutes}
+            disabled={!hasEquipment}
+            error={hasEquipment ? errors[field.key] : undefined}
           />
-        </View>
+        ))}
+      </View>
+      {!hasEquipment ? (
+        <AppText tone="muted">Select optics to filter by pixel size.</AppText>
       ) : null}
+      <FilterField
+        field={fields[2]}
+        discovery={discovery}
+        error={errors.minDurationMinutes}
+      />
     </View>
   );
 }
@@ -105,9 +81,16 @@ function FilterField({
   error?: string;
 }>) {
   return (
-    <View style={styles.field}>
+    <View
+      style={[
+        styles.field,
+        field.key !== 'minDurationMinutes' && styles.sizeField,
+      ]}
+    >
       <View style={[styles.inputRow, disabled && styles.disabled]}>
-        <AppText style={styles.label}>{field.label}</AppText>
+        <View style={styles.cap}>
+          <AppText style={styles.label}>{field.label}</AppText>
+        </View>
         <TextInput
           accessibilityLabel={`${field.label} in ${field.accessibleUnit}`}
           accessibilityState={{ disabled }}
@@ -118,9 +101,9 @@ function FilterField({
           style={styles.input}
           value={discovery.filterInputs[field.key]}
         />
-        <AppText style={styles.unit} tone="muted">
-          {field.unit}
-        </AppText>
+        <View style={styles.cap}>
+          <AppText style={styles.label}>{field.unit}</AppText>
+        </View>
       </View>
       {error ? (
         <AppText accessibilityLiveRegion="polite" style={styles.error}>
@@ -132,28 +115,36 @@ function FilterField({
 }
 
 const styles = StyleSheet.create({
-  disclosure: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    minHeight: layout.minimumTouchTarget,
-  },
   fields: { gap: 8 },
   sizeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   field: { flexGrow: 1, minWidth: 140 },
-  inputRow: { alignItems: 'center', flexDirection: 'row', gap: 5 },
-  label: { fontSize: 12 },
-  unit: { fontSize: 12 },
-  input: {
-    backgroundColor: colors.surface,
+  sizeField: { flexBasis: 0 },
+  inputRow: {
+    flexDirection: 'row',
     borderColor: colors.outline,
     borderRadius: layout.controlRadius,
     borderWidth: 1,
+    overflow: 'hidden',
+  },
+  cap: {
+    backgroundColor: colors.surfaceRaised,
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+    flexShrink: 1,
+  },
+  label: { fontSize: 12, fontWeight: '700' },
+  input: {
+    backgroundColor: colors.surface,
+    borderColor: colors.outline,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
     color: colors.text,
     flex: 1,
-    minWidth: 48,
+    minWidth: 44,
     minHeight: layout.minimumTouchTarget,
     paddingHorizontal: 6,
+    textAlign: 'center',
   },
   disabled: { opacity: 0.5 },
   error: { color: colors.danger, fontSize: 12 },

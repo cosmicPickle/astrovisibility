@@ -471,6 +471,11 @@ describe('SkyViewScreen', () => {
     ).toBe(289);
     await fireEvent.press(screen.getByLabelText('View options'));
     expect(screen.queryByText('Imaging setup · None')).toBeNull();
+    expect(screen.queryByText('Order by:')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Biggest' })).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Advanced filters' }),
+    ).toBeTruthy();
     await fireEvent.press(screen.getByText('Constellation opacity · 30%'));
     await fireEvent(
       screen.getByLabelText('Constellation opacity'),

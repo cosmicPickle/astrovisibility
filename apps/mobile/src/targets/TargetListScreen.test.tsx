@@ -167,7 +167,9 @@ describe('TargetListScreen', () => {
     expect(
       screen.getAllByLabelText(/^Inspect /)[0]!.props.accessibilityLabel,
     ).toBe('Inspect Large fixture in Sky View');
-    await fireEvent.press(screen.getByRole('button', { name: 'Advanced' }));
+    await fireEvent.press(
+      screen.getByRole('button', { name: 'Advanced filters' }),
+    );
     await fireEvent.changeText(
       screen.getByLabelText('Min visibility duration in minutes'),
       '61',

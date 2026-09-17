@@ -105,6 +105,66 @@ const baseInput = {
 } as const;
 
 describe('ranked target ordering', () => {
+  it.each(['biggest', 'longestVisible'] as const)(
+    'puts zero mask-visible duration last under %s, even after visible targets with unknown size',
+    (order) => {
+      const blockedLarge = ranked(
+        catalogueTarget('blocked-large', 'Blocked large', 2, {
+          majorAxisArcminutes: 400,
+          minorAxisArcminutes: 300,
+        }),
+        0,
+        0,
+      );
+      const visibleSmall = ranked(
+        catalogueTarget('visible-small', 'Visible small'),
+        10,
+        10,
+      );
+      const visibleUnknown = ranked(
+        catalogueTarget('visible-unknown', 'Visible unknown', 2, {}),
+        5,
+        5,
+      );
+      const blockedSmall = ranked(
+        catalogueTarget('blocked-small', 'Blocked small'),
+        0,
+        0,
+      );
+      expect(
+        [blockedSmall, visibleUnknown, blockedLarge, visibleSmall]
+          .sort((left, right) => compareRankedTargets(left, right, order))
+          .map(({ target }) => target.id),
+      ).toEqual([
+        'visible-small',
+        'visible-unknown',
+        'blocked-large',
+        'blocked-small',
+      ]);
+    },
+  );
+
+  it('does not treat unassessed zero duration as known local obstruction blockage', () => {
+    const unassessedLarge: RankedTarget = {
+      ...ranked(
+        catalogueTarget('large', 'Large', 2, {
+          majorAxisArcminutes: 400,
+          minorAxisArcminutes: 300,
+        }),
+        0,
+        0,
+      ),
+      durationKind: 'aboveHorizonUnassessed',
+    };
+    const unassessedSmall: RankedTarget = {
+      ...ranked(catalogueTarget('small', 'Small'), 10, 10),
+      durationKind: 'aboveHorizonUnassessed',
+    };
+    expect(
+      compareRankedTargets(unassessedLarge, unassessedSmall, 'biggest'),
+    ).toBeLessThan(0);
+  });
+
   it('orders Biggest by angular area then total duration with deterministic final ties', () => {
     const small = ranked(catalogueTarget('small', 'Small'), 100, 100);
     const large = ranked(

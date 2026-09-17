@@ -94,6 +94,11 @@ export function compareRankedTargets(
   right: RankedTarget,
   order: TargetOrder = 'longestVisible',
 ): number {
+  const leftBlocked =
+    left.durationKind === 'visible' && left.totalDurationMilliseconds <= 0;
+  const rightBlocked =
+    right.durationKind === 'visible' && right.totalDurationMilliseconds <= 0;
+  if (leftBlocked !== rightBlocked) return leftBlocked ? 1 : -1;
   const compareText = (leftText: string, rightText: string) =>
     leftText === rightText ? 0 : leftText < rightText ? -1 : 1;
   const leftSize = left.target.majorAxisArcminutes;

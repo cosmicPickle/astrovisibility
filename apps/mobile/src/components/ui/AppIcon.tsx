@@ -9,6 +9,7 @@ export type AppIconName =
   | 'hand'
   | 'conditions'
   | 'eye'
+  | 'filter'
   | 'info'
   | 'nextDay'
   | 'previousDay'
@@ -57,6 +58,8 @@ export const AppIcon = ({
         <Path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" />
         <Circle cx="12" cy="12" r="3" />
       </>
+    ) : name === 'filter' ? (
+      <Path d="M3 4h18l-7 8v7l-4 2v-9L3 4Z" />
     ) : name === 'search' ? (
       <>
         <Circle cx="11" cy="11" r="6.5" />
