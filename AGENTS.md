@@ -256,15 +256,32 @@ target.
 
 ## Android Build Artifact Emission
 
-Use the repository `build-share-android-app` skill whenever a human asks to
-build, emit, produce, generate, share, or send the Astrovisibility mobile app or
-APK. This applies even when the human says only "the app" without naming Android,
-a release build, an APK, or the skill.
+Use the repository `build-share-android-app` skill before handing off every task
+that changes the shipped app, including app code, assets, dependencies, native
+configuration, or build behavior, unless a human explicitly waives the APK.
+Building, staging, and sharing this local test APK are already authorized by this
+standing requirement; do not wait for a separate build request. Changes confined
+to documentation, tests, or agent instructions do not independently require an
+APK.
 
-An unqualified app build/share request means a fresh Android release APK staged
-at `tmp/artifacts/android/app-release.apk`. Do not substitute a debug APK, Expo
-export, development build, or Gradle intermediate output. Use a different
-platform or variant only when the human explicitly requests it.
+Also use the skill whenever a human asks to build, emit, produce, generate,
+share, or send the Astrovisibility mobile app or APK, including when they say only
+"the app."
+
+Deliver an Android release APK matching the final validated app inputs, staged at
+`tmp/artifacts/android/app-release.apk`, and include a clickable link in the
+final response. An APK built for visual QA is not delivered until it is staged
+and linked. Reuse a successful existing build only when its provenance and the
+absence of subsequent app-input changes are verified; file timestamps alone are
+insufficient. Otherwise build a fresh APK. Honor an explicit request for a fresh
+build. Do not substitute a debug APK, Expo export, development build, or Gradle
+intermediate path. Use a different platform or variant only when explicitly
+requested.
+
+This is a local release-variant APK for testing. It does not authorize a GitHub
+Release, tag, version bump, or publication; those require a separate request.
+If building or staging is blocked, report the exact blocker and keep delivery
+incomplete rather than presenting an older APK as current.
 
 The expected native Gradle project path is `apps/mobile/android`. Until that
 project exists, report the missing scaffold plainly; do not stage a stale or
@@ -561,6 +578,9 @@ A task is complete only when:
 - the human request and applicable specifications are satisfied;
 - no presented functionality is a stub or misleading partial implementation;
 - relevant automated checks and visual/device review pass;
+- app-changing tasks deliver the current local release APK through the
+  `build-share-android-app` skill and link it in the final response, unless a
+  human explicitly waives that delivery;
 - privacy, security, numerical correctness, performance, migration, and failure
   behavior have been reviewed in proportion to the change;
 - documentation and the technology registry are updated when required;
