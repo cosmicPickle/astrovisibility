@@ -42,10 +42,16 @@ still needs replay. The earlier audit establishes point-lens behavior only.
 
 **User retest, 2026-09-21 22:13 +03:00:** Updated APK reports 02:34, leaving
 59 minutes against the reported first shading at 01:35. Do not mark the observed
-problem solved. Current tracking mode and offset confirmation is requested.
+problem solved. The user subsequently confirmed AltAz and 50 mm.
 Exact saved window corners, optics and mask are not available locally; the
 displayed cutoff alone does not identify whether the physical window or the
 remaining mask sets the transition. Establish that before choosing another fix.
+
+**Next check:** Inspect saved outline/mask alignment at the right edge. A synthetic
+right-edge-only family did not reproduce the earlier four-minute offset change;
+the two predictions may have been limited by different obstacles. This is not a
+confirmed cause. Evidence and assumptions:
+`docs/superpowers/reports/mobile/2026-09-21-2218-window-residual-cutoff-check.md`.
 
 - [ ] Account for the observed four-minute change at 50 mm when checking whether
       this omission explains the user's night; do not equate a counterexample
