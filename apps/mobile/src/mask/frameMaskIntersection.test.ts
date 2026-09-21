@@ -1,5 +1,6 @@
 import { createImagingFrame } from '../astronomy/imagingFrame';
 import { directionToAtlasPixel } from '../panorama/directionalAtlas';
+import { horizontalDirectionToVector } from '../sky/planetariumProjection';
 import { createFrameMaskEvaluator } from './frameMaskIntersection';
 import {
   createBlockedBitset,
@@ -45,6 +46,21 @@ const block = (
 };
 
 describe('full-frame raster intersection', () => {
+  it('finds cap intersections at the centre, away from it, and across the horizon', () => {
+    const mask = raster();
+    block(mask, 0, 45);
+    const evaluator = createFrameMaskEvaluator(mask);
+    const center = (altitudeDegrees: number, azimuthDegrees = 0) =>
+      horizontalDirectionToVector({ altitudeDegrees, azimuthDegrees });
+    expect(evaluator.capIntersects(center(45), 0.01, true)).toBe(true);
+    expect(evaluator.capIntersects(center(46), 1.1, true)).toBe(true);
+    expect(evaluator.capIntersects(center(46), 0.1, true)).toBe(false);
+    expect(evaluator.capIntersects(center(45), 1, false)).toBe(true);
+    expect(evaluator.capIntersects(center(-2), 1, false)).toBe(false);
+    expect(evaluator.capIntersects(center(-0.1), 0.2, false)).toBe(true);
+    expect(evaluator.capIntersects(center(0, 90), 0.1, false)).toBe(true);
+  });
+
   it('includes the clamped outer half-pixel at the east horizon', () => {
     const mask = raster();
     writeBlockedPixel(mask.blockedBitset, 2048, 2048, 2047, 1024, true);

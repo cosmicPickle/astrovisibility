@@ -7,7 +7,7 @@ import {
 import { createWindowHorizontalProjectorAtMilliseconds } from '../astronomy/horizontalCoordinates';
 import {
   calculateObstructionAwareTrajectory,
-  calculateObstructionVisibilitySummary,
+  calculateObstructionVisibilitySummaryCooperatively,
   createVisibilityCalculationCacheKey,
   createVisibilityCalculationTargetKey,
   selectedTrajectoryCache,
@@ -194,8 +194,11 @@ export async function calculateRankedTargetsProgressively(
   let pendingSummaryEntries: VisibilitySummaryCacheEntry[] = [];
   let processedCount = 0;
   let lastYieldMilliseconds = performance.now();
+  let lastProgressMilliseconds = lastYieldMilliseconds;
+  const imagingFrame = imagingFrameForEquipment(input.equipment);
 
   const publish = (complete: boolean) => {
+    lastProgressMilliseconds = performance.now();
     options.onProgress?.({
       complete,
       eligibleTargetCount: candidates.length,
@@ -205,6 +208,10 @@ export async function calculateRankedTargetsProgressively(
       totalCatalogueCount: discoverableTargets.length,
     });
   };
+
+  throwIfCancelled(options.signal);
+  publish(false);
+  await yieldToEventLoop();
 
   const flushSummaryEntries = async () => {
     if (pendingSummaryEntries.length === 0 || !options.onSummaryBatch) return;
@@ -220,7 +227,7 @@ export async function calculateRankedTargetsProgressively(
   for (const { suitability, target } of candidates) {
     throwIfCancelled(options.signal);
     const visibilityInput: ObstructionVisibilityInput = {
-      imagingFrame: imagingFrameForEquipment(input.equipment),
+      imagingFrame,
       profileId: input.profileId,
       target: {
         id: target.id,
@@ -267,10 +274,14 @@ export async function calculateRankedTargetsProgressively(
             window: input.window,
           });
         if (options.calculateVisibility === undefined) {
-          trajectory = calculateObstructionVisibilitySummary(visibilityInput, {
-            projectAtMilliseconds,
-            signal: options.signal,
-          });
+          trajectory = await calculateObstructionVisibilitySummaryCooperatively(
+            visibilityInput,
+            {
+              projectAtMilliseconds,
+              signal: options.signal,
+              yieldToEventLoop,
+            },
+          );
         } else {
           const fullTrajectory = await calculateVisibility(visibilityInput, {
             projectAt: (timestampUtc) =>
@@ -309,12 +320,14 @@ export async function calculateRankedTargetsProgressively(
       lastYieldMilliseconds = performance.now();
       throwIfCancelled(options.signal);
     } else if (performance.now() - lastYieldMilliseconds >= 12) {
+      if (performance.now() - lastProgressMilliseconds >= 100) publish(false);
       await yieldToEventLoop();
       lastYieldMilliseconds = performance.now();
       throwIfCancelled(options.signal);
     }
   }
   await flushSummaryEntries();
+  throwIfCancelled(options.signal);
   publish(true);
   return results.sort(compareRankedTargets);
 }

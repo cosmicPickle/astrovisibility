@@ -374,7 +374,7 @@ async function refineSegment(
   ];
 }
 
-function appendRefinedSegmentSynchronously(
+function* appendRefinedSegmentCooperatively(
   output: EvaluatedSample[],
   left: EvaluatedSample,
   right: EvaluatedSample,
@@ -384,50 +384,44 @@ function appendRefinedSegmentSynchronously(
     right: EvaluatedSample,
   ) => boolean,
   refineFootprint = false,
-): void {
-  const durationMilliseconds =
-    right.timestampMilliseconds - left.timestampMilliseconds;
-  const classificationChanged = left.assessment !== right.assessment;
-  const needsTemporalRefinement =
-    classificationChanged &&
-    durationMilliseconds > TRANSITION_TOLERANCE_MILLISECONDS;
-  const exceedsSpatialResolution =
-    durationMilliseconds > TRANSITION_TOLERANCE_MILLISECONDS ||
-    sphericalSeparationDegrees(left, right) > SPATIAL_TOLERANCE_DEGREES;
-  const needsMaskRefinement =
-    (exceedsSpatialResolution || refineFootprint) &&
-    shouldRefineSpatially(left, right);
-  if (!needsTemporalRefinement && !needsMaskRefinement) {
-    output.push(right);
-    return;
+): Generator<void> {
+  // Depth-first order matches recursive subdivision, with bounded checkpoints
+  // even when a single target grazes many obstruction edges.
+  const pending: [EvaluatedSample, EvaluatedSample][] = [[left, right]];
+  let visited = 0;
+  while (pending.length) {
+    [left, right] = pending.pop()!;
+    const durationMilliseconds =
+      right.timestampMilliseconds - left.timestampMilliseconds;
+    const classificationChanged = left.assessment !== right.assessment;
+    const needsTemporalRefinement =
+      classificationChanged &&
+      durationMilliseconds > TRANSITION_TOLERANCE_MILLISECONDS;
+    const exceedsSpatialResolution =
+      refineFootprint ||
+      durationMilliseconds > TRANSITION_TOLERANCE_MILLISECONDS ||
+      sphericalSeparationDegrees(left, right) > SPATIAL_TOLERANCE_DEGREES;
+    const needsMaskRefinement =
+      (exceedsSpatialResolution || refineFootprint) &&
+      shouldRefineSpatially(left, right);
+    if (!needsTemporalRefinement && !needsMaskRefinement) {
+      output.push(right);
+      continue;
+    }
+    const middleMilliseconds = Math.floor(
+      (left.timestampMilliseconds + right.timestampMilliseconds) / 2,
+    );
+    if (
+      middleMilliseconds <= left.timestampMilliseconds ||
+      middleMilliseconds >= right.timestampMilliseconds
+    ) {
+      output.push(right);
+      continue;
+    }
+    const middle = evaluate(middleMilliseconds);
+    pending.push([middle, right], [left, middle]);
+    if (++visited % 32 === 0) yield;
   }
-  const middleMilliseconds = Math.floor(
-    (left.timestampMilliseconds + right.timestampMilliseconds) / 2,
-  );
-  if (
-    middleMilliseconds <= left.timestampMilliseconds ||
-    middleMilliseconds >= right.timestampMilliseconds
-  ) {
-    output.push(right);
-    return;
-  }
-  const middle = evaluate(middleMilliseconds);
-  appendRefinedSegmentSynchronously(
-    output,
-    left,
-    middle,
-    evaluate,
-    shouldRefineSpatially,
-    refineFootprint,
-  );
-  appendRefinedSegmentSynchronously(
-    output,
-    middle,
-    right,
-    evaluate,
-    shouldRefineSpatially,
-    refineFootprint,
-  );
 }
 
 function createRuns(
@@ -721,14 +715,14 @@ export async function calculateObstructionAwareTrajectory(
 
 /**
  * Computes the exact Stage 7 interval contract without allocating render
- * samples, markers, or transitions. Stage 8 runs this synchronously per target
- * and yields between bounded target batches, avoiding millions of Promise
- * continuations while preserving the same temporal/spatial refinement rules.
+ * samples, markers, or transitions. Checkpoints let catalogue callers yield
+ * within a target without a Promise per sample. Synchronous callers drain the
+ * same steps, preserving the temporal/spatial refinement rules and order.
  */
-export function calculateObstructionVisibilitySummary(
+function* visibilitySummarySteps(
   input: ObstructionVisibilityInput,
   options: VisibilitySummaryCalculationOptions = {},
-): ObstructionVisibilitySummary {
+): Generator<void, ObstructionVisibilitySummary> {
   const { startMilliseconds, endMilliseconds } = parseWindow(input.window);
   if (
     input.maskRevision &&
@@ -799,7 +793,7 @@ export function calculateObstructionVisibilitySummary(
   coarseSamples.push(evaluate(endMilliseconds));
   const refinedSamples: EvaluatedSample[] = [coarseSamples[0]!];
   for (let index = 1; index < coarseSamples.length; index += 1) {
-    appendRefinedSegmentSynchronously(
+    yield* appendRefinedSegmentCooperatively(
       refinedSamples,
       coarseSamples[index - 1]!,
       coarseSamples[index]!,
@@ -807,6 +801,7 @@ export function calculateObstructionVisibilitySummary(
       shouldRefineSpatially,
       Boolean(input.imagingFrame),
     );
+    yield;
   }
   const rawRuns = createRuns(
     refinedSamples,
@@ -830,6 +825,36 @@ export function calculateObstructionVisibilitySummary(
       0,
     ),
   };
+}
+
+export function calculateObstructionVisibilitySummary(
+  input: ObstructionVisibilityInput,
+  options: VisibilitySummaryCalculationOptions = {},
+): ObstructionVisibilitySummary {
+  const steps = visibilitySummarySteps(input, options);
+  let step = steps.next();
+  while (!step.done) step = steps.next();
+  return step.value;
+}
+
+export async function calculateObstructionVisibilitySummaryCooperatively(
+  input: ObstructionVisibilityInput,
+  options: VisibilitySummaryCalculationOptions & {
+    yieldToEventLoop?: () => Promise<void>;
+  } = {},
+): Promise<ObstructionVisibilitySummary> {
+  const steps = visibilitySummarySteps(input, options);
+  let lastYield = performance.now();
+  for (;;) {
+    if (options.signal?.aborted)
+      throw new VisibilityCalculationCancelledError();
+    const step = steps.next();
+    if (step.done) return step.value;
+    if (performance.now() - lastYield >= 12) {
+      await (options.yieldToEventLoop ?? defaultYieldToEventLoop)();
+      lastYield = performance.now();
+    }
+  }
 }
 
 export function createVisibilityCalculationContextKey(

@@ -223,6 +223,49 @@ describe('ranked target ordering', () => {
 });
 
 describe('progressive all-target calculation', () => {
+  it('publishes the filtered total immediately and slow progress before a database batch fills', async () => {
+    let clock = 0;
+    const priorPerformance = globalThis.performance;
+    Object.defineProperty(globalThis, 'performance', {
+      configurable: true,
+      value: { now: () => clock },
+    });
+    const updates: number[] = [];
+    const totals: number[] = [];
+    try {
+      await calculateRankedTargetsProgressively(
+        {
+          ...baseInput,
+          equipment,
+          targets: [
+            catalogueTarget('a', 'A'),
+            catalogueTarget('b', 'B'),
+            catalogueTarget('small', 'Small', 2, { majorAxisArcminutes: 0.01 }),
+          ],
+        },
+        {
+          cache: new VisibilityCalculationCache(),
+          calculateVisibility: async () => {
+            clock += 250;
+            return trajectory([interval(0, 60)], []);
+          },
+          onProgress: ({ processedCount, eligibleTargetCount }) => {
+            updates.push(processedCount);
+            totals.push(eligibleTargetCount);
+          },
+          yieldToEventLoop: async () => undefined,
+        },
+      );
+      expect(updates).toEqual([0, 1, 2, 2]);
+      expect(totals).toEqual([2, 2, 2, 2]);
+    } finally {
+      Object.defineProperty(globalThis, 'performance', {
+        configurable: true,
+        value: priorPerformance,
+      });
+    }
+  });
+
   it('retains every visibility interval, excludes never-rising targets, and publishes sorted batches', async () => {
     const targets = [
       catalogueTarget('target-a', 'A'),
@@ -441,7 +484,7 @@ describe('progressive all-target calculation', () => {
     );
 
     expect(visibilityCalls).toEqual(['normal']);
-    expect(progress).toEqual([1, 1]);
+    expect(progress).toEqual([1, 1, 1]);
   });
 
   it('cooperatively cancels before publishing work after the aborted batch', async () => {
@@ -466,7 +509,7 @@ describe('progressive all-target calculation', () => {
         },
         onProgress: ({ processedCount }) => {
           progress.push(processedCount);
-          controller.abort();
+          if (processedCount > 0) controller.abort();
         },
         signal: controller.signal,
         yieldToEventLoop: async () => undefined,
@@ -477,6 +520,6 @@ describe('progressive all-target calculation', () => {
       TargetListCalculationCancelledError,
     );
     expect(calls).toBe(1);
-    expect(progress).toEqual([1]);
+    expect(progress).toEqual([0, 1]);
   });
 });

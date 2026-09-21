@@ -3,6 +3,7 @@ import type { HorizontalCoordinates } from './horizontalCoordinates';
 import {
   calculateObstructionAwareTrajectory,
   calculateObstructionVisibilitySummary,
+  calculateObstructionVisibilitySummaryCooperatively,
   createVisibilityCalculationCacheKey,
   VisibilityCalculationCache,
   VisibilityCalculationCancelledError,
@@ -79,6 +80,57 @@ const linearProjector =
   };
 
 describe('obstruction-aware trajectory classification', () => {
+  it('keeps cooperative summaries identical and cancels during an expensive target', async () => {
+    const input = baseInput({
+      window: {
+        startTimestampUtc,
+        endTimestampUtc: '2026-01-01T02:00:00.000Z',
+      },
+    });
+    const projector = linearProjector(350, 375);
+    const expected = calculateObstructionVisibilitySummary(input, {
+      projectAt: projector,
+    });
+    let clock = 0;
+    const priorPerformance = globalThis.performance;
+    Object.defineProperty(globalThis, 'performance', {
+      configurable: true,
+      value: { now: () => clock },
+    });
+    const projectAt = jest.fn((timestamp: string) => {
+      clock += 1;
+      return projector(timestamp);
+    });
+    const yields = jest.fn(async () => undefined);
+    try {
+      expect(
+        await calculateObstructionVisibilitySummaryCooperatively(input, {
+          projectAt,
+          yieldToEventLoop: yields,
+        }),
+      ).toEqual(expected);
+      expect(yields).toHaveBeenCalled();
+      const totalCalls = projectAt.mock.calls.length;
+      projectAt.mockClear();
+      const controller = new AbortController();
+      await expect(
+        calculateObstructionVisibilitySummaryCooperatively(input, {
+          projectAt,
+          signal: controller.signal,
+          yieldToEventLoop: async () => {
+            controller.abort();
+          },
+        }),
+      ).rejects.toBeInstanceOf(VisibilityCalculationCancelledError);
+      expect(projectAt.mock.calls.length).toBeLessThan(totalCalls);
+    } finally {
+      Object.defineProperty(globalThis, 'performance', {
+        configurable: true,
+        value: priorPerformance,
+      });
+    }
+  });
+
   it('accepts a 25-hour noon window across a fall daylight-saving transition', async () => {
     await expect(
       calculateObstructionAwareTrajectory(

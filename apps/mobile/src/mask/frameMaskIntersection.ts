@@ -1,6 +1,13 @@
 import type { ImagingFrame } from '../astronomy/imagingFrame';
-import type { Vector3 } from '../sky/planetariumProjection';
-import { blockedBitsetByteLength, type RasterMask } from './rasterMask';
+import {
+  vectorToHorizontalDirection,
+  type Vector3,
+} from '../sky/planetariumProjection';
+import {
+  blockedBitsetByteLength,
+  classifyRasterMaskDirection,
+  type RasterMask,
+} from './rasterMask';
 
 const { sin, cos, hypot, min, max, acos, sqrt, PI } = Math;
 
@@ -247,8 +254,21 @@ export function createFrameMaskEvaluator(
   const evaluator: FrameMaskEvaluator = {
     isBlocked: (frame) =>
       frame.corners.some(({ y }) => y < 0) || intersects(frame, 1),
-    capIntersects: (center, radiusDegrees, blocked) =>
-      intersects(
+    capIntersects: (center, radiusDegrees, blocked) => {
+      // The cap includes its centre. A matching centre pixel proves existence,
+      // avoiding a tree search in large uniform regions. A nonmatching centre
+      // proves nothing: keep the exact query for holes and narrow obstructions.
+      if (
+        center.y >= 0 &&
+        (classifyRasterMaskDirection(
+          raster,
+          vectorToHorizontalDirection(center),
+        ) ===
+          'blocked') ===
+          blocked
+      )
+        return true;
+      return intersects(
         {
           planes: [
             { ...center, minimumDot: cos((radiusDegrees * PI) / 180) },
@@ -256,7 +276,8 @@ export function createFrameMaskEvaluator(
           ],
         },
         blocked ? 1 : 0,
-      ),
+      );
+    },
   };
   evaluators.set(raster, evaluator);
   return evaluator;
