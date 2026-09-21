@@ -75,6 +75,24 @@ The original six-minute width comparison preceded corner edits and cannot bound
 the new definition. A repeated width comparison with the revised corners held
 fixed would distinguish low from high sensitivity without changing calibration.
 
+**User width comparison, 2026-09-21 23:12 +03:00:** With revised corners,
+120 cm gives 02:14 and 160 cm gives 02:22. The eight-minute range leaves 39–47
+minutes against 01:35. Width uncertainty does not explain the main residual;
+do not cite the synthetic high-sensitivity cases as its diagnosis.
+
+**Source-audit lead, not diagnosis:** Native `PanoramaRegistration.cpp:118`
+anchors each solved group's absolute orientation to its first measured camera.
+`ContinuousTracker.kt:40` starts at the sensor basis and later composes relative
+image rotations with retained references. Relative image alignment cannot remove
+a shared absolute heading bias. This is a property of the existing capture model,
+not a demonstrated new arithmetic defect or evidence of user capture error.
+At synthetic 44 N/25 E on the screenshot's night, M27's azimuth changes from
+270.118 degrees at 01:35 local to 276.675 degrees at 02:14: 6.557 degrees.
+Local calculation: `tmp/window-qa/cutoff-angular-gap.cjs`. That is an angular
+scale comparison only, not a fitted correction or proof that heading explains
+the residual. Do not apply a compensating rotation or claim the remaining
+window geometry is universally certified. Runtime remains unchanged.
+
 - [ ] Account for the observed four-minute change at 50 mm when checking whether
       this omission explains the user's night; do not equate a counterexample
       with a confirmed diagnosis of that discrepancy.
