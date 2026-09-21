@@ -52,6 +52,10 @@ export default function RootLayout() {
             options={{ headerShown: false }}
           />
           <Stack.Screen
+            name="profiles/[id]/window"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
             name="equipment/new"
             options={{ title: 'New imaging setup' }}
           />

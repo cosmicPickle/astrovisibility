@@ -7,6 +7,7 @@ import { DIRECTIONAL_ATLAS_PROJECTION } from '../panorama/directionalAtlas';
 import { MaskRepository, type SaveMaskRevisionInput } from './maskRepository';
 import { migrateDatabase } from './migrations';
 import { ProfileRepository } from './profileRepository';
+import { WindowRepository } from './windowRepository';
 import type { OwnedFileStore, SqlDatabase, SqlValue } from './types';
 
 class NodeSqliteDatabase implements SqlDatabase {
@@ -115,6 +116,60 @@ const maskInput = (id = 'mask-1'): SaveMaskRevisionInput => ({
 });
 
 describe('single-image mask persistence', () => {
+  it('requires a completed mask, saves/redefines/removes a window without mutating it, and cascades deletion', async () => {
+    const { native, database, repository } = await setup();
+    const windows = new WindowRepository(database);
+    const definition = {
+      version: 1 as const,
+      leftAzimuthDegrees: 330,
+      rightAzimuthDegrees: 30,
+      topSlope: 1,
+      bottomSlope: 0.1,
+      rightDistanceRatio: 1,
+      widthMeters: 1,
+    };
+    await expect(
+      windows.save(profile.id, 'panorama-1', definition),
+    ).rejects.toThrow();
+    await repository.saveRevision(maskInput());
+    await windows.save(profile.id, 'panorama-1', definition);
+    expect(
+      await new WindowRepository(database).getForProfile(profile.id),
+    ).toEqual(definition);
+    await expect(
+      windows.save(profile.id, 'panorama-1', {
+        ...definition,
+        widthMeters: -1,
+      }),
+    ).rejects.toThrow();
+    expect(await windows.getForProfile(profile.id)).toEqual(definition);
+    await database.execAsync(
+      "CREATE TRIGGER reject_window_update BEFORE UPDATE ON panorama_windows BEGIN SELECT RAISE(ABORT, 'simulated write failure'); END;",
+    );
+    await expect(
+      windows.save(profile.id, 'panorama-1', { ...definition, widthMeters: 2 }),
+    ).rejects.toThrow();
+    expect(await windows.getForProfile(profile.id)).toEqual(definition);
+    await database.execAsync('DROP TRIGGER reject_window_update');
+    await windows.save(profile.id, 'panorama-1', {
+      ...definition,
+      widthMeters: 2,
+    });
+    expect(
+      (await repository.getActiveForProfile(profile.id))?.raster?.blockedBitset,
+    ).toEqual(maskInput().blockedBitset);
+    await windows.remove(profile.id, 'panorama-1');
+    expect(await windows.getForProfile(profile.id)).toBeNull();
+    await windows.save(profile.id, 'panorama-1', definition);
+    await repository.deleteActivePanoramaAndMasks(
+      profile.id,
+      profile.updatedAtUtc,
+    );
+    expect(
+      await database.getAllAsync('SELECT * FROM panorama_windows'),
+    ).toEqual([]);
+    native.close();
+  });
   it('saves and reloads one binary mask image and its pixel evaluator data', async () => {
     const { native, repository } = await setup();
     await repository.saveRevision(maskInput());

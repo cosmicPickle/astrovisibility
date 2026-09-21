@@ -289,6 +289,13 @@ const migrations: Migration[] = [
     version: 10,
     sql: `DELETE FROM visibility_calculation_cache;`,
   },
+  {
+    version: 11,
+    sql: `CREATE TABLE IF NOT EXISTS panorama_windows (
+      panorama_revision_id TEXT PRIMARY KEY NOT NULL REFERENCES panorama_revisions(id) ON DELETE CASCADE,
+      definition_json TEXT NOT NULL CHECK(length(definition_json) <= 4096)
+    ); DELETE FROM visibility_calculation_cache;`,
+  },
 ];
 
 async function ensureEquipmentFramingColumns(database: SqlDatabase) {
@@ -381,6 +388,15 @@ export async function migrateDatabase(database: SqlDatabase): Promise<void> {
       }
       if (migration.version === 10) {
         await ensureEquipmentFramingColumns(database);
+      }
+      if (migration.version === 11) {
+        const columns = await database.getAllAsync<{ name: string }>(
+          'PRAGMA table_info(equipment_configurations)',
+        );
+        if (!columns.some(({ name }) => name === 'lens_offset_millimeters'))
+          await database.execAsync(
+            'ALTER TABLE equipment_configurations ADD COLUMN lens_offset_millimeters REAL NOT NULL DEFAULT 0 CHECK(lens_offset_millimeters BETWEEN -10000 AND 10000)',
+          );
       }
       await database.execAsync(migration.sql);
       await database.execAsync(`PRAGMA user_version = ${migration.version}`);

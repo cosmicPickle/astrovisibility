@@ -1,5 +1,44 @@
 # Active Tasks
 
+## Window displacement correction — physical performance verification
+
+**Started:** 2026-09-21 13:56 +03:00 (Europe/Sofia)
+
+**Updated:** 2026-09-21 15:30 +03:00 (Europe/Sofia)
+
+**Controlling specifications:** `astro-visibility-spec.md`,
+`docs/superpowers/specs/mobile/2026-09-21-0955-window-displacement-correction.md`,
+and the companion full-frame visibility specification.
+
+**Objective:** Measure physical Android performance for the implemented optional
+lens offset and window correction. Setup follows mask completion; the profile
+menu has one Define/Redefine window action. Original panorama/mask data is preserved.
+
+- [x] Inspect workflows and record creation order and the single later action.
+- [x] Implement and test signed optional lens offset and migration 11.
+- [x] Implement/test physical rectangle geometry and atomic window lifecycle.
+- [x] Integrate shared trajectory/list/count classification and cache identity.
+- [x] Implement creation and later editor entry points with save/cancel/reset/remove.
+- [x] Verify both window crossings against an independent one-second oracle.
+- [x] Tune conservative lens-travel bounds: desktop full-catalogue timings about
+      2.0 s absent, 2.3 s zero offset, 2.9 s displaced (12-hour synthetic workload).
+- [x] Final format, typecheck, lint, 532 tests, and Android export pass.
+- [x] Android two-viewport QA: all handles, pan/pinch, keyboard/large text,
+      post-mask offer/skip, later setup, save/reopen/reset/cancel/remove/restart.
+- [x] Build and stage the final release APK at `tmp/artifacts/android/app-release.apk`.
+- [ ] Measure physical cold/warm calculations, memory and cancellation latency;
+      verify 50 fps p95 and no interaction stall over 100 ms.
+
+**Blocker:** No physical Android device is connected. Desktop timings and emulator
+QA do not establish physical-device performance. Connect a representative phone,
+install the staged APK and compare absent-window, zero-offset and displaced cases.
+
+**Evidence:** `docs/superpowers/reports/mobile/2026-09-21-1530-window-displacement-correction.md`.
+Geometry, capture reference and the explicit clear-background approximation are
+recorded in the spec. Schema 11 is forward-only. New code is under `src/window`,
+`storage/windowRepository.ts`, and the window route. Preserve unrelated task entries
+and untracked `.codex-remote-attachments/`.
+
 ## Full-frame obstruction visibility — physical performance verification
 
 **Started:** 2026-09-21 11:13 +03:00 (Europe/Sofia)

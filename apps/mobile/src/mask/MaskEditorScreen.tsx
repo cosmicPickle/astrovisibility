@@ -69,7 +69,7 @@ export function MaskEditorScreen({
   renderCanvas: Canvas = MaskEditorCanvas,
 }: {
   controller?: MaskEditorController;
-  navigation: { goBack(): void; onSaved(): void };
+  navigation: { goBack(): void; onSaved(firstMask: boolean): void };
   profileId: string;
   renderCanvas?: (props: MaskEditorCanvasProps) => React.ReactNode;
 }) {
@@ -176,7 +176,7 @@ export function MaskEditorScreen({
         widthPixels: data.panorama.widthPixels,
       });
       setConfirmationVisible(false);
-      navigation.onSaved();
+      navigation.onSaved(!data.activeMask);
     } catch {
       setError(
         'The mask could not be saved. Your edits remain available; try again.',

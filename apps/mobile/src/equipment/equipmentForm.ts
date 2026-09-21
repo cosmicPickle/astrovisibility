@@ -2,6 +2,7 @@ import type { EquipmentRecord } from '../storage/equipmentRepository';
 import { calculateAngularFieldOfView } from './fieldOfView';
 
 export interface EquipmentFormValues {
+  lensOffsetMillimeters?: string;
   name: string;
   focalLengthMillimeters: string;
   apertureMillimeters: string;
@@ -33,6 +34,7 @@ export const MAXIMUM_RESOLUTION_PIXELS = 100_000;
 export function createEquipmentFormDefaults(): EquipmentFormValues {
   return {
     name: '',
+    lensOffsetMillimeters: '',
     focalLengthMillimeters: '',
     apertureMillimeters: '',
     sensorWidthPixels: '',
@@ -46,6 +48,7 @@ export function equipmentToFormValues(
 ): EquipmentFormValues {
   return {
     name: equipment.name,
+    lensOffsetMillimeters: String(equipment.lensOffsetMillimeters ?? 0),
     focalLengthMillimeters: String(equipment.focalLengthMillimeters),
     apertureMillimeters: String(equipment.apertureMillimeters),
     sensorWidthPixels: String(equipment.sensorWidthPixels),
@@ -57,7 +60,10 @@ export function equipmentToFormValues(
 const positiveNumericFields: ReadonlyArray<{
   field: Exclude<
     keyof EquipmentFormValues,
-    'name' | 'sensorWidthPixels' | 'sensorHeightPixels'
+    | 'name'
+    | 'sensorWidthPixels'
+    | 'sensorHeightPixels'
+    | 'lensOffsetMillimeters'
   >;
   label: string;
 }> = [
@@ -97,6 +103,14 @@ const parseResolution = (
 export function parseEquipmentForm(
   values: EquipmentFormValues,
 ): EquipmentFormResult {
+  const offset = Number(values.lensOffsetMillimeters?.trim() || 0);
+  if (!Number.isFinite(offset) || Math.abs(offset) > 10_000) {
+    return {
+      success: false,
+      field: 'lensOffsetMillimeters',
+      message: 'Enter a lens offset from 0 to 10,000 mm.',
+    };
+  }
   const name = values.name.trim();
   if (name.length === 0 || name.length > 120) {
     return {
@@ -148,6 +162,9 @@ export function parseEquipmentForm(
   return {
     success: true,
     data: {
+      ...(values.lensOffsetMillimeters === undefined
+        ? {}
+        : { lensOffsetMillimeters: offset }),
       name,
       ...parsedPositiveValues,
       sensorWidthPixels,

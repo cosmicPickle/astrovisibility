@@ -6,6 +6,7 @@ import { AppScreen } from '../components/ui/AppScreen';
 import { AppText } from '../components/ui/AppText';
 import { FormField } from '../components/ui/FormField';
 import { SectionCard } from '../components/ui/SectionCard';
+import { SegmentedControl } from '../components/ui/SegmentedControl';
 import { colors } from '../theme/tokens';
 import {
   calculateEquipmentPreview,
@@ -26,6 +27,9 @@ export const EquipmentForm = ({
   title,
 }: EquipmentFormProps) => {
   const [values, setValues] = useState(initialValues);
+  const [lensSide, setLensSide] = useState<'left' | 'right'>(
+    Number(initialValues.lensOffsetMillimeters) < 0 ? 'left' : 'right',
+  );
   const [fieldError, setFieldError] = useState<{
     field: keyof EquipmentFormValues;
     message: string;
@@ -167,6 +171,56 @@ export const EquipmentForm = ({
             of view.
           </AppText>
         )}
+      </SectionCard>
+
+      <SectionCard>
+        <FormField
+          label="Lens offset (optional)"
+          unit="mm"
+          inputMode="decimal"
+          keyboardType="decimal-pad"
+          value={(values.lensOffsetMillimeters ?? '').replace(/^-/, '')}
+          onChangeText={(value) =>
+            updateValue(
+              'lensOffsetMillimeters',
+              `${lensSide === 'left' && value ? '-' : ''}${value.replace(/-/g, '')}`,
+            )
+          }
+          error={Boolean(fieldMessage('lensOffsetMillimeters'))}
+          helperText={
+            fieldMessage('lensOffsetMillimeters') ??
+            'Distance from the turning axis to the imaging lens. Improves window visibility estimates. Blank means zero.'
+          }
+        />
+        <SegmentedControl
+          value={lensSide}
+          options={[
+            {
+              value: 'left',
+              label: 'Left',
+              accessibilityLabel: 'Lens left of turning axis',
+            },
+            {
+              value: 'right',
+              label: 'Right',
+              accessibilityLabel: 'Lens right of turning axis',
+            },
+          ]}
+          onChange={(side) => {
+            setLensSide(side);
+            const magnitude = (values.lensOffsetMillimeters ?? '').replace(
+              /^-/,
+              '',
+            );
+            updateValue(
+              'lensOffsetMillimeters',
+              `${side === 'left' && magnitude ? '-' : ''}${magnitude}`,
+            );
+          }}
+        />
+        <AppText tone="muted">
+          Looking out along the telescope. For EQ, use celestial north as up.
+        </AppText>
       </SectionCard>
 
       {saveError ? (

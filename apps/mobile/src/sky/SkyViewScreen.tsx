@@ -31,6 +31,7 @@ import {
 } from '../astronomy/celestialTimeTransform';
 import {
   calculateObstructionAwareTrajectory,
+  createObstructionClassifier,
   createVisibilityCalculationCacheKey,
   createVisibilityCalculationContextKey,
   createVisibilityCalculationTargetKey,
@@ -74,12 +75,7 @@ import {
   imagingFrameForEquipment,
   TRACKING_MODE_LABELS,
 } from '../equipment/imagingFrameSettings';
-import {
-  createImagingFrame,
-  type TrackingMode,
-} from '../astronomy/imagingFrame';
-import { createFrameMaskEvaluator } from '../mask/frameMaskIntersection';
-import { createVisibilityMaskEvaluator } from '../mask/visibilityMask';
+import type { TrackingMode } from '../astronomy/imagingFrame';
 import { observerForProfile } from '../profiles/profileObserver';
 import { bootstrapStorage } from '../storage/bootstrapStorage';
 import type { EquipmentRecord } from '../storage/equipmentRepository';
@@ -151,6 +147,7 @@ export interface SkyViewNavigation {
   goBack(): void;
   openLicences(): void;
   openMaskEditor(profileId: string): void;
+  openWindowEditor(profileId: string): void;
   openPanoramaCapture(profileId: string): void;
   openTargetList(profileId: string, window: ObservingWindow): void;
 }
@@ -559,13 +556,17 @@ export const SkyViewScreen = ({
       const discoverableTargetIds = new Set(
         discoverableCatalogueTargets.map(({ id }) => id),
       );
-      const maskEvaluator = data.mask
-        ? createVisibilityMaskEvaluator(data.mask)
-        : null;
-      const frameEvaluator =
-        imagingFrame && data.mask?.raster
-          ? createFrameMaskEvaluator(data.mask.raster)
-          : null;
+      const classify = createObstructionClassifier({
+        imagingFrame,
+        observer: observerForProfile(data.profile),
+        maskRevision: data.mask
+          ? {
+              id: data.mask.id,
+              panoramaRevisionId: data.mask.panoramaRevisionId,
+              mask: data.mask,
+            }
+          : null,
+      });
       return projectedTargets.filter((target) => {
         if (
           !discoverableTargetIds.has(target.target.id) ||
@@ -573,24 +574,12 @@ export const SkyViewScreen = ({
         ) {
           return false;
         }
-        const centerVisible =
-          !maskEvaluator ||
-          maskEvaluator.classify({
-            altitudeDegrees: target.altitudeDegrees,
-            azimuthDegrees: target.azimuthDegrees,
-          }) === 'visible';
-        if (!centerVisible || !imagingFrame || !frameEvaluator)
-          return centerVisible;
-        return !frameEvaluator.isBlocked(
-          createImagingFrame({
-            ...imagingFrame,
-            observerLatitudeDegrees: observerForProfile(data.profile)
-              .latitudeDegreesNorth,
-            horizontal: {
-              azimuthDegreesClockwiseFromNorth: target.azimuthDegrees,
-              refractedAltitudeDegrees: target.altitudeDegrees,
-            },
-          }),
+        return (
+          !data.mask ||
+          classify({
+            azimuthDegreesClockwiseFromNorth: target.azimuthDegrees,
+            refractedAltitudeDegrees: target.altitudeDegrees,
+          }) === 'visible'
         );
       }).length;
     } catch {
@@ -1390,6 +1379,12 @@ export const SkyViewScreen = ({
           onOpacityChange={setMaskOpacityPercent}
           opacityPercent={maskOpacityPercent}
         />
+        {data.mask?.windowCorrection ? (
+          <AppText tone="muted">
+            Window correction is active. The photo and painted mask show the
+            original phone viewpoint; visibility uses the moving lens.
+          </AppText>
+        ) : null}
       </ModalSheet>
 
       <ModalSheet
@@ -1534,6 +1529,19 @@ export const SkyViewScreen = ({
         ) : null}
         {data.panorama ? (
           <>
+            <ActionButton
+              label={
+                data.mask?.windowCorrection
+                  ? 'Redefine window'
+                  : 'Define window'
+              }
+              disabled={!data.hasMask}
+              onPress={() => {
+                setOpenSheet(null);
+                navigation.openWindowEditor(data.profile.id);
+              }}
+              variant="secondary"
+            />
             <ActionButton
               label="Recreate panorama and mask"
               onPress={() => confirmDeletePanoramaAndMask(true)}

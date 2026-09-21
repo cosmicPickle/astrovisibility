@@ -3,6 +3,12 @@ import { createFrameMaskEvaluator } from '../mask/frameMaskIntersection';
 import { createImagingFrame, type ImagingFrameSettings } from './imagingFrame';
 import { createFrameRefinementPredicate } from './frameVisibilityRefinement';
 import {
+  lensPositionMeters,
+  windowContainsRay,
+} from '../window/windowGeometry';
+import { createWindowRefinementPredicate } from '../window/windowRefinement';
+import { horizontalDirectionToVector } from '../sky/planetariumProjection';
+import {
   createVisibilityMaskEvaluator,
   type VisibilityMaskEvaluator,
 } from '../mask/visibilityMask';
@@ -27,7 +33,7 @@ import {
 export const ASTRONOMY_ADAPTER_VERSION =
   'astronomy-engine-2.1.19-horizontal-adapter-v1';
 export const VISIBILITY_CALCULATION_VERSION =
-  'obstruction-visibility-v2-full-frame';
+  'obstruction-visibility-v3-window';
 
 const COARSE_STEP_MILLISECONDS = 5 * 60 * 1000;
 // The all-target summary path may start coarser because every segment whose
@@ -141,22 +147,80 @@ function classifyCoordinates(
   return frameIsBlocked(horizontal) ? 'blocked' : 'visible';
 }
 
-function createFrameClassification(input: ObstructionVisibilityInput) {
-  if (!input.imagingFrame || !input.maskRevision) return undefined;
-  const raster = input.maskRevision.mask.raster;
+function calculationMask(mask: VisibilityMask): VisibilityMask {
+  return mask.windowCorrection
+    ? { ...mask, raster: mask.windowCorrection.backgroundRaster }
+    : mask;
+}
+
+type ClassificationInput = Pick<
+  ObstructionVisibilityInput,
+  'imagingFrame' | 'maskRevision' | 'observer'
+>;
+
+export function createObstructionClassifier(input: ClassificationInput) {
+  const mask = input.maskRevision?.mask;
+  const evaluator = mask
+    ? createVisibilityMaskEvaluator(calculationMask(mask))
+    : null;
+  const frame = createFrameClassification(input);
+  return (horizontal: HorizontalCoordinates) =>
+    classifyCoordinates(horizontal, evaluator, frame);
+}
+
+function createFrameClassification(input: ClassificationInput) {
+  if (!input.maskRevision) return undefined;
+  const correction = input.maskRevision.mask.windowCorrection;
+  if (!input.imagingFrame && !correction) return undefined;
+  const raster = correction?.backgroundRaster ?? input.maskRevision.mask.raster;
   if (!raster)
     throw new Error(
       'Full-frame visibility requires a directional raster mask.',
     );
-  const evaluator = createFrameMaskEvaluator(raster);
-  return (horizontal: HorizontalCoordinates) =>
-    evaluator.isBlocked(
-      createImagingFrame({
-        ...input.imagingFrame!,
-        horizontal,
-        observerLatitudeDegrees: input.observer.latitudeDegreesNorth,
-      }),
-    );
+  const evaluator = input.imagingFrame
+    ? createFrameMaskEvaluator(raster)
+    : null;
+  return (horizontal: HorizontalCoordinates) => {
+    const direction = {
+      azimuthDegrees: horizontal.azimuthDegreesClockwiseFromNorth,
+      altitudeDegrees: horizontal.refractedAltitudeDegrees,
+    };
+    const lens = correction
+      ? lensPositionMeters(
+          direction,
+          input.imagingFrame?.lensOffsetMillimeters ?? 0,
+          input.imagingFrame?.trackingMode ?? 'altaz',
+          input.observer.latitudeDegreesNorth,
+        )
+      : null;
+    // A convex opening cannot contain the complete frame when its center is
+    // outside. Reject that common case before constructing the four corners.
+    if (
+      correction &&
+      lens &&
+      !windowContainsRay(
+        correction.geometry,
+        horizontalDirectionToVector(direction),
+        lens,
+      )
+    )
+      return true;
+    const frame = input.imagingFrame
+      ? createImagingFrame({
+          ...input.imagingFrame!,
+          horizontal,
+          observerLatitudeDegrees: input.observer.latitudeDegreesNorth,
+        })
+      : null;
+    if (correction && lens && frame) {
+      const rays = frame.corners;
+      if (
+        rays.some((ray) => !windowContainsRay(correction.geometry, ray, lens))
+      )
+        return true;
+    }
+    return Boolean(frame && evaluator?.isBlocked(frame));
+  };
 }
 
 function sphericalSeparationDegrees(
@@ -209,7 +273,9 @@ function createEvaluator(
         timestampUtc,
       }));
   const mask = input.maskRevision?.mask ?? null;
-  const maskEvaluator = mask ? createVisibilityMaskEvaluator(mask) : null;
+  const maskEvaluator = mask
+    ? createVisibilityMaskEvaluator(calculationMask(mask))
+    : null;
   const frameIsBlocked = createFrameClassification(input);
   const yieldEverySamples =
     options.yieldEverySamples ?? DEFAULT_YIELD_EVERY_SAMPLES;
@@ -557,8 +623,13 @@ export async function calculateObstructionAwareTrajectory(
     );
   }
   const { evaluate, throwIfCancelled } = createEvaluator(input, options);
-  const shouldRefineSpatially =
-    input.imagingFrame && input.maskRevision?.mask.raster
+  const shouldRefineSpatially = input.maskRevision?.mask.windowCorrection
+    ? createWindowRefinementPredicate(
+        input.maskRevision.mask.windowCorrection,
+        input.imagingFrame,
+        input.observer.latitudeDegreesNorth,
+      )
+    : input.imagingFrame && input.maskRevision?.mask.raster
       ? createFrameRefinementPredicate(
           input.maskRevision.mask.raster,
           input.imagingFrame,
@@ -671,10 +742,17 @@ export function calculateObstructionVisibilitySummary(
         timestampUtc,
       }));
   const mask = input.maskRevision?.mask ?? null;
-  const maskEvaluator = mask ? createVisibilityMaskEvaluator(mask) : null;
+  const maskEvaluator = mask
+    ? createVisibilityMaskEvaluator(calculationMask(mask))
+    : null;
   const frameIsBlocked = createFrameClassification(input);
-  const shouldRefineSpatially =
-    input.imagingFrame && input.maskRevision?.mask.raster
+  const shouldRefineSpatially = input.maskRevision?.mask.windowCorrection
+    ? createWindowRefinementPredicate(
+        input.maskRevision.mask.windowCorrection,
+        input.imagingFrame,
+        input.observer.latitudeDegreesNorth,
+      )
+    : input.imagingFrame && input.maskRevision?.mask.raster
       ? createFrameRefinementPredicate(
           input.maskRevision.mask.raster,
           input.imagingFrame,
@@ -756,6 +834,8 @@ export function createVisibilityCalculationContextKey(
     astronomyAdapterVersion: ASTRONOMY_ADAPTER_VERSION,
     calculationVersion: VISIBILITY_CALCULATION_VERSION,
     imagingFrame: input.imagingFrame ?? null,
+    physicalWindow:
+      input.maskRevision?.mask.windowCorrection?.geometry.definition ?? null,
     observer: {
       latitudeDegreesNorth: input.observer.latitudeDegreesNorth,
       longitudeDegreesEast: input.observer.longitudeDegreesEast,

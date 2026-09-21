@@ -310,6 +310,7 @@ function navigation(): SkyViewNavigation {
     goBack: jest.fn(),
     openLicences: jest.fn(),
     openMaskEditor: jest.fn(),
+    openWindowEditor: jest.fn(),
     openPanoramaCapture: jest.fn(),
     openTargetList: jest.fn(),
   };

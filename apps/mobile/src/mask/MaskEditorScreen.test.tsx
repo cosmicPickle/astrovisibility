@@ -102,7 +102,7 @@ describe('MaskEditorScreen', () => {
     await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
     expect(onSaved).not.toHaveBeenCalled();
     await fireEvent.press(screen.getByText('Save binary mask'));
-    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(true));
     expect(
       jest.mocked(editorController.save).mock.calls[1]![0].blockedBitset,
     ).toEqual(

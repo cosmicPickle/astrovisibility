@@ -10,6 +10,12 @@ const framingSchema = z.object({
 });
 
 const equipmentSchema = z.object({
+  lensOffsetMillimeters: z
+    .number()
+    .finite()
+    .min(-10_000)
+    .max(10_000)
+    .optional(),
   id: z.string().min(1).max(64),
   name: z.string().trim().min(1).max(120),
   focalLengthMillimeters: z.number().positive(),
@@ -30,6 +36,7 @@ const selectEquipmentSql = `
   SELECT
     id,
     name,
+    lens_offset_millimeters AS lensOffsetMillimeters,
     focal_length_millimeters AS focalLengthMillimeters,
     aperture_millimeters AS apertureMillimeters,
     sensor_width_pixels AS sensorWidthPixels,
@@ -58,8 +65,8 @@ export class EquipmentRepository {
           sensor_width_millimeters, sensor_height_millimeters,
           sensor_width_pixels, sensor_height_pixels,
           pixel_size_micrometers, frame_rotation_degrees, created_at_utc, updated_at_utc,
-          tracking_mode, frame_orientation_degrees
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)`,
+          tracking_mode, frame_orientation_degrees, lens_offset_millimeters
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)`,
         [
           input.id,
           input.name,
@@ -74,6 +81,7 @@ export class EquipmentRepository {
           input.updatedAtUtc,
           input.trackingMode ?? 'altaz',
           input.frameOrientationDegrees ?? 0,
+          input.lensOffsetMillimeters ?? 0,
         ],
       );
       await this.database.runAsync(
@@ -159,7 +167,7 @@ export class EquipmentRepository {
         sensor_height_pixels = ?,
         pixel_size_micrometers = ?,
         frame_rotation_degrees = 0,
-        updated_at_utc = ?
+        updated_at_utc = ?, lens_offset_millimeters = ?
       WHERE id = ?`,
       [
         values.name,
@@ -171,6 +179,7 @@ export class EquipmentRepository {
         values.sensorHeightPixels,
         values.pixelSizeMicrometers,
         values.updatedAtUtc,
+        values.lensOffsetMillimeters ?? 0,
         id,
       ],
     );

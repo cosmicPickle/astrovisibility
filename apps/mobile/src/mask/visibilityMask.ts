@@ -28,6 +28,7 @@ export type MaskCorrectionOperation = Readonly<{
 export type VisibilityMaskOperation =
   VisiblePolygonOperation | MaskCorrectionOperation;
 export type VisibilityMask = Readonly<{
+  windowCorrection?: import('../window/windowMask').WindowCorrection;
   coveragePolygons: readonly (readonly AngularPointDegrees[])[];
   operations: readonly VisibilityMaskOperation[];
   raster?: Readonly<{

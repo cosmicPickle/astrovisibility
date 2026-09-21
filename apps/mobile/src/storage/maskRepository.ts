@@ -5,6 +5,8 @@ import type { VisibilityMask } from '../mask/visibilityMask';
 import { DIRECTIONAL_ATLAS_PROJECTION } from '../panorama/directionalAtlas';
 import type { OwnedFileStore, SqlDatabase } from './types';
 import { inImmediateTransaction } from './types';
+import { parseWindowDefinition } from './windowRepository';
+import { prepareWindowCorrection } from '../window/windowMask';
 
 const safeId = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const utcInstant = z.iso.datetime({ offset: true });
@@ -22,6 +24,7 @@ export type SaveMaskRevisionInput = Readonly<{
 }>;
 
 export type ActiveMaskRevision = Readonly<{
+  windowCorrection?: VisibilityMask['windowCorrection'];
   createdAtUtc: string;
   coveragePolygons: VisibilityMask['coveragePolygons'];
   formatVersion: number;
@@ -33,6 +36,8 @@ export type ActiveMaskRevision = Readonly<{
 }>;
 
 type ActiveRevisionRow = {
+  windowDefinition: string | null;
+  coverageBitset: Uint8Array;
   blockedBitset: Uint8Array;
   createdAtUtc: string;
   formatVersion: number;
@@ -181,7 +186,9 @@ export class MaskRepository {
         mask_revisions.width_pixels AS widthPixels,
         mask_revisions.height_pixels AS heightPixels,
         mask_revisions.projection,
-        mask_revisions.blocked_bits AS blockedBitset
+        mask_revisions.blocked_bits AS blockedBitset,
+        panorama_revisions.coverage_bits AS coverageBitset,
+        (SELECT definition_json FROM panorama_windows WHERE panorama_revision_id = panorama_revisions.id) AS windowDefinition
        FROM profiles
        JOIN panorama_revisions
          ON panorama_revisions.id = profiles.active_panorama_revision_id
@@ -204,7 +211,21 @@ export class MaskRepository {
     ) {
       throw new Error('The active binary mask metadata is invalid.');
     }
+    const raster = Object.freeze({
+      blockedBitset: revision.blockedBitset,
+      heightPixels: revision.heightPixels,
+      uri: this.files.resolveOwnedFileUri(revision.relativePath),
+      widthPixels: revision.widthPixels,
+    });
+    const windowCorrection = revision.windowDefinition
+      ? await prepareWindowCorrection(
+          raster,
+          revision.coverageBitset,
+          parseWindowDefinition(revision.windowDefinition),
+        )
+      : undefined;
     return Object.freeze({
+      ...(windowCorrection ? { windowCorrection } : {}),
       createdAtUtc: revision.createdAtUtc,
       coveragePolygons: [],
       formatVersion: revision.formatVersion,
@@ -212,12 +233,7 @@ export class MaskRepository {
       operations: [],
       panoramaRevisionId: revision.panoramaRevisionId,
       profileId: revision.profileId,
-      raster: Object.freeze({
-        blockedBitset: revision.blockedBitset,
-        heightPixels: revision.heightPixels,
-        uri: this.files.resolveOwnedFileUri(revision.relativePath),
-        widthPixels: revision.widthPixels,
-      }),
+      raster,
     });
   }
 

@@ -13,6 +13,7 @@ import { removeOrphanedOwnedFiles } from './panoramaPersistence';
 import { ProfileRepository } from './profileRepository';
 import type { SqlDatabase } from './types';
 import { VisibilityCalculationCacheRepository } from './visibilityCalculationCacheRepository';
+import { WindowRepository } from './windowRepository';
 
 const catalogue = catalogueArtifact as {
   dataVersion: string;
@@ -20,6 +21,7 @@ const catalogue = catalogueArtifact as {
 };
 
 export interface AppStorage {
+  windows: WindowRepository;
   catalogue: CatalogueRepository;
   database: SqlDatabase;
   equipment: EquipmentRepository;
@@ -45,6 +47,7 @@ async function initializeStorage(): Promise<AppStorage> {
     licenceManifest.outputSha256,
   );
   return {
+    windows: new WindowRepository(database),
     catalogue: new CatalogueRepository(database),
     database,
     equipment: new EquipmentRepository(database),

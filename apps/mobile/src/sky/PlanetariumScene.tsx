@@ -55,6 +55,7 @@ import {
 } from './planetariumPanoramaGeometry';
 import { createScreenCenteredFieldOfViewFrame } from './fieldOfViewGeometry';
 import { ImagingFrameLayer } from './ImagingFrameLayer';
+import { WindowBoundaryLayer } from './WindowBoundaryLayer';
 import { imagingFrameForEquipment } from '../equipment/imagingFrameSettings';
 import {
   CARDINAL_LABEL_FONT_SIZE_PIXELS,
@@ -1716,6 +1717,17 @@ export function PlanetariumScene({
       ) : null}
       <GroundLayer camera={camera} canvas={canvas} />
       <HorizonAndCardinals camera={camera} canvas={canvas} />
+      {mask?.windowCorrection ? (
+        <WindowBoundaryLayer
+          camera={camera}
+          canvas={canvas}
+          geometry={mask.windowCorrection.geometry}
+          settings={imagingFrameForEquipment(equipment)}
+          target={selectedPreparedTarget?.j2000UnitVector}
+          sceneTimeMilliseconds={sceneTimeMilliseconds}
+          timeTransform={celestialTimeTransform}
+        />
+      ) : null}
       {equipment &&
       selectedPreparedTarget &&
       celestialTimeTransform &&

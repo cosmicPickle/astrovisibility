@@ -2,9 +2,11 @@
 
 **Timestamp:** 2026-09-21 09:55 +03:00 (Europe/Sofia)
 
-**Status:** Specification for review; agreed scope recorded, geometry and mask integration decisions listed below.
+**Updated:** 2026-09-21 15:30 +03:00 (Europe/Sofia)
 
-**Delivery:** Android application implementation is a subsequent task.
+**Status:** Implemented and verified on Android emulators; physical-device performance verification remains pending.
+
+**Delivery:** Android application, including creation-time setup and later redefinition.
 
 ## Purpose and authority
 
@@ -42,8 +44,9 @@ Those omitted movements are limitations, not implied measurements.
 
 ### Panorama: Define a Window
 
-1. Offer an optional `Define a Window` step after the panorama is accepted and
-   before mask completion. Skipping continues the normal mask workflow.
+1. Offer an optional `Define a Window` step after both the panorama and its mask
+   have been created and saved. The order is panorama, completed mask, optional
+   window definition. Skipping returns to the Sky View with the ordinary mask.
 2. Open the existing gesture-controlled spherical panorama view. Start four
    connected handles near the center of the current image/view, outlining a
    rectangle. Initial handles are a draft, never an automatically active window.
@@ -65,6 +68,31 @@ azimuth/altitude coordinates or screen pixels is not a valid substitute.
 Window definition must remain optional, editable, and removable through the
 existing profile/panorama management flow, without a persistent new Sky View
 button. Deleting/recreating the panorama deletes its window definition as well.
+
+The user's implementation instruction explicitly requires both entry points:
+
+- After the initial mask is saved, offer `Define a Window` and a direct way to
+  skip to the Sky View. Both continuous and manual panorama capture retain their
+  normal transition into mask creation, then reach this optional step.
+- With an existing panorama and completed mask, expose one action button in the
+  Sky View's profile menu, matching its other management actions: `Define window`
+  when absent, `Redefine window` when saved. Both open the same editor. Do not add
+  separate edit/reset/remove buttons to the profile menu; those operations belong
+  inside the editor. Do not require another capture or mask-creation pass to
+  define the window later.
+- Reopening loads the saved corners and width. Users can adjust them directly
+  or use `Reset corners` to start again in the current view. Reset changes only
+  the draft; saving replaces the prior definition atomically.
+- `Remove window` restores ordinary mask evaluation. Preserve the original mask
+  while defining, redefining, cancelling, or removing a window. Recreating the
+  panorama must not be required to correct a window definition.
+- Creation-time save or skip continues to the Sky View. Later save, cancel, or
+  removal returns to the originating profile flow and refreshes calculations.
+
+This ordering follows the user's explicit correction on 2026-09-21 at 14:08
++03:00; the earlier placement between panorama acceptance and mask completion
+was incorrect. Window definition operates on an already completed panorama/mask
+pair and does not recreate or overwrite that mask.
 
 ## Required defaults
 
@@ -89,9 +117,10 @@ angular width/height ratios are insufficient for oblique or wide openings.
 For a centered, front-facing reference fixture, the recovered perpendicular
 distance must satisfy `distance = width / (2 * tan(horizontalAngularSpan / 2))`.
 This fixture is not a general reconstruction algorithm for oblique windows.
-Use calibrated directional rays and a constrained rectangle fit, with explicit
-conditioning checks and bounded iteration. Do not claim precise distance from
-an unstable fit or an inaccurate panorama.
+Use calibrated directional rays and a constrained rectangle model, with explicit
+conditioning checks and bounded work. The implementation contract below uses a
+closed-form solution rather than iterative fitting. Do not claim precise distance
+from an unstable fit or an inaccurate panorama.
 
 The phone-to-mount relationship must be defined. Proposed capture guidance from
 the discussion is:
@@ -102,8 +131,8 @@ the discussion is:
 This is an approximate reference convention, not a calibration measurement.
 Rotating about the phone lens reduces capture parallax but does not reproduce
 the telescope's moving viewpoint. Existing panoramas cannot be assumed to have
-been captured at this reference. Resolve their eligibility and the EQ reference
-convention before implementation; see the decisions below.
+been captured at this reference. The reference convention and existing-panorama
+limitation are described in the implementation contract below.
 
 Geometry interfaces must distinguish local east/north/up coordinates, equipment
 coordinates, horizontal sky directions, image coordinates, and physical lengths.
@@ -141,12 +170,11 @@ walls, branches, or unrelated blocked strokes. A photograph of the near wall
 does not reveal the distant surroundings behind it. Captured image coverage is
 not evidence that newly exposed sky is unobstructed.
 
-Before implementation, decide how window-owned obstruction and other mask data
-are kept distinct, and what remains blocked when displacement reveals directions
-whose background was hidden. Never infer semantic ownership from an existing
-flattened mask or silently mark unseen background clear. Keep the final assessed
-result binary and preserve uncaptured-direction blocking. This is a required
-integration decision, not permission to add an unknown mask state.
+The implementation contract below defines how the user-supplied window and
+interior mask obstacles are kept distinct and the assumption for newly revealed
+background. Do not present that assumption as semantic recognition of an existing
+flattened mask. Keep the final assessed result binary and preserve
+uncaptured-direction blocking; no unknown mask state is introduced.
 
 The mask/window presentation must allow a user to understand which boundary
 governs the selected trajectory. Do not display the original phone boundary as
@@ -220,26 +248,67 @@ windows and corrected trajectories. Confirm touch targets and readable short cop
 
 Implementation delivery requires format, typecheck, lint, relevant tests, build,
 geometry/performance evidence, privacy review, and the current staged Android
-release APK through the build-share skill. This documentation task does not
-require app gates or an APK.
+release APK through the build-share skill.
 
-## Decisions to settle before implementation
+## Implementation contract — 2026-09-21 15:05 +03:00
 
-1. **Physical reference and equipment convention:** define signed sideways offset
-   from the user's viewing perspective, the scalar-offset kinematics for EQ,
-   singularity handling, and the capture reference shared by the modes. Decide
-   how to handle an existing panorama captured elsewhere without inventing its
-   original position or adding unapproved measurements.
-2. **Window/mask ownership and unseen background:** choose the minimal storage and
-   editing behavior that separates the replaceable window boundary from unrelated
-   blocks, preserves existing user masks, and defines safe behavior for revealed
-   background. The current flattened binary mask cannot supply that distinction.
-   Any assumption that hidden background is clear needs explicit human approval.
-3. **Constrained corner editing and limits:** specify how dragging each handle
-   adjusts the fitted physical rectangle, how fitting failure is presented, and
-   the supported width/offset ranges, geometric tolerances, and fit rejection
-   threshold. Do not enforce a screen rectangle that prevents oblique windows.
+The user instructed implementation to start after the background discussion and
+the creation-order/menu corrections. At the start of implementation, the assistant
+stated the clear-background approximation being used. The editor exposes that
+assumption directly; it is not a claim of recovered photographic information.
 
-These are implementation prerequisites within the agreed optional feature, not
-additional approved calibration screens. Resolve them in this specification
-before dependent production work.
+- **Reference and offset:** use east/up/north metre coordinates, with the origin
+  at the mount turning axis at imaging-lens height. Positive offset is right when
+  looking out along the telescope. AltAz uses local up; EQ uses celestial north.
+  EQ right is the normalized cross product of the celestial pole and pointing
+  direction. At its singularity use east as the deterministic reference; retain
+  conservative refinement around it. Active derotation retains AltAz movement.
+  Sensor orientation does not rotate this assumed physical mount offset. The
+  editor help states the capture reference and that an old panorama is only as
+  suitable as its capture position. There is no fabricated position measurement
+  or extra calibration screen.
+- **Rectangle model:** persist the two vertical edges' azimuths, the top/bottom
+  height-to-left-range slopes, the right/left horizontal range ratio, physical
+  clear width, and format version. The two horizontal endpoint rays and range
+  ratio determine a dimensionless width; dividing measured width by that length
+  determines both ranges. Common top/bottom heights then determine the upright
+  plane and height exactly. This handles oblique windows and north wrap without
+  a screen-space width/height ratio or an iterative solver.
+- **Linked corners:** dragging either left corner changes that row's height and
+  the left edge azimuth. Dragging either right corner adjusts the range ratio
+  and right edge azimuth while retaining the left edge. The connected other
+  right corner follows the physical rectangle. Reject invalid moves and retain
+  the last valid draft. Pan away from handles; pinch to zoom. Reset starts a new
+  rectangle around the current view, without overwriting the saved definition.
+- **Limits:** clear width 1–10,000 cm, signed offset at most 10,000 mm in magnitude,
+  angular width 0.1–160 degrees, range ratio 0.05–20, absolute slopes at most 100,
+  slope-height difference at least 0.001, plane distance at least 0.001 times the
+  width. Finite inputs are required. Contact tolerance is 0.0000001 metres;
+  parallel/behind-plane intersections are blocked. Limits reject unstable
+  geometry rather than silently claiming a successful definition.
+- **Mask interpretation:** retain the original bitmap unchanged. Within the
+  reference opening preserve its blocked pixels; outside it let the separately
+  defined window supply the nearby boundary. Newly revealed background is
+  assumed clear only within captured coverage. This does not identify hidden
+  buildings or trees. Removing or redefining the window uses the original mask,
+  so no destructive reinterpretation is persisted. Prepare a separate derived
+  raster in bounded 16,384-pixel chunks with event-loop yields, only when loading
+  a defined window. No image decoding or reconstruction occurs in target loops.
+- **Persistence:** migration 11 adds a zero-default signed equipment offset and
+  a window table keyed to the panorama revision with cascading deletion. Window
+  save requires the active completed mask and is atomic. Width and corners are
+  one validated record. Failed saves and Cancel retain the previous definition;
+  unsaved edits follow the mask editor's in-memory draft lifecycle. Restart
+  restores the last saved definition. Save/remove invalidate derived cache data;
+  all geometry and offset values are also included in calculation cache identity.
+- **Visibility and rendering:** trajectory, list, and instant count use the same
+  classifier. A blocked center can reject a full-frame window check early; a
+  clear center never substitutes for its four-corner test. Refinement bounds
+  lens travel over the current time interval, uses the full offset diameter near
+  mount singularities, and retains 30-second/0.05-degree tolerances. The yellow
+  outline shows the opening at the selected target's lens position. Overlay
+  controls explain that the photograph retains the phone's original viewpoint.
+- **Performance verification:** retain the five-second reference desktop
+  catalogue guardrail, with hosted-CI allowance as in the companion task. Measure
+  absent-window, zero-offset, and nonzero-offset 2048-square workloads separately.
+  Physical-device frame timing remains a separate required acceptance check.

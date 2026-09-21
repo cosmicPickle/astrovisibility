@@ -10,6 +10,22 @@ const validInput = {
 };
 
 describe('equipment form validation and preview', () => {
+  it('accepts an optional signed lens offset and rejects invalid lengths', () => {
+    expect(
+      parseEquipmentForm({ ...validInput, lensOffsetMillimeters: '-120' }),
+    ).toMatchObject({ success: true, data: { lensOffsetMillimeters: -120 } });
+    expect(
+      parseEquipmentForm({ ...validInput, lensOffsetMillimeters: '' }),
+    ).toMatchObject({ success: true, data: { lensOffsetMillimeters: 0 } });
+    expect(
+      parseEquipmentForm({ ...validInput, lensOffsetMillimeters: 'Infinity' })
+        .success,
+    ).toBe(false);
+    expect(
+      parseEquipmentForm({ ...validInput, lensOffsetMillimeters: '10001' })
+        .success,
+    ).toBe(false);
+  });
   it('normalizes resolution values and derives the physical field of view', () => {
     const parsed = parseEquipmentForm(validInput);
     expect(parsed).toEqual({

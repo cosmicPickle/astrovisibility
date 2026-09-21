@@ -10,9 +10,9 @@ export default function MaskEditorRoute() {
     <MaskEditorScreen
       navigation={{
         goBack: router.back,
-        onSaved: () =>
+        onSaved: (firstMask) =>
           router.replace(
-            `/profiles/${encodeURIComponent(profileId)}/sky` as Href,
+            `/profiles/${encodeURIComponent(profileId)}/${firstMask ? 'window?setup=1' : 'sky'}` as Href,
           ),
       }}
       profileId={profileId}

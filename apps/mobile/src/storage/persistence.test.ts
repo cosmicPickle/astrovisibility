@@ -134,6 +134,37 @@ const equipment = {
 };
 
 describe('SQLite migrations and repositories', () => {
+  it('migrates released v10 optics to zero offset without changing their framing', async () => {
+    const { native, database } = createDatabase();
+    await migrateDatabase(database);
+    const repository = new EquipmentRepository(database);
+    await repository.create({
+      ...equipment,
+      trackingMode: 'equatorial',
+      frameOrientationDegrees: 65,
+    });
+    await database.execAsync(
+      'ALTER TABLE equipment_configurations DROP COLUMN lens_offset_millimeters; DROP TABLE panorama_windows; PRAGMA user_version = 10;',
+    );
+    await migrateDatabase(database);
+    expect(await repository.getById(equipment.id)).toMatchObject({
+      lensOffsetMillimeters: 0,
+      trackingMode: 'equatorial',
+      frameOrientationDegrees: 65,
+    });
+    await repository.update(equipment.id, {
+      ...equipment,
+      lensOffsetMillimeters: -125,
+    });
+    expect(
+      await new EquipmentRepository(database).getById(equipment.id),
+    ).toMatchObject({
+      lensOffsetMillimeters: -125,
+      trackingMode: 'equatorial',
+      frameOrientationDegrees: 65,
+    });
+    native.close();
+  });
   it('migrates version 9 equipment and retains framing after a database restart', async () => {
     const directory = mkdtempSync(
       path.join(tmpdir(), 'astrovisibility-framing-'),
@@ -224,7 +255,7 @@ describe('SQLite migrations and repositories', () => {
     const version = await database.getFirstAsync<{ user_version: number }>(
       'PRAGMA user_version',
     );
-    expect(version?.user_version).toBe(10);
+    expect(version?.user_version).toBe(11);
 
     const firstRepository = new ProfileRepository(database);
     await firstRepository.create(profile);

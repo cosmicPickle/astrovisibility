@@ -54,6 +54,10 @@ export default function ProfileSkyRoute() {
           router.push(
             `/profiles/${encodeURIComponent(selectedProfileId)}/mask` as Href,
           ),
+        openWindowEditor: (selectedProfileId) =>
+          router.push(
+            `/profiles/${encodeURIComponent(selectedProfileId)}/window` as Href,
+          ),
         openPanoramaCapture: (selectedProfileId) =>
           router.push(
             `/profiles/${encodeURIComponent(selectedProfileId)}/capture-panorama` as Href,

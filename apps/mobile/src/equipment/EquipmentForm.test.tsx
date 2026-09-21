@@ -31,13 +31,14 @@ describe('EquipmentForm', () => {
     await fireEvent.changeText(screen.getByLabelText('Pixel size'), '3.76');
 
     expect(screen.getByText('3.37° × 2.23°')).toBeTruthy();
-    expect(screen.getAllByText('mm')).toHaveLength(2);
+    expect(screen.getAllByText('mm')).toHaveLength(3);
     expect(screen.getByText('px')).toBeTruthy();
     expect(screen.queryByText('Frame rotation')).toBeNull();
     expect(screen.queryAllByPlaceholderText(/.+/)).toHaveLength(0);
 
     await fireEvent.press(screen.getByText('Save setup'));
     expect(onSave).toHaveBeenCalledWith({
+      lensOffsetMillimeters: 0,
       name: 'Refractor',
       focalLengthMillimeters: 400,
       apertureMillimeters: 80,
