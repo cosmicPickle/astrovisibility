@@ -1,4 +1,4 @@
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
@@ -6,6 +6,7 @@ import {
   type WindowEditorController,
 } from './WindowEditorScreen';
 import { createInitialWindow } from './windowGeometry';
+import type { WindowEditorCanvasProps } from './WindowEditorCanvas';
 
 const definition = createInitialWindow({
   azimuthDegrees: 0,
@@ -30,6 +31,7 @@ async function setup(saved = true, creation = false) {
     remove: jest.fn().mockResolvedValue(undefined),
   };
   const navigation = { goBack: jest.fn(), onSaved: jest.fn() };
+  let canvasProps: WindowEditorCanvasProps;
   const screen = await render(
     <SafeAreaProvider
       initialMetrics={{
@@ -42,12 +44,48 @@ async function setup(saved = true, creation = false) {
         controller={controller}
         navigation={navigation}
         creation={creation}
-        renderCanvas={() => <Text>Test panorama</Text>}
+        renderCanvas={(props) => {
+          canvasProps = props;
+          return <Text>Test panorama</Text>;
+        }}
       />
     </SafeAreaProvider>,
   );
-  return { screen, controller, navigation };
+  return { screen, controller, navigation, getCanvas: () => canvasProps };
 }
+
+it('shows a read-only angular span across north and updates through 180 degrees after corner edits', async () => {
+  const { screen, getCanvas } = await setup();
+  await waitFor(() =>
+    expect(screen.getByLabelText('Angular width').props.value).toBe('30.00'),
+  );
+  expect(screen.getByLabelText('Angular width').props.editable).toBe(false);
+  for (const [rightAzimuthDegrees, expected] of [
+    [164.99, '179.99'],
+    [165, '180.00'],
+    [165.01, '180.01'],
+    [185, '200.00'],
+  ] as const) {
+    await act(() =>
+      getCanvas().onChange({ ...definition, rightAzimuthDegrees }),
+    );
+    expect(screen.getByLabelText('Angular width').props.value).toBe(expected);
+  }
+  await fireEvent.changeText(
+    screen.getByLabelText('Approximate window width'),
+    '160',
+  );
+  expect(screen.getByLabelText('Angular width').props.value).toBe('200.00');
+});
+
+it('shows the computed field when defining a new window after mask creation', async () => {
+  const { screen } = await setup(false, true);
+  await fireEvent.press(await screen.findByText('Define window'));
+  await waitFor(() =>
+    expect(screen.getByLabelText('Angular width').props.value).toBe('30.00'),
+  );
+  expect(screen.getByLabelText('Angular width').props.editable).toBe(false);
+});
 
 it('offers the optional step after creation and allows skipping without writing', async () => {
   const { screen, controller, navigation } = await setup(false, true);

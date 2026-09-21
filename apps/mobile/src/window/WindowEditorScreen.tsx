@@ -269,6 +269,9 @@ export function WindowEditorScreen({
         />
       </SafeAreaView>
     );
+  const angularWidthDegrees =
+    (((draft.rightAzimuthDegrees - draft.leftAzimuthDegrees) % 360) + 360) %
+    360;
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.screen}>
       <KeyboardAvoidingView
@@ -309,18 +312,29 @@ export function WindowEditorScreen({
           contentContainerStyle={styles.controlContent}
           keyboardShouldPersistTaps="handled"
         >
-          <FormField
-            label="Approximate window width"
-            unit="cm"
-            inputMode="decimal"
-            keyboardType="decimal-pad"
-            value={width}
-            editable={!busy}
-            onChangeText={(value) => {
-              setWidth(value);
-              setError(null);
-            }}
-          />
+          <View style={styles.dimensions}>
+            <FormField
+              containerStyle={styles.dimensionField}
+              label="Approximate window width"
+              unit="cm"
+              inputMode="decimal"
+              keyboardType="decimal-pad"
+              value={width}
+              editable={!busy}
+              onChangeText={(value) => {
+                setWidth(value);
+                setError(null);
+              }}
+            />
+            <FormField
+              containerStyle={styles.dimensionField}
+              label="Angular width"
+              unit="°"
+              value={angularWidthDegrees.toFixed(2)}
+              editable={false}
+              accessibilityHint="Calculated from the window corners at the panorama capture position."
+            />
+          </View>
           <AppText tone="muted">
             Newly revealed sky is assumed clear. Uncaptured directions stay
             blocked.
@@ -408,6 +422,8 @@ const styles = StyleSheet.create({
   title: { flex: 1 },
   controls: { flexGrow: 0, flexShrink: 1, maxHeight: 285 },
   controlContent: { padding: 10, gap: 8 },
+  dimensions: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
+  dimensionField: { flex: 1 },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
