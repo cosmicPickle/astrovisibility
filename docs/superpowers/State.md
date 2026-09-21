@@ -47,11 +47,19 @@ Exact saved window corners, optics and mask are not available locally; the
 displayed cutoff alone does not identify whether the physical window or the
 remaining mask sets the transition. Establish that before choosing another fix.
 
-**Next check:** Inspect saved outline/mask alignment at the right edge. A synthetic
-right-edge-only family did not reproduce the earlier four-minute offset change;
-the two predictions may have been limited by different obstacles. This is not a
-confirmed cause. Evidence and assumptions:
-`docs/superpowers/reports/mobile/2026-09-21-2218-window-residual-cutoff-check.md`.
+**Confirmed model gap, 2026-09-21 22:32 +03:00:** Nearby painted frame portions
+inside the ideal rectangle are treated as distant; lens/pupil correction applies
+only to the rectangle. A physical synthetic counterexample demonstrates a false
+clear and at least 97m22s optimism in a controlled sweep. This is not the user's
+night and does not resolve the exact residual. See
+`docs/superpowers/reports/mobile/2026-09-21-2232-near-mask-displacement-gap.md` and
+`apps/mobile/src/window/windowNearMaskModelGap.test.ts`.
+
+- [ ] Decide how nearby window-mask portions are distinguished from distant
+      obstacles without imposing excessive setup. Do not silently reproject all
+      mask pixels onto the window plane or infer depth from connectivity alone.
+- [ ] After that decision, specify/implement local-mask displacement, pupil and
+      refinement together; replace the characterization's false-clear assertion.
 
 - [ ] Account for the observed four-minute change at 50 mm when checking whether
       this omission explains the user's night; do not equate a counterexample
