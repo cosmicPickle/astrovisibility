@@ -33,6 +33,19 @@ a moving lens. No physical phone or exact saved profile is available here;
 the user's roughly 90-minute discrepancy remains unexplained. Do not certify
 geometry 100 percent or move to other causes on the strength of synthetic tests.
 
+**Model review, 2026-09-21 20:28 +03:00:** Confirmed missing finite-aperture
+clearance. The classifier ignores saved aperture diameter and treats the lens
+as a point. A new 178-degree counterexample is falsely clear while part of a
+35 mm pupil is shaded, with the entire pupil behind the plane. Synthetic M27
+cases advance shading by 5–29 minutes; they do not reproduce all 90 minutes.
+Evidence: `docs/superpowers/reports/mobile/2026-09-21-2028-window-aperture-model-gap.md`.
+
+- [ ] Specify and implement physical aperture clearance using existing optics
+      diameter, including refinement/cache contracts and at/front-plane handling.
+- [ ] Account for the observed four-minute change at 50 mm when checking whether
+      this omission explains the user's night; do not equate a counterexample
+      with a confirmed diagnosis of that discrepancy.
+
 ## Front-of-window geometry correction — explicitly deferred
 
 **Deferred by user:** 2026-09-21 18:19 +03:00 (Europe/Sofia)
