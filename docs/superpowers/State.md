@@ -40,6 +40,13 @@ the existing aperture diameter and physical front-wall intersections. The new
 Synthetic M27 aperture cases advance shading by 5–29 minutes; the actual night
 still needs replay. The earlier audit establishes point-lens behavior only.
 
+**User retest, 2026-09-21 22:13 +03:00:** Updated APK reports 02:34, leaving
+59 minutes against the reported first shading at 01:35. Do not mark the observed
+problem solved. Current tracking mode and offset confirmation is requested.
+Exact saved window corners, optics and mask are not available locally; the
+displayed cutoff alone does not identify whether the physical window or the
+remaining mask sets the transition. Establish that before choosing another fix.
+
 - [ ] Account for the observed four-minute change at 50 mm when checking whether
       this omission explains the user's night; do not equate a counterexample
       with a confirmed diagnosis of that discrepancy.
