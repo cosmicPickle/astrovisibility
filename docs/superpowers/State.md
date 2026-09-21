@@ -1,5 +1,53 @@
 # Active Tasks
 
+## 178-degree window geometry audit
+
+**Started:** 2026-09-21 18:19 +03:00 (Europe/Sofia)
+
+**Authority:** User reports a 178-degree window and requires geometry to be
+audited before investigating any other cause of the roughly 90-minute error.
+Controlling sources: product specification, existing full-frame and window
+specifications, and the user's instruction to defer the front-of-window fix.
+
+- [x] Independently reconstruct measured rectangles and check editing/round trips.
+- [x] Verify signed 50 mm rigid lens motion for every mount mode, including
+      whether a 178-degree reference can cross the window plane.
+- [x] Compare behind-plane centre/full-frame classification with physical
+      ray-plane intersections across oblique/off-centre/wrapped/wide fixtures.
+- [x] Compare right-edge trajectory and catalogue transitions with independent
+      dense sampling; check mask composition and cache identities.
+- [x] Record demonstrated defects, proof limits, fixture coverage and results;
+      do not claim the actual saved profile is reproduced from its width alone.
+- [x] Run relevant quality gates: format, typecheck, lint, 57 focused tests, build.
+- [ ] Replay the exact saved geometry/settings and observing interval around
+      01:35, 02:44 and 02:48; establish effective lens/plane side and edge margins.
+
+**Current:** Geometry only. No capture, sensor, timezone or other-origin
+investigation until this audit is complete. Preserve unrelated attachments.
+
+**Evidence:** `docs/superpowers/reports/mobile/2026-09-21-1829-window-178-geometry-audit.md`.
+111,720 independent centre/frame comparisons found no behind-plane mismatch;
+36 synthetic right-edge tracks agree within 6.437 seconds. The 178-degree span
+alone cannot reproduce the user's saved geometry or exclude plane crossing with
+a moving lens. No physical phone or exact saved profile is available here;
+the user's roughly 90-minute discrepancy remains unexplained. Do not certify
+geometry 100 percent or move to other causes on the strength of synthetic tests.
+
+## Front-of-window geometry correction — explicitly deferred
+
+**Deferred by user:** 2026-09-21 18:19 +03:00 (Europe/Sofia)
+
+**Reproduction and scope:**
+`docs/superpowers/reports/mobile/2026-09-21-1751-window-front-geometry-defect.md`.
+The centre, whole-frame and refinement paths use an incorrect complement-of-cone
+model when the lens is in front of the window plane. Fix later, with independent
+wall/aperture intersection tests and a documented physical model. A 178-degree
+reference must not be presumed to exclude this branch after lens displacement.
+
+- [ ] Specify the corrected front/at/behind wall-opening behavior and compatibility.
+- [ ] Fix centre/frame/refinement consistently, test physical intersections and
+      plane crossings, validate migration implications, and deliver a new APK.
+
 ## Window displacement correction — physical performance verification
 
 **Started:** 2026-09-21 13:56 +03:00 (Europe/Sofia)
