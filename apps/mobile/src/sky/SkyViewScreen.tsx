@@ -69,6 +69,15 @@ import { ModalSheet } from '../components/ui/ModalSheet';
 import { OpacitySlider } from '../components/ui/OpacitySlider';
 import { TargetDensitySlider } from '../components/ui/TargetDensitySlider';
 import { calculateAngularFieldOfView } from '../equipment/fieldOfView';
+import {
+  imagingFrameForEquipment,
+  TRACKING_MODE_LABELS,
+} from '../equipment/imagingFrameSettings';
+import {
+  createImagingFrame,
+  type TrackingMode,
+} from '../astronomy/imagingFrame';
+import { createFrameMaskEvaluator } from '../mask/frameMaskIntersection';
 import { createVisibilityMaskEvaluator } from '../mask/visibilityMask';
 import { observerForProfile } from '../profiles/profileObserver';
 import { bootstrapStorage } from '../storage/bootstrapStorage';
@@ -127,6 +136,10 @@ export interface SkyViewData {
 }
 
 export interface SkyViewController {
+  updateFraming(
+    equipmentId: string,
+    framing: { trackingMode: TrackingMode; frameOrientationDegrees: number },
+  ): Promise<void>;
   load(profileId: string, timestampUtc?: string): Promise<SkyViewData>;
   selectEquipment(profileId: string, equipmentId: string): Promise<void>;
   deletePanoramaAndMask(profileId: string): Promise<void>;
@@ -194,6 +207,10 @@ const registeredCelestialDsoImages = createRegisteredCelestialDsoImages(
 const CONTROL_PREVIEW_SETTLE_MILLISECONDS = 200;
 
 export const skyViewController: SkyViewController = {
+  async updateFraming(equipmentId, framing) {
+    const storage = await bootstrapStorage();
+    await storage.equipment.updateFraming(equipmentId, framing);
+  },
   async load(profileId, requestedTimestampUtc) {
     const nowTimestampUtc = requestedTimestampUtc ?? new Date().toISOString();
     const storage = await bootstrapStorage();
@@ -315,8 +332,10 @@ export const SkyViewScreen = ({
     | null
   >(null);
   const [opticsDropdownOpen, setOpticsDropdownOpen] = useState(false);
-  const [fieldOfViewRotationDegrees, setFieldOfViewRotationDegrees] =
-    useState(0);
+  const [framingSaving, setFramingSaving] = useState(false);
+  const [framingSaveRevision, setFramingSaveRevision] = useState(0);
+  const framingSavePending = useRef(false);
+  const [framingError, setFramingError] = useState<string | null>(null);
   const [mutationError, setMutationError] = useState<string | null>(null);
   const [maskOpacityPercent, setMaskOpacityPercent] = useState(60);
   const [maskMode, setMaskMode] = useState<MaskMode>('panorama');
@@ -422,6 +441,41 @@ export const SkyViewScreen = ({
       null,
     [data],
   );
+  const imagingFrame = useMemo(
+    () => imagingFrameForEquipment(selectedEquipment),
+    [selectedEquipment],
+  );
+  const fieldOfViewRotationDegrees = imagingFrame?.orientationDegrees ?? 0;
+  const trackingMode = imagingFrame?.trackingMode ?? 'altaz';
+  const saveFraming = async (mode: TrackingMode, angle: number) => {
+    if (!selectedEquipment || framingSavePending.current) return;
+    const equipmentId = selectedEquipment.id;
+    framingSavePending.current = true;
+    setFramingSaving(true);
+    setFramingError(null);
+    const framing = { trackingMode: mode, frameOrientationDegrees: angle };
+    try {
+      await controller.updateFraming(equipmentId, framing);
+      setData((current) =>
+        current
+          ? {
+              ...current,
+              equipment: current.equipment.map((item) =>
+                item.id === equipmentId ? { ...item, ...framing } : item,
+              ),
+            }
+          : current,
+      );
+    } catch {
+      setFramingError(
+        'Could not save framing. Your previous settings are unchanged; please try again.',
+      );
+    } finally {
+      framingSavePending.current = false;
+      setFramingSaving(false);
+      setFramingSaveRevision((revision) => revision + 1);
+    }
+  };
   const durationCalculationInput = useMemo(
     () =>
       data && observingWindow
@@ -500,28 +554,50 @@ export const SkyViewScreen = ({
   );
   const visibleSuitableTargetCount = useMemo(() => {
     if (!data) return 0;
-    const discoverableTargetIds = new Set(
-      discoverableCatalogueTargets.map(({ id }) => id),
-    );
-    const maskEvaluator = data.mask
-      ? createVisibilityMaskEvaluator(data.mask)
-      : null;
-    return projectedTargets.filter((target) => {
-      if (
-        !discoverableTargetIds.has(target.target.id) ||
-        target.altitudeDegrees < 0
-      ) {
-        return false;
-      }
-      return (
-        !maskEvaluator ||
-        maskEvaluator.classify({
-          altitudeDegrees: target.altitudeDegrees,
-          azimuthDegrees: target.azimuthDegrees,
-        }) === 'visible'
+    try {
+      const discoverableTargetIds = new Set(
+        discoverableCatalogueTargets.map(({ id }) => id),
       );
-    }).length;
-  }, [data, discoverableCatalogueTargets, projectedTargets]);
+      const maskEvaluator = data.mask
+        ? createVisibilityMaskEvaluator(data.mask)
+        : null;
+      const frameEvaluator =
+        imagingFrame && data.mask?.raster
+          ? createFrameMaskEvaluator(data.mask.raster)
+          : null;
+      return projectedTargets.filter((target) => {
+        if (
+          !discoverableTargetIds.has(target.target.id) ||
+          target.altitudeDegrees < 0
+        ) {
+          return false;
+        }
+        const centerVisible =
+          !maskEvaluator ||
+          maskEvaluator.classify({
+            altitudeDegrees: target.altitudeDegrees,
+            azimuthDegrees: target.azimuthDegrees,
+          }) === 'visible';
+        if (!centerVisible || !imagingFrame || !frameEvaluator)
+          return centerVisible;
+        return !frameEvaluator.isBlocked(
+          createImagingFrame({
+            ...imagingFrame,
+            observerLatitudeDegrees: observerForProfile(data.profile)
+              .latitudeDegreesNorth,
+            horizontal: {
+              azimuthDegreesClockwiseFromNorth: target.azimuthDegrees,
+              refractedAltitudeDegrees: target.altitudeDegrees,
+            },
+          }),
+        );
+      }).length;
+    } catch {
+      // Resource limits must not turn an unavailable assessment into zero
+      // visible targets or prevent navigation to the retryable calculation.
+      return null;
+    }
+  }, [data, discoverableCatalogueTargets, projectedTargets, imagingFrame]);
   const celestialEquatorDirections = useMemo(
     () =>
       data && controlTimestampUtc
@@ -581,6 +657,7 @@ export const SkyViewScreen = ({
       return;
     }
     const input: ObstructionVisibilityInput = {
+      imagingFrame,
       profileId: data.profile.id,
       target: {
         id: selectedTarget.id,
@@ -636,6 +713,7 @@ export const SkyViewScreen = ({
           cached = null;
         }
       }
+      if (!active || abortController.signal.aborted) return;
       if (cached) {
         setTrajectory(mergeTrajectoryAssessment(baseTrajectory, cached));
         setTrajectoryStatus('ready');
@@ -644,6 +722,11 @@ export const SkyViewScreen = ({
       try {
         const result = await calculateVisibility(input, {
           signal: abortController.signal,
+          projectAt: createWindowHorizontalProjector({
+            target: input.target,
+            observer: input.observer,
+            window: input.window,
+          }),
         });
         if (!active || abortController.signal.aborted) return;
         visibilityCache.set(cacheKey, result);
@@ -675,6 +758,7 @@ export const SkyViewScreen = ({
     calculationAttempt,
     data,
     observingWindow,
+    imagingFrame,
     selectedTarget,
     visibilityCache,
   ]);
@@ -886,10 +970,13 @@ export const SkyViewScreen = ({
             {data.profile.name}
           </AppText>
           <AppText numberOfLines={1} tone="muted">
-            {visibleSuitableTargetCount.toLocaleString()}{' '}
-            {data.mask
-              ? 'visible suitable targets'
-              : 'suitable above horizon · unassessed'}
+            {visibleSuitableTargetCount === null
+              ? 'Visibility count unavailable'
+              : `${visibleSuitableTargetCount.toLocaleString()} ${
+                  data.mask
+                    ? 'visible suitable targets'
+                    : 'suitable above horizon · unassessed'
+                }`}
           </AppText>
         </View>
         <Pressable
@@ -1228,6 +1315,7 @@ export const SkyViewScreen = ({
           ) : null}
         </View>
         <ActionButton
+          disabled={!selectedEquipment}
           label={`Orientation · ${fieldOfViewRotationDegrees}°`}
           onPress={() => setOpenSheet('orientation')}
           variant="secondary"
@@ -1240,11 +1328,43 @@ export const SkyViewScreen = ({
         title="Orientation"
         visible={openSheet === 'orientation'}
       >
-        <AngleSlider
-          label="Field of view orientation"
-          onChange={setFieldOfViewRotationDegrees}
-          value={fieldOfViewRotationDegrees}
-        />
+        <View
+          pointerEvents={framingSaving ? 'none' : 'auto'}
+          accessibilityElementsHidden={framingSaving}
+        >
+          <AngleSlider
+            key={`${selectedEquipment?.id}-${framingSaveRevision}`}
+            label="Field of view orientation"
+            onChange={(angle) => {
+              void saveFraming(trackingMode, angle);
+            }}
+            value={fieldOfViewRotationDegrees}
+          />
+          <AppText tone="muted">
+            {trackingMode === 'altaz'
+              ? 'Angle from local up. Saved with these optics.'
+              : 'Angle from celestial north. Saved with these optics.'}
+          </AppText>
+          {(Object.keys(TRACKING_MODE_LABELS) as TrackingMode[]).map((mode) => (
+            <ActionButton
+              key={mode}
+              accessibilityLabel={`Track with ${TRACKING_MODE_LABELS[mode]}`}
+              label={TRACKING_MODE_LABELS[mode]}
+              disabled={framingSaving}
+              variant={trackingMode === mode ? 'primary' : 'secondary'}
+              onPress={() => {
+                void saveFraming(mode, fieldOfViewRotationDegrees);
+              }}
+            />
+          ))}
+          {trackingMode === 'derotatedAltaz' ? (
+            <AppText tone="muted">
+              For active rotation compensation while tracking.
+            </AppText>
+          ) : null}
+        </View>
+        {framingSaving ? <AppText tone="muted">Saving framing…</AppText> : null}
+        {framingError ? <AppText tone="muted">{framingError}</AppText> : null}
       </ModalSheet>
 
       <ModalSheet
@@ -1348,8 +1468,9 @@ export const SkyViewScreen = ({
               }
             />
             <AppText style={styles.fovNote} tone="muted">
-              The frame is visual only. V1 obstruction calculations use the
-              target centre.
+              {selectedEquipment
+                ? `Visibility checks the full imaging frame · ${TRACKING_MODE_LABELS[trackingMode]}.`
+                : 'Visibility checks the target center. Select optics to assess the full frame.'}
             </AppText>
           </>
         ) : null}

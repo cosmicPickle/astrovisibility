@@ -491,6 +491,13 @@ function TargetListHeader({
             ? `Filtered for ${data.equipment.name}`
             : 'No imaging setup filter'}
         </AppText>
+        {data.maskRevision ? (
+          <AppText tone="muted">
+            {data.equipment
+              ? 'Visibility requires the full imaging frame to be clear.'
+              : 'Visibility checks the target center.'}
+          </AppText>
+        ) : null}
         {data.equipment ? (
           <AppText tone="muted">min. minor axis: 60px</AppText>
         ) : null}

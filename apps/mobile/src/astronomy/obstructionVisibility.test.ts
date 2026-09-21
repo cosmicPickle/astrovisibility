@@ -345,7 +345,7 @@ describe('visibility calculation cache identity and invalidation', () => {
   it('includes explicit adapter/calculation versions and excludes visual panorama opacity', () => {
     const key = createVisibilityCalculationCacheKey(baseInput());
     expect(key).toContain('astronomy-engine-2.1.19');
-    expect(key).toContain('obstruction-visibility-v1');
+    expect(key).toContain('obstruction-visibility-v2-full-frame');
     expect(key).not.toContain('opacity');
   });
 

@@ -134,6 +134,85 @@ const equipment = {
 };
 
 describe('SQLite migrations and repositories', () => {
+  it('migrates version 9 equipment and retains framing after a database restart', async () => {
+    const directory = mkdtempSync(
+      path.join(tmpdir(), 'astrovisibility-framing-'),
+    );
+    const databasePath = path.join(directory, 'restart.sqlite');
+    const native = new DatabaseSync(databasePath);
+    const database = new NodeSqliteDatabase(native);
+    await migrateDatabase(database);
+    await new EquipmentRepository(database).create(equipment);
+    await new ProfileRepository(database).create(profile);
+    // Reconstruct the released v9 equipment schema: these columns did not exist.
+    await database.execAsync(
+      'ALTER TABLE equipment_configurations DROP COLUMN tracking_mode; ALTER TABLE equipment_configurations DROP COLUMN frame_orientation_degrees; PRAGMA user_version = 9;',
+    );
+    await migrateDatabase(database);
+    const repository = new EquipmentRepository(database);
+    expect(await repository.getById(equipment.id)).toMatchObject({
+      ...equipment,
+      trackingMode: 'altaz',
+      frameOrientationDegrees: 0,
+    });
+    expect(await new ProfileRepository(database).getById(profile.id)).toEqual(
+      profile,
+    );
+    await repository.updateFraming(equipment.id, {
+      trackingMode: 'equatorial',
+      frameOrientationDegrees: 90,
+    });
+    native.close();
+    const restartedNative = new DatabaseSync(databasePath);
+    const restarted = new NodeSqliteDatabase(restartedNative);
+    await migrateDatabase(restarted);
+    expect(
+      await new EquipmentRepository(restarted).getById(equipment.id),
+    ).toMatchObject({
+      trackingMode: 'equatorial',
+      frameOrientationDegrees: 90,
+    });
+    restartedNative.close();
+    rmSync(directory, { recursive: true, force: true });
+  });
+
+  it('persists physical framing without resetting it when optical dimensions are edited', async () => {
+    const { native, database } = createDatabase();
+    await migrateDatabase(database);
+    const repository = new EquipmentRepository(database);
+    await repository.create(equipment);
+    expect(await repository.getById(equipment.id)).toMatchObject({
+      trackingMode: 'altaz',
+      frameOrientationDegrees: 0,
+    });
+    await repository.updateFraming(equipment.id, {
+      trackingMode: 'derotatedAltaz',
+      frameOrientationDegrees: 65,
+    });
+    await repository.update(equipment.id, {
+      ...equipment,
+      focalLengthMillimeters: 500,
+    });
+    expect(
+      await new EquipmentRepository(database).getById(equipment.id),
+    ).toMatchObject({
+      trackingMode: 'derotatedAltaz',
+      frameOrientationDegrees: 65,
+      focalLengthMillimeters: 500,
+    });
+    await expect(
+      repository.updateFraming(equipment.id, {
+        trackingMode: 'altaz',
+        frameOrientationDegrees: NaN,
+      }),
+    ).rejects.toThrow();
+    expect(await repository.getById(equipment.id)).toMatchObject({
+      trackingMode: 'derotatedAltaz',
+      frameOrientationDegrees: 65,
+    });
+    native.close();
+  });
+
   it('applies the versioned schema idempotently and persists profile CRUD', async () => {
     const directory = mkdtempSync(path.join(tmpdir(), 'astrovisibility-'));
     const databasePath = path.join(directory, 'restart.sqlite');
@@ -145,7 +224,7 @@ describe('SQLite migrations and repositories', () => {
     const version = await database.getFirstAsync<{ user_version: number }>(
       'PRAGMA user_version',
     );
-    expect(version?.user_version).toBe(9);
+    expect(version?.user_version).toBe(10);
 
     const firstRepository = new ProfileRepository(database);
     await firstRepository.create(profile);

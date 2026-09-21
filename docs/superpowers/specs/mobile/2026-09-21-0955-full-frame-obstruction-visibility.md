@@ -2,9 +2,11 @@
 
 **Timestamp:** 2026-09-21 09:55 +03:00 (Europe/Sofia)
 
-**Status:** Specification for review; agreed scope recorded, implementation decisions listed below.
+**Status:** Implementation authorized by the user on 2026-09-21; implementation contract recorded below.
 
-**Delivery:** Android application implementation is a subsequent task.
+**Updated:** 2026-09-21 +03:00 (Europe/Sofia)
+
+**Delivery:** Task one Android implementation, regression checks, visual QA and local release APK.
 
 ## Purpose and authority
 
@@ -167,23 +169,49 @@ build, numerical/performance evidence, privacy review, and a current staged rele
 APK through the build-share skill. This specification-only task requires none of
 the app build or device gates.
 
-## Decisions to settle before implementation
+## Implementation contract
 
-The feature scope above is agreed. These details were not settled in discussion:
+The user authorized task one. Optional questions about ownership and defaults
+received no answer during independent geometry work; the agent proceeded with
+the recommended defaults announced in the conversation. These are implementation
+choices, not additional answers attributed to the user.
 
-1. **Framing ownership and reference:** select a precise angle convention and
-   persistence scope. Define how the beginning orientation applies to every
-   target in the ranked list, and what changing the reference time/target does.
-   Do not assume that a chosen target's initial local roll is a universal
-   celestial position angle.
-2. **Existing equipment and unset mode:** choose a concise migration/default UX
-   that does not silently assert the user's mount type. Place the simple mode
-   selector with beginning orientation as discussed; decide whether equipment
-   also saves a preferred mode.
-3. **Numerical/performance limits:** confirm footprint boundary-contact policy,
-   angular tolerance, supported FOV bounds, and device calculation budgets from
-   the existing mask resolution and benchmark evidence. Preserve the established
-   transition targets unless an explicit decision changes them.
+- Save mode and angle per equipment configuration. All targets use that equipment's
+  physical angle. Zero means local altitude-up for AltAz and celestial north for
+  EQ/active derotation. Positive angle rotates the sensor vertical axis toward
+  the local increasing-azimuth direction or celestial east respectively. The
+  rectangular frame repeats after 180 degrees. No reference target/time is needed
+  for these absolute basis conventions.
+- Existing and new optics visibly default to AltAz and zero degrees. The orientation
+  sheet explicitly exposes all three modes and the angle reference. Changing a
+  mode reinterprets the saved number in the displayed reference basis. It does
+  not infer the physical mount. Ordinary equipment edits preserve framing.
+- Migration 10 adds the equipment fields and removes derived cached intervals;
+  other user data and historical migrations remain unchanged. Cache version and
+  identity include physical FOV, tracking mode and angle.
+- Use the existing immutable directional raster masks, up to 2048 by 2048 pixels.
+  Preserve legacy center-only vector fixtures; a non-raster full-frame request
+  fails explicitly rather than silently evaluating only its center.
+- Physical dimensions must be finite, greater than zero and less than 180 degrees.
+  Intersect the spherical tangent-plane rectangle with actual raster pixel cells.
+  Boundary contact counts as blocked; curved-cell intersection tolerance is
+  0.0001 degrees, much smaller than an atlas pixel. There is no added safety margin.
+- A cached occupancy pyramid and spherical-cap index use less than 9.8 MB per
+  maximum-size raster, excluding the existing mask itself. Indexes are held by
+  weak mask identity and reused. Each query has a 100,000-node work limit; the
+  existing 100,000-sample trajectory limit and 25-hour period limit still apply.
+  Limits raise calculation errors and must never manufacture visibility.
+- Swept bounding caps only eliminate intervals proved clear or blocked. Other
+  intervals refine to 30 seconds and 0.05 degrees of center/corner motion. Brief
+  full-frame blocked intervals are retained instead of applying the old
+  center-only flicker merge. Selected/list calculations share their projection,
+  sampling and mask geometry; the displayed selected frame uses the same basis.
+- Desktop regression budgets: 256 representative targets within one second;
+  the eligible production catalogue within five seconds for 12- and 25-hour
+  windows (twice these limits under CI). Catalogue work yields between targets
+  after 12 ms, with existing cancellation and selected-target async refinement.
+  These budgets do not establish physical Android latency or frame rate.
 
-Record decisions in this specification before dependent production work. These
-open details do not authorize additional calibration steps or hardware features.
+Physical-device performance remains a delivery verification requirement. Record
+actual evidence and any unavailable-device blocker in State.md and the delivery
+report; do not represent emulator or desktop results as phone measurements.

@@ -285,7 +285,27 @@ const migrations: Migration[] = [
       CREATE INDEX panorama_capture_draft_tiles_draft_idx ON panorama_capture_draft_tiles(draft_id);
     `,
   },
+  {
+    version: 10,
+    sql: `DELETE FROM visibility_calculation_cache;`,
+  },
 ];
+
+async function ensureEquipmentFramingColumns(database: SqlDatabase) {
+  const columns = await database.getAllAsync<{ name: string }>(
+    'PRAGMA table_info(equipment_configurations)',
+  );
+  if (!columns.some(({ name }) => name === 'tracking_mode')) {
+    await database.execAsync(
+      "ALTER TABLE equipment_configurations ADD COLUMN tracking_mode TEXT NOT NULL DEFAULT 'altaz' CHECK(tracking_mode IN ('altaz', 'equatorial', 'derotatedAltaz'))",
+    );
+  }
+  if (!columns.some(({ name }) => name === 'frame_orientation_degrees')) {
+    await database.execAsync(
+      'ALTER TABLE equipment_configurations ADD COLUMN frame_orientation_degrees REAL NOT NULL DEFAULT 0 CHECK(frame_orientation_degrees BETWEEN 0 AND 180)',
+    );
+  }
+}
 
 async function ensureEquipmentResolutionColumns(database: SqlDatabase) {
   const columns = await database.getAllAsync<{ name: string }>(
@@ -358,6 +378,9 @@ export async function migrateDatabase(database: SqlDatabase): Promise<void> {
       }
       if (migration.version === 8) {
         await ensureEquipmentResolutionColumns(database);
+      }
+      if (migration.version === 10) {
+        await ensureEquipmentFramingColumns(database);
       }
       await database.execAsync(migration.sql);
       await database.execAsync(`PRAGMA user_version = ${migration.version}`);

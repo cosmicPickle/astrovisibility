@@ -1,4 +1,7 @@
 import type { VisibilityMask } from '../mask/visibilityMask';
+import { createFrameMaskEvaluator } from '../mask/frameMaskIntersection';
+import { createImagingFrame, type ImagingFrameSettings } from './imagingFrame';
+import { createFrameRefinementPredicate } from './frameVisibilityRefinement';
 import {
   createVisibilityMaskEvaluator,
   type VisibilityMaskEvaluator,
@@ -23,7 +26,8 @@ import {
 
 export const ASTRONOMY_ADAPTER_VERSION =
   'astronomy-engine-2.1.19-horizontal-adapter-v1';
-export const VISIBILITY_CALCULATION_VERSION = 'obstruction-visibility-v1';
+export const VISIBILITY_CALCULATION_VERSION =
+  'obstruction-visibility-v2-full-frame';
 
 const COARSE_STEP_MILLISECONDS = 5 * 60 * 1000;
 // The all-target summary path may start coarser because every segment whose
@@ -39,6 +43,7 @@ const MAXIMUM_REFINED_SAMPLES = 100_000;
 const DEFAULT_YIELD_EVERY_SAMPLES = 128;
 
 export type ObstructionVisibilityInput = Readonly<{
+  imagingFrame?: ImagingFrameSettings | null;
   profileId: string;
   target: EquatorialTarget & { id: string };
   observer: ObserverLocation;
@@ -123,13 +128,35 @@ function parseWindow(window: ObstructionVisibilityInput['window']) {
 function classifyCoordinates(
   horizontal: HorizontalCoordinates,
   maskEvaluator: VisibilityMaskEvaluator | null,
+  frameIsBlocked?: (horizontal: HorizontalCoordinates) => boolean,
 ): TrajectoryAssessment {
   if (horizontal.refractedAltitudeDegrees < 0) return 'belowHorizon';
   if (!maskEvaluator) return 'unassessed';
-  return maskEvaluator.classify({
+  const centerAssessment = maskEvaluator.classify({
     altitudeDegrees: horizontal.refractedAltitudeDegrees,
     azimuthDegrees: horizontal.azimuthDegreesClockwiseFromNorth,
   });
+  if (centerAssessment === 'blocked' || !frameIsBlocked)
+    return centerAssessment;
+  return frameIsBlocked(horizontal) ? 'blocked' : 'visible';
+}
+
+function createFrameClassification(input: ObstructionVisibilityInput) {
+  if (!input.imagingFrame || !input.maskRevision) return undefined;
+  const raster = input.maskRevision.mask.raster;
+  if (!raster)
+    throw new Error(
+      'Full-frame visibility requires a directional raster mask.',
+    );
+  const evaluator = createFrameMaskEvaluator(raster);
+  return (horizontal: HorizontalCoordinates) =>
+    evaluator.isBlocked(
+      createImagingFrame({
+        ...input.imagingFrame!,
+        horizontal,
+        observerLatitudeDegrees: input.observer.latitudeDegreesNorth,
+      }),
+    );
 }
 
 function sphericalSeparationDegrees(
@@ -183,6 +210,7 @@ function createEvaluator(
       }));
   const mask = input.maskRevision?.mask ?? null;
   const maskEvaluator = mask ? createVisibilityMaskEvaluator(mask) : null;
+  const frameIsBlocked = createFrameClassification(input);
   const yieldEverySamples =
     options.yieldEverySamples ?? DEFAULT_YIELD_EVERY_SAMPLES;
   if (!Number.isInteger(yieldEverySamples) || yieldEverySamples < 1) {
@@ -214,7 +242,11 @@ function createEvaluator(
     return {
       ...horizontal,
       timestampMilliseconds,
-      assessment: classifyCoordinates(horizontal, maskEvaluator),
+      assessment: classifyCoordinates(
+        horizontal,
+        maskEvaluator,
+        frameIsBlocked,
+      ),
     };
   };
   return { evaluate, throwIfCancelled };
@@ -228,6 +260,7 @@ async function refineSegment(
     left: EvaluatedSample,
     right: EvaluatedSample,
   ) => boolean,
+  refineFootprint = false,
 ): Promise<EvaluatedSample[]> {
   const durationMilliseconds =
     right.timestampMilliseconds - left.timestampMilliseconds;
@@ -239,7 +272,8 @@ async function refineSegment(
     durationMilliseconds > TRANSITION_TOLERANCE_MILLISECONDS ||
     sphericalSeparationDegrees(left, right) > SPATIAL_TOLERANCE_DEGREES;
   const needsMaskRefinement =
-    exceedsSpatialResolution && shouldRefineSpatially(left, right);
+    (exceedsSpatialResolution || refineFootprint) &&
+    shouldRefineSpatially(left, right);
   if (!needsTemporalRefinement && !needsMaskRefinement) return [right];
   const middleMilliseconds = Math.floor(
     (left.timestampMilliseconds + right.timestampMilliseconds) / 2,
@@ -252,8 +286,20 @@ async function refineSegment(
   }
   const middle = await evaluate(middleMilliseconds);
   return [
-    ...(await refineSegment(left, middle, evaluate, shouldRefineSpatially)),
-    ...(await refineSegment(middle, right, evaluate, shouldRefineSpatially)),
+    ...(await refineSegment(
+      left,
+      middle,
+      evaluate,
+      shouldRefineSpatially,
+      refineFootprint,
+    )),
+    ...(await refineSegment(
+      middle,
+      right,
+      evaluate,
+      shouldRefineSpatially,
+      refineFootprint,
+    )),
   ];
 }
 
@@ -266,6 +312,7 @@ function appendRefinedSegmentSynchronously(
     left: EvaluatedSample,
     right: EvaluatedSample,
   ) => boolean,
+  refineFootprint = false,
 ): void {
   const durationMilliseconds =
     right.timestampMilliseconds - left.timestampMilliseconds;
@@ -277,7 +324,8 @@ function appendRefinedSegmentSynchronously(
     durationMilliseconds > TRANSITION_TOLERANCE_MILLISECONDS ||
     sphericalSeparationDegrees(left, right) > SPATIAL_TOLERANCE_DEGREES;
   const needsMaskRefinement =
-    exceedsSpatialResolution && shouldRefineSpatially(left, right);
+    (exceedsSpatialResolution || refineFootprint) &&
+    shouldRefineSpatially(left, right);
   if (!needsTemporalRefinement && !needsMaskRefinement) {
     output.push(right);
     return;
@@ -299,6 +347,7 @@ function appendRefinedSegmentSynchronously(
     middle,
     evaluate,
     shouldRefineSpatially,
+    refineFootprint,
   );
   appendRefinedSegmentSynchronously(
     output,
@@ -306,6 +355,7 @@ function appendRefinedSegmentSynchronously(
     right,
     evaluate,
     shouldRefineSpatially,
+    refineFootprint,
   );
 }
 
@@ -507,12 +557,23 @@ export async function calculateObstructionAwareTrajectory(
     );
   }
   const { evaluate, throwIfCancelled } = createEvaluator(input, options);
-  const shouldRefineSpatially = input.maskRevision ? () => true : () => false;
+  const shouldRefineSpatially =
+    input.imagingFrame && input.maskRevision?.mask.raster
+      ? createFrameRefinementPredicate(
+          input.maskRevision.mask.raster,
+          input.imagingFrame,
+          input.observer.latitudeDegreesNorth,
+        )
+      : input.maskRevision
+        ? () => true
+        : () => false;
   const coarseMilliseconds: number[] = [];
   for (
     let timestampMilliseconds = startMilliseconds;
     timestampMilliseconds < endMilliseconds;
-    timestampMilliseconds += COARSE_STEP_MILLISECONDS
+    timestampMilliseconds += input.imagingFrame
+      ? SUMMARY_COARSE_STEP_MILLISECONDS
+      : COARSE_STEP_MILLISECONDS
   ) {
     coarseMilliseconds.push(timestampMilliseconds);
   }
@@ -529,13 +590,17 @@ export async function calculateObstructionAwareTrajectory(
         coarseSamples[index]!,
         evaluate,
         shouldRefineSpatially,
+        Boolean(input.imagingFrame),
       )),
     );
   }
   throwIfCancelled();
-  const runs = mergeNumericalFlicker(
-    createRuns(refinedSamples, startMilliseconds, endMilliseconds),
+  const rawRuns = createRuns(
+    refinedSamples,
+    startMilliseconds,
+    endMilliseconds,
   );
+  const runs = input.imagingFrame ? rawRuns : mergeNumericalFlicker(rawRuns);
   const samples = normalizeSamplesToRuns(refinedSamples, runs);
   const visibilityIntervals = runs
     .filter(({ assessment }) => assessment === 'visible')
@@ -607,7 +672,15 @@ export function calculateObstructionVisibilitySummary(
       }));
   const mask = input.maskRevision?.mask ?? null;
   const maskEvaluator = mask ? createVisibilityMaskEvaluator(mask) : null;
-  const shouldRefineSpatially = createSpatialRefinementPredicate(maskEvaluator);
+  const frameIsBlocked = createFrameClassification(input);
+  const shouldRefineSpatially =
+    input.imagingFrame && input.maskRevision?.mask.raster
+      ? createFrameRefinementPredicate(
+          input.maskRevision.mask.raster,
+          input.imagingFrame,
+          input.observer.latitudeDegreesNorth,
+        )
+      : createSpatialRefinementPredicate(maskEvaluator);
   let evaluationCount = 0;
   const evaluate = (timestampMilliseconds: number): EvaluatedSample => {
     if (options.signal?.aborted) {
@@ -625,7 +698,11 @@ export function calculateObstructionVisibilitySummary(
     return {
       ...horizontal,
       timestampMilliseconds,
-      assessment: classifyCoordinates(horizontal, maskEvaluator),
+      assessment: classifyCoordinates(
+        horizontal,
+        maskEvaluator,
+        frameIsBlocked,
+      ),
     };
   };
   const coarseSamples: EvaluatedSample[] = [];
@@ -645,11 +722,15 @@ export function calculateObstructionVisibilitySummary(
       coarseSamples[index]!,
       evaluate,
       shouldRefineSpatially,
+      Boolean(input.imagingFrame),
     );
   }
-  const runs = mergeNumericalFlicker(
-    createRuns(refinedSamples, startMilliseconds, endMilliseconds),
+  const rawRuns = createRuns(
+    refinedSamples,
+    startMilliseconds,
+    endMilliseconds,
   );
+  const runs = input.imagingFrame ? rawRuns : mergeNumericalFlicker(rawRuns);
   const visibilityIntervals = runs
     .filter(({ assessment }) => assessment === 'visible')
     .map(intervalForRun);
@@ -674,6 +755,7 @@ export function createVisibilityCalculationContextKey(
   return `profile=${encodeURIComponent(input.profileId)};${JSON.stringify({
     astronomyAdapterVersion: ASTRONOMY_ADAPTER_VERSION,
     calculationVersion: VISIBILITY_CALCULATION_VERSION,
+    imagingFrame: input.imagingFrame ?? null,
     observer: {
       latitudeDegreesNorth: input.observer.latitudeDegreesNorth,
       longitudeDegreesEast: input.observer.longitudeDegreesEast,

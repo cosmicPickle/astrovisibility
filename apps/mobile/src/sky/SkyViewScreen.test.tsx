@@ -300,6 +300,7 @@ function controller(
     }),
     deletePanoramaAndMask: jest.fn().mockResolvedValue(undefined),
     selectEquipment: jest.fn().mockResolvedValue(undefined),
+    updateFraming: jest.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -435,6 +436,7 @@ describe('SkyViewScreen', () => {
           timestampUtc: '2026-08-19T20:00:00.000Z',
         }),
       selectEquipment: jest.fn(),
+      updateFraming: jest.fn(),
       deletePanoramaAndMask: jest.fn(),
     };
     const screen = await renderWithSafeArea(
@@ -669,6 +671,106 @@ describe('SkyViewScreen', () => {
     );
     expect(screen.getByTestId('field-of-view-orientation').props.children).toBe(
       5,
+    );
+    await waitFor(() =>
+      expect(skyController.updateFraming).toHaveBeenCalledWith(
+        secondEquipment.id,
+        { trackingMode: 'altaz', frameOrientationDegrees: 5 },
+      ),
+    );
+    await fireEvent.press(screen.getByLabelText('Track with EQ'));
+    await waitFor(() =>
+      expect(skyController.updateFraming).toHaveBeenCalledWith(
+        secondEquipment.id,
+        { trackingMode: 'equatorial', frameOrientationDegrees: 5 },
+      ),
+    );
+    expect(
+      screen.getByText('Angle from celestial north. Saved with these optics.'),
+    ).toBeTruthy();
+  });
+
+  it('keeps the sky usable when the full-frame mask exceeds its resource limit', async () => {
+    const screen = await renderWithSafeArea(
+      <SkyViewScreen
+        controller={controller({
+          equipment: [equipment],
+          selectedEquipmentId: equipment.id,
+          mask: {
+            ...mask,
+            raster: {
+              widthPixels: 4096,
+              heightPixels: 4096,
+              uri: 'synthetic',
+              blockedBitset: new Uint8Array((4096 * 4096) / 8),
+            },
+          },
+        })}
+        navigation={navigation()}
+        profileId={profile.id}
+        renderSky={renderer}
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByText('Visibility count unavailable')).toBeTruthy(),
+    );
+    expect(screen.getByLabelText('View all targets')).toBeTruthy();
+  });
+
+  it('keeps prior framing when saving fails and allows retry', async () => {
+    const skyController = controller({
+      equipment: [equipment],
+      selectedEquipmentId: equipment.id,
+    });
+    jest
+      .mocked(skyController.updateFraming)
+      .mockRejectedValueOnce(new Error('storage full'));
+    const screen = await renderWithSafeArea(
+      <SkyViewScreen
+        controller={skyController}
+        navigation={navigation()}
+        profileId={profile.id}
+        renderSky={renderer}
+      />,
+    );
+    await waitFor(() => screen.getByText(profile.name));
+    await fireEvent.press(screen.getByLabelText('Optics'));
+    await fireEvent.press(screen.getByText('Orientation · 0°'));
+    await fireEvent(
+      screen.getByLabelText('Field of view orientation'),
+      'layout',
+      { nativeEvent: { layout: { width: 180, height: 44, x: 0, y: 0 } } },
+    );
+    await fireEvent(
+      screen.getByLabelText('Field of view orientation'),
+      'responderGrant',
+      { nativeEvent: { locationX: 45 } },
+    );
+    await fireEvent(
+      screen.getByLabelText('Field of view orientation'),
+      'responderRelease',
+      { nativeEvent: { locationX: 45 } },
+    );
+    await waitFor(() =>
+      screen.getByText(
+        'Could not save framing. Your previous settings are unchanged; please try again.',
+      ),
+    );
+    expect(
+      screen.getByLabelText('Field of view orientation').props
+        .accessibilityValue.now,
+    ).toBe(0);
+    expect(screen.getByTestId('field-of-view-orientation').props.children).toBe(
+      0,
+    );
+    await fireEvent.press(
+      screen.getByLabelText('Track with AltAz + field rotator'),
+    );
+    await waitFor(() =>
+      expect(skyController.updateFraming).toHaveBeenLastCalledWith(
+        equipment.id,
+        { trackingMode: 'derotatedAltaz', frameOrientationDegrees: 0 },
+      ),
     );
   });
 

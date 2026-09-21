@@ -2,6 +2,7 @@ import {
   createVisibilityCalculationContextKey,
   type ObstructionVisibilitySummary,
 } from '../astronomy/obstructionVisibility';
+import { imagingFrameForEquipment } from '../equipment/imagingFrameSettings';
 import type { VisibilityCalculationCacheRepository } from '../storage/visibilityCalculationCacheRepository';
 import {
   calculateRankedTargetsProgressively,
@@ -22,6 +23,7 @@ export async function calculateCachedRankedTargets(
   if (persistentCache) {
     contextKey = createVisibilityCalculationContextKey({
       ...input,
+      imagingFrame: imagingFrameForEquipment(input.equipment),
       maskRevision: input.maskRevision
         ? {
             id: input.maskRevision.id,

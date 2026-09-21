@@ -1,5 +1,35 @@
 # Active Tasks
 
+## Full-frame obstruction visibility — physical performance verification
+
+**Started:** 2026-09-21 11:13 +03:00 (Europe/Sofia)
+
+**Updated:** 2026-09-21 12:09 +03:00 (Europe/Sofia)
+
+**Controlling specifications:** `astro-visibility-spec.md` and
+`docs/superpowers/specs/mobile/2026-09-21-0955-full-frame-obstruction-visibility.md`.
+
+**Objective:** Verify task one's full-frame calculations and interactions on a
+representative physical Android phone. Implementation, migration, regression
+checks and emulator visual QA are finished; window displacement is a separate task.
+
+- [x] Whole-frame raster intersection and shared trajectory/list/renderer geometry.
+- [x] Persist per-optics AltAz/EQ/active-rotator framing; migrate and recover failed writes.
+- [x] Final format, typecheck, lint, 517 tests and Android export pass.
+- [x] Complete desktop 12-/25-hour catalogue benchmarks and two-viewport Android QA.
+- [x] Build and stage the current release APK at `tmp/artifacts/android/app-release.apk`.
+- [ ] Measure physical cold/warm calculations, peak memory and cancellation latency;
+      verify 50 fps p95 and no interaction stall over 100 ms.
+
+**Blocker:** No physical Android device is connected. Desktop regression budgets
+and emulator review are not evidence of physical-device performance. Connect a
+representative phone, install the staged release APK, and run the specification's
+performance scenarios before removing this entry.
+
+**Evidence:** `docs/superpowers/reports/mobile/2026-09-21-1209-full-frame-obstruction-visibility.md`.
+The specification records framing defaults and numerical/resource limits. Preserve
+untracked `.codex-remote-attachments/` and the unrelated sky-background task.
+
 ## Registered sky background
 
 **Started:** 2026-08-29 18:51 +03:00 (Europe/Sofia)

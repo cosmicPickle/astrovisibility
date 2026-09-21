@@ -1,6 +1,7 @@
 import catalogue from '../catalogue/generated/catalogue.json';
 import { VisibilityCalculationCache } from '../astronomy/obstructionVisibility';
 import { createVisibilityMask } from '../mask/visibilityMask';
+import { rasterizeMaskFixture } from '../mask/rasterMaskFixture';
 import { calculateRankedTargetsProgressively } from './rankedTargetCalculation';
 
 const REFERENCE_DESKTOP_BUDGET_MILLISECONDS = 5_000;
@@ -71,6 +72,7 @@ it('keeps the first representative-mask batch inside the one-second budget', asy
       },
     ],
   );
+  const raster = rasterizeMaskFixture(mask);
   const startedAt = performance.now();
   await calculateRankedTargetsProgressively(
     {
@@ -87,6 +89,7 @@ it('keeps the first representative-mask batch inside the one-second budget', asy
       },
       maskRevision: {
         ...mask,
+        raster,
         id: 'mask-1',
         profileId: 'benchmark',
         panoramaRevisionId: 'panorama-1',

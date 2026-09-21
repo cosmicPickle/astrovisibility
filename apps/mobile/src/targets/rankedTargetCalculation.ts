@@ -1,4 +1,5 @@
 import type { CatalogueTarget } from '../../scripts/catalogue/catalogueImporter';
+import { imagingFrameForEquipment } from '../equipment/imagingFrameSettings';
 import {
   createAstronomicalDarknessIntervals,
   intersectTimeIntervals,
@@ -192,6 +193,7 @@ export async function calculateRankedTargetsProgressively(
   const results: RankedTarget[] = [];
   let pendingSummaryEntries: VisibilitySummaryCacheEntry[] = [];
   let processedCount = 0;
+  let lastYieldMilliseconds = performance.now();
 
   const publish = (complete: boolean) => {
     options.onProgress?.({
@@ -218,6 +220,7 @@ export async function calculateRankedTargetsProgressively(
   for (const { suitability, target } of candidates) {
     throwIfCancelled(options.signal);
     const visibilityInput: ObstructionVisibilityInput = {
+      imagingFrame: imagingFrameForEquipment(input.equipment),
       profileId: input.profileId,
       target: {
         id: target.id,
@@ -303,6 +306,11 @@ export async function calculateRankedTargetsProgressively(
       publish(false);
       await flushSummaryEntries();
       await yieldToEventLoop();
+      lastYieldMilliseconds = performance.now();
+      throwIfCancelled(options.signal);
+    } else if (performance.now() - lastYieldMilliseconds >= 12) {
+      await yieldToEventLoop();
+      lastYieldMilliseconds = performance.now();
       throwIfCancelled(options.signal);
     }
   }

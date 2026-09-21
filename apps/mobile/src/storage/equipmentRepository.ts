@@ -2,6 +2,12 @@ import { z } from 'zod';
 
 import type { SqlDatabase } from './types';
 import { inImmediateTransaction } from './types';
+import type { TrackingMode } from '../astronomy/imagingFrame';
+
+const framingSchema = z.object({
+  trackingMode: z.enum(['altaz', 'equatorial', 'derotatedAltaz']),
+  frameOrientationDegrees: z.number().finite().min(0).max(180),
+});
 
 const equipmentSchema = z.object({
   id: z.string().min(1).max(64),
@@ -11,6 +17,9 @@ const equipmentSchema = z.object({
   sensorWidthPixels: z.number().int().positive().max(100_000),
   sensorHeightPixels: z.number().int().positive().max(100_000),
   pixelSizeMicrometers: z.number().positive(),
+  trackingMode: framingSchema.shape.trackingMode.optional(),
+  frameOrientationDegrees:
+    framingSchema.shape.frameOrientationDegrees.optional(),
   createdAtUtc: z.iso.datetime({ offset: true }),
   updatedAtUtc: z.iso.datetime({ offset: true }),
 });
@@ -26,6 +35,8 @@ const selectEquipmentSql = `
     sensor_width_pixels AS sensorWidthPixels,
     sensor_height_pixels AS sensorHeightPixels,
     pixel_size_micrometers AS pixelSizeMicrometers,
+    tracking_mode AS trackingMode,
+    frame_orientation_degrees AS frameOrientationDegrees,
     created_at_utc AS createdAtUtc,
     updated_at_utc AS updatedAtUtc
   FROM equipment_configurations
@@ -46,8 +57,9 @@ export class EquipmentRepository {
           id, name, focal_length_millimeters, aperture_millimeters,
           sensor_width_millimeters, sensor_height_millimeters,
           sensor_width_pixels, sensor_height_pixels,
-          pixel_size_micrometers, frame_rotation_degrees, created_at_utc, updated_at_utc
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+          pixel_size_micrometers, frame_rotation_degrees, created_at_utc, updated_at_utc,
+          tracking_mode, frame_orientation_degrees
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)`,
         [
           input.id,
           input.name,
@@ -60,6 +72,8 @@ export class EquipmentRepository {
           input.pixelSizeMicrometers,
           input.createdAtUtc,
           input.updatedAtUtc,
+          input.trackingMode ?? 'altaz',
+          input.frameOrientationDegrees ?? 0,
         ],
       );
       await this.database.runAsync(
@@ -192,5 +206,23 @@ export class EquipmentRepository {
         );
       }
     });
+  }
+
+  async updateFraming(
+    id: string,
+    framing: { trackingMode: TrackingMode; frameOrientationDegrees: number },
+  ): Promise<void> {
+    const values = framingSchema.parse(framing);
+    const result = await this.database.runAsync(
+      `UPDATE equipment_configurations SET tracking_mode = ?, frame_orientation_degrees = ?, updated_at_utc = ? WHERE id = ?`,
+      [
+        values.trackingMode,
+        values.frameOrientationDegrees,
+        new Date().toISOString(),
+        id,
+      ],
+    );
+    if (result.changes !== 1)
+      throw new Error('The selected optics setup no longer exists.');
   }
 }
