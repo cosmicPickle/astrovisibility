@@ -182,8 +182,14 @@ choices, not additional answers attributed to the user.
   the local increasing-azimuth direction or celestial east respectively. The
   rectangular frame repeats after 180 degrees. No reference target/time is needed
   for these absolute basis conventions.
-- Existing and new optics visibly default to AltAz and zero degrees. The orientation
-  sheet explicitly exposes all three modes and the angle reference. Changing a
+- Existing and new optics visibly default to AltAz and zero degrees. Following the
+  user-approved preview on 2026-09-21 13:13 +03:00 (Europe/Sofia), the root Optics
+  menu exposes one joined segmented row directly beneath Orientation:
+  `AltAz | EQ | AltAz+FieldCorr`. Use the shared segmented-control styling, with
+  rounded outer ends, no gaps, and one selected segment. The Orientation sheet
+  contains the angle and its reference explanation. Saving/error feedback stays
+  visible in the sheet where the user edits; disable mode changes without optics
+  or while a framing write is pending. Changing a
   mode reinterprets the saved number in the displayed reference basis. It does
   not infer the physical mount. Ordinary equipment edits preserve framing.
 - Migration 10 adds the equipment fields and removes derived cached intervals;

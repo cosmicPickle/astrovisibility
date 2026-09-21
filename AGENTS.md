@@ -529,6 +529,27 @@ clear structure.
 
 ## Mobile UX and Visual Review
 
+### Selection controls
+
+For a small set of single- or multi-select options, use one horizontal segmented
+row, matching the existing catalogue filters and ordering controls. Segments
+touch with no gaps, share single dividers, and have rounded corners only at the
+two outer ends. Use the established selected fill and text styles; do not stack
+separate rounded action buttons for these choices.
+
+Reuse `apps/mobile/src/components/ui/SegmentedControl.tsx` for single selection.
+For multi-selection, preserve the same joined-row appearance and expose each
+option's selected state. Keep touch targets at least 44 logical pixels high.
+Use the compact label/padding treatment when needed to fit short option labels,
+and check the constrained phone viewport and accessibility text sizing.
+Action buttons remain appropriate for commands and navigation. Existing equipment
+dropdowns are not small fixed option groups and should retain their own workflow.
+
+Place tracking modes in the root Optics menu directly beneath Orientation;
+the Orientation sheet owns angle adjustment and its reference explanation.
+
+### Visual verification
+
 For meaningful visual or interaction changes, inspect the rendered application
 before hand-off. Use the repository's `astrovisibility-visual-qa` skill.
 

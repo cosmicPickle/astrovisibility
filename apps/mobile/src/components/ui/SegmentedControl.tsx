@@ -10,33 +10,49 @@ export interface SegmentedControlOption<Value extends string> {
 }
 
 export function SegmentedControl<Value extends string>({
+  compact = false,
+  disabled = false,
   onChange,
   options,
   value,
 }: Readonly<{
+  compact?: boolean;
+  disabled?: boolean;
   onChange: (value: Value) => void;
   options: readonly SegmentedControlOption<Value>[];
   value: Value;
 }>) {
   return (
-    <View accessibilityRole="toolbar" style={styles.control}>
+    <View
+      accessibilityRole="toolbar"
+      style={[styles.control, disabled && styles.disabled]}
+    >
       {options.map((option, index) => {
         const selected = option.value === value;
         return (
           <Pressable
             accessibilityLabel={option.accessibilityLabel}
             accessibilityRole="button"
-            accessibilityState={{ selected }}
+            accessibilityState={
+              disabled ? { selected, disabled: true } : { selected }
+            }
+            disabled={disabled || undefined}
             key={option.value}
             onPress={() => onChange(option.value)}
             style={[
               styles.segment,
+              compact && styles.compactSegment,
               index === 0 && styles.firstSegment,
               index === options.length - 1 && styles.lastSegment,
               selected && styles.selectedSegment,
             ]}
           >
-            <AppText style={selected ? styles.selectedText : styles.text}>
+            <AppText
+              style={[
+                selected ? styles.selectedText : styles.text,
+                compact && styles.compactText,
+              ]}
+            >
               {option.label}
             </AppText>
           </Pressable>
@@ -48,6 +64,9 @@ export function SegmentedControl<Value extends string>({
 
 const styles = StyleSheet.create({
   control: { flexDirection: 'row' },
+  compactSegment: { paddingHorizontal: 5 },
+  compactText: { fontSize: 12, textAlign: 'center' },
+  disabled: { opacity: 0.46 },
   firstSegment: {
     borderBottomLeftRadius: layout.controlRadius,
     borderLeftWidth: 1,

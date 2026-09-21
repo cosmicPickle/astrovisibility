@@ -495,6 +495,9 @@ describe('SkyViewScreen', () => {
     await fireEvent.press(screen.getByLabelText('Close view options'));
     await fireEvent.press(screen.getByLabelText('Optics'));
     expect(screen.getByText('None')).toBeTruthy();
+    expect(
+      screen.getByLabelText('Track with EQ').props.accessibilityState.disabled,
+    ).toBe(true);
     await fireEvent.press(screen.getByLabelText('Close optics menu'));
     expect(screen.getByText('Orion Nebula')).toBeTruthy();
     expect(screen.queryByText(/visible until/i)).toBeNull();
@@ -663,7 +666,10 @@ describe('SkyViewScreen', () => {
     );
     expect(screen.getByText(secondEquipment.name)).toBeTruthy();
     expect(screen.getByText(compactGalaxy.preferredName)).toBeTruthy();
+    expect(screen.getByLabelText('Track with AltAz')).toBeTruthy();
+    expect(screen.getByText('AltAz+\u200bFieldCorr')).toBeTruthy();
     await fireEvent.press(screen.getByText('Orientation · 0°'));
+    expect(screen.queryByLabelText('Track with EQ')).toBeNull();
     await fireEvent(
       screen.getByLabelText('Field of view orientation'),
       'accessibilityAction',
@@ -678,6 +684,9 @@ describe('SkyViewScreen', () => {
         { trackingMode: 'altaz', frameOrientationDegrees: 5 },
       ),
     );
+    await fireEvent.press(
+      screen.getByLabelText('Close field-of-view orientation'),
+    );
     await fireEvent.press(screen.getByLabelText('Track with EQ'));
     await waitFor(() =>
       expect(skyController.updateFraming).toHaveBeenCalledWith(
@@ -685,6 +694,10 @@ describe('SkyViewScreen', () => {
         { trackingMode: 'equatorial', frameOrientationDegrees: 5 },
       ),
     );
+    expect(
+      screen.getByLabelText('Track with EQ').props.accessibilityState.selected,
+    ).toBe(true);
+    await fireEvent.press(screen.getByText('Orientation · 5°'));
     expect(
       screen.getByText('Angle from celestial north. Saved with these optics.'),
     ).toBeTruthy();
@@ -762,6 +775,9 @@ describe('SkyViewScreen', () => {
     ).toBe(0);
     expect(screen.getByTestId('field-of-view-orientation').props.children).toBe(
       0,
+    );
+    await fireEvent.press(
+      screen.getByLabelText('Close field-of-view orientation'),
     );
     await fireEvent.press(
       screen.getByLabelText('Track with AltAz + field rotator'),

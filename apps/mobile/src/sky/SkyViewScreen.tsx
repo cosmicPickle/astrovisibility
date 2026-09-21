@@ -66,6 +66,7 @@ import { AngleSlider } from '../components/ui/AngleSlider';
 import { AppIcon } from '../components/ui/AppIcon';
 import { AppText } from '../components/ui/AppText';
 import { ModalSheet } from '../components/ui/ModalSheet';
+import { SegmentedControl } from '../components/ui/SegmentedControl';
 import { OpacitySlider } from '../components/ui/OpacitySlider';
 import { TargetDensitySlider } from '../components/ui/TargetDensitySlider';
 import { calculateAngularFieldOfView } from '../equipment/fieldOfView';
@@ -1320,6 +1321,31 @@ export const SkyViewScreen = ({
           onPress={() => setOpenSheet('orientation')}
           variant="secondary"
         />
+        <SegmentedControl
+          compact
+          disabled={!selectedEquipment || framingSaving}
+          value={trackingMode}
+          options={(Object.keys(TRACKING_MODE_LABELS) as TrackingMode[]).map(
+            (mode) => ({
+              value: mode,
+              label:
+                mode === 'derotatedAltaz'
+                  ? 'AltAz+\u200bFieldCorr'
+                  : TRACKING_MODE_LABELS[mode],
+              accessibilityLabel: `Track with ${TRACKING_MODE_LABELS[mode]}`,
+            }),
+          )}
+          onChange={(mode) => {
+            void saveFraming(mode, fieldOfViewRotationDegrees);
+          }}
+        />
+        {trackingMode === 'derotatedAltaz' ? (
+          <AppText tone="muted">
+            For active rotation compensation while tracking.
+          </AppText>
+        ) : null}
+        {framingSaving ? <AppText tone="muted">Saving framing…</AppText> : null}
+        {framingError ? <AppText tone="muted">{framingError}</AppText> : null}
       </ModalSheet>
 
       <ModalSheet
@@ -1345,23 +1371,6 @@ export const SkyViewScreen = ({
               ? 'Angle from local up. Saved with these optics.'
               : 'Angle from celestial north. Saved with these optics.'}
           </AppText>
-          {(Object.keys(TRACKING_MODE_LABELS) as TrackingMode[]).map((mode) => (
-            <ActionButton
-              key={mode}
-              accessibilityLabel={`Track with ${TRACKING_MODE_LABELS[mode]}`}
-              label={TRACKING_MODE_LABELS[mode]}
-              disabled={framingSaving}
-              variant={trackingMode === mode ? 'primary' : 'secondary'}
-              onPress={() => {
-                void saveFraming(mode, fieldOfViewRotationDegrees);
-              }}
-            />
-          ))}
-          {trackingMode === 'derotatedAltaz' ? (
-            <AppText tone="muted">
-              For active rotation compensation while tracking.
-            </AppText>
-          ) : null}
         </View>
         {framingSaving ? <AppText tone="muted">Saving framing…</AppText> : null}
         {framingError ? <AppText tone="muted">{framingError}</AppText> : null}
