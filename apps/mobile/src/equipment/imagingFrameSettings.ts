@@ -16,6 +16,7 @@ export function imagingFrameForEquipment(
 ): ImagingFrameSettings | null {
   if (!equipment) return null;
   return {
+    apertureMillimeters: equipment.apertureMillimeters,
     lensOffsetMillimeters: equipment.lensOffsetMillimeters ?? 0,
     ...calculateAngularFieldOfView(equipment),
     orientationDegrees: equipment.frameOrientationDegrees ?? 0,

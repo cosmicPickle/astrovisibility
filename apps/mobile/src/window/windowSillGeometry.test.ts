@@ -9,6 +9,7 @@ import {
   horizontalDirectionToVector,
   vectorToHorizontalDirection,
 } from '../sky/planetariumProjection';
+import { wallRayIsClear } from './__fixtures__/wallIntersection';
 
 const radians = Math.PI / 180;
 function opening(distanceMeters: number): WindowDefinition {
@@ -36,21 +37,29 @@ describe('window-sill positions', () => {
       expect(geometry.distanceMeters).toBeCloseTo(distance, 10);
       expect(geometry.heightMeters).toBeCloseTo(1, 10);
       expect(windowContainsRay(geometry, ray(0))).toBe(true);
-      expect(windowContainsRay(geometry, ray(180))).toBe(false);
-      expect(windowContainsRay(geometry, ray(span / 2 - 0.01))).toBe(true);
-      expect(windowContainsRay(geometry, ray(span / 2 + 0.01))).toBe(false);
+      for (const azimuth of [180, span / 2 - 0.01, span / 2 + 0.01])
+        expect(windowContainsRay(geometry, ray(azimuth))).toBe(
+          wallRayIsClear(
+            ray(azimuth),
+            { x: 0, y: 0, z: 0 },
+            distance,
+            -0.5,
+            0.5,
+            -0.5,
+            0.5,
+          ),
+        );
     },
   );
 
   it.each([0.05, 0, -0.05])(
-    'matches independent horizontal angle bounds at signed distance %s m',
+    'matches independent wall intersections at signed distance %s m',
     (distance) => {
       const geometry = createWindowGeometry(opening(0.05));
       const lens = { x: 0, y: 0, z: 0.05 - distance };
-      const limit = Math.atan2(0.5, distance) / radians;
       for (let azimuth = -179.5; azimuth < 180; azimuth += 0.5) {
         expect(windowContainsRay(geometry, ray(azimuth), lens)).toBe(
-          Math.abs(azimuth) < limit,
+          wallRayIsClear(ray(azimuth), lens, 0.05, -0.5, 0.5, -0.5, 0.5),
         );
       }
       expect(

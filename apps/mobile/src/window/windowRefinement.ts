@@ -1,13 +1,14 @@
+const { abs, acos, asin, atan, cos, hypot, max, min, PI, sin, sqrt, tan } =
+  Math;
 import { createFrameRefinementPredicate } from '../astronomy/frameVisibilityRefinement';
 import type { HorizontalCoordinates } from '../astronomy/horizontalCoordinates';
 import type { ImagingFrameSettings } from '../astronomy/imagingFrame';
 import { createFrameMaskEvaluator } from '../mask/frameMaskIntersection';
-import { horizontalDirectionToVector } from '../sky/planetariumProjection';
 import {
-  lensPositionMeters,
-  windowDot,
-  windowPlanesAtLens,
-} from './windowGeometry';
+  horizontalDirectionToVector,
+  type Vector3,
+} from '../sky/planetariumProjection';
+import { lensPositionMeters, windowDot } from './windowGeometry';
 import type { WindowCorrection } from './windowMask';
 
 type Sample = HorizontalCoordinates & {
@@ -36,60 +37,79 @@ export function createWindowRefinementPredicate(
     latitude,
   );
   const evaluator = createFrameMaskEvaluator(correction.backgroundRaster);
-  const radians = Math.PI / 180;
-  const radius = Math.atan(
-    Math.hypot(
-      Math.tan((effectiveSettings.horizontalFovDegrees * radians) / 2),
-      Math.tan((effectiveSettings.verticalFovDegrees * radians) / 2),
+  const radians = PI / 180;
+  const radius = atan(
+    hypot(
+      tan((effectiveSettings.horizontalFovDegrees * radians) / 2),
+      tan((effectiveSettings.verticalFovDegrees * radians) / 2),
     ),
   );
-  const offsetMeters = Math.abs(settings?.lensOffsetMillimeters ?? 0) / 1000;
+  const offsetMeters = abs(settings?.lensOffsetMillimeters ?? 0) / 1000;
+  const pupilRadius = (settings?.apertureMillimeters ?? 0) / 2000;
   const axis =
     settings?.trackingMode === 'equatorial'
       ? {
           x: 0,
-          y: Math.sin(latitude * radians),
-          z: Math.cos(latitude * radians),
+          y: sin(latitude * radians),
+          z: cos(latitude * radians),
         }
       : { x: 0, y: 1, z: 0 };
+  // Subdivision repeatedly shares endpoints. Reuse their directional transform
+  // only for this calculation; weak keys do not retain discarded samples.
+  const directions = new WeakMap<Sample, Vector3>();
+  const lenses = new WeakMap<Sample, Vector3>();
+  const directionFor = (sample: Sample) => {
+    const cached = directions.get(sample);
+    if (cached) return cached;
+    const vector = horizontalDirectionToVector({
+      azimuthDegrees: sample.azimuthDegreesClockwiseFromNorth,
+      altitudeDegrees: sample.refractedAltitudeDegrees,
+    });
+    directions.set(sample, vector);
+    return vector;
+  };
   return (left: Sample, right: Sample) => {
-    const first = horizontalDirectionToVector({
-      azimuthDegrees: left.azimuthDegreesClockwiseFromNorth,
-      altitudeDegrees: left.refractedAltitudeDegrees,
-    });
-    const last = horizontalDirectionToVector({
-      azimuthDegrees: right.azimuthDegreesClockwiseFromNorth,
-      altitudeDegrees: right.refractedAltitudeDegrees,
-    });
-    const separation = Math.acos(
-      Math.max(-1, Math.min(1, windowDot(first, last))),
-    );
+    const first = directionFor(left);
+    const last = directionFor(right);
+    const separation = acos(max(-1, min(1, windowDot(first, last))));
     const duration = right.timestampMilliseconds - left.timestampMilliseconds;
-    const travel = Math.max(separation, (duration / 60000) * 0.251 * radians);
+    const travel = max(separation, (duration / 60000) * 0.251 * radians);
     if (left.refractedAltitudeDegrees * radians + travel < 0) return false;
-    let planes = correction.geometry.planes;
-    let displacement = 0;
-    let distance = correction.geometry.distanceMeters;
-    let stableSide = true;
-    if (offsetMeters && settings) {
-      const lens = lensPositionMeters(
-        {
-          azimuthDegrees: left.azimuthDegreesClockwiseFromNorth,
-          altitudeDegrees: left.refractedAltitudeDegrees,
-        },
-        settings.lensOffsetMillimeters!,
-        settings.trackingMode,
-        latitude,
+    const forward = windowDot(correction.geometry.normal, first);
+    let margins: number[] = [];
+    if (!offsetMeters)
+      margins = correction.geometry.planes.map((plane) =>
+        windowDot(plane, first),
       );
+    let displacement = 0;
+    let pupilDisplacement = 0;
+    let distance = correction.geometry.distanceMeters;
+    let lensTravel = 0;
+    if (offsetMeters || pupilRadius) {
+      let lens = lenses.get(left);
+      if (!lens) {
+        lens = settings
+          ? lensPositionMeters(
+              {
+                azimuthDegrees: left.azimuthDegreesClockwiseFromNorth,
+                altitudeDegrees: left.refractedAltitudeDegrees,
+              },
+              settings.lensOffsetMillimeters ?? 0,
+              settings.trackingMode,
+              latitude,
+            )
+          : { x: 0, y: 0, z: 0 };
+        lenses.set(left, lens);
+      }
       // For vectors u,v: |unit(u)-unit(v)| <= |u-v| / min(|u|,|v|).
       // axis × direction moves by at most chord, and its length cannot fall
       // below tangentLength - chord. At a pole use the full offset diameter.
       const axisDot = windowDot(axis, first);
-      const tangentLength = Math.sqrt(Math.max(0, 1 - axisDot * axisDot));
-      const chord = 2 * Math.sin(Math.min(Math.PI, travel) / 2);
-      const lensTravel =
+      const tangentLength = sqrt(max(0, 1 - axisDot * axisDot));
+      const chord = 2 * sin(min(PI, travel) / 2);
+      lensTravel =
         tangentLength > chord
-          ? Math.min(
+          ? min(
               2 * offsetMeters,
               (offsetMeters * chord) / (tangentLength - chord),
             )
@@ -97,7 +117,6 @@ export function createWindowRefinementPredicate(
       distance =
         correction.geometry.distanceMeters -
         windowDot(correction.geometry.normal, lens);
-      stableSide = Math.abs(distance) > lensTravel + 1e-7;
       const across = windowDot(
         {
           x: lens.x - correction.geometry.bottomLeft.x,
@@ -109,35 +128,87 @@ export function createWindowRefinementPredicate(
       const height = lens.y - correction.geometry.bottomLeft.y;
       // Each boundary rotates about its physical frame edge. Distance to that
       // edge stays useful at the sill, where distance to the plane is zero.
-      const nearestEdge = Math.hypot(
+      const nearestEdge = hypot(
         distance,
-        Math.min(
-          Math.abs(across),
-          Math.abs(correction.geometry.definition.widthMeters - across),
-          Math.abs(height),
-          Math.abs(correction.geometry.heightMeters - height),
+        min(
+          abs(across),
+          abs(correction.geometry.definition.widthMeters - across),
+          abs(height),
+          abs(correction.geometry.heightMeters - height),
         ),
       );
+      if (offsetMeters) {
+        // Normalize the four scalar edge margins directly; avoid rebuilding
+        // plane vectors on every refinement query (a measured hot path).
+        const lateral = windowDot(correction.geometry.right, first);
+        const edgeDistances = [
+          across,
+          correction.geometry.definition.widthMeters - across,
+          height,
+          correction.geometry.heightMeters - height,
+        ];
+        const components = [lateral, -lateral, first.y, -first.y];
+        const planeDistance = abs(distance) <= 1e-7 ? 0 : distance;
+        margins = edgeDistances.map((edge, index) => {
+          const length = hypot(planeDistance, edge);
+          return length > 1e-7
+            ? (planeDistance * components[index]! + edge * forward) / length
+            : 0;
+        });
+      }
       if (nearestEdge > lensTravel + 1e-7) {
-        planes = windowPlanesAtLens(correction.geometry, lens);
-        displacement = Math.asin(lensTravel / nearestEdge);
-      } else displacement = Math.PI;
+        displacement = asin(lensTravel / nearestEdge);
+      } else displacement = PI;
+      pupilDisplacement =
+        nearestEdge > lensTravel + pupilRadius + 1e-7
+          ? asin((lensTravel + pupilRadius) / nearestEdge)
+          : PI;
     }
-    const uncertainty = radius + travel + displacement;
-    if (uncertainty < Math.PI / 2) {
-      const limit = Math.sin(uncertainty);
-      const margins = planes.map((plane) => windowDot(plane, first));
-      const outside = distance < -1e-7;
-      // All four positive/negative margins prove the same classification on
-      // either side, so a plane crossing alone need not force fine sampling.
-      const blocked =
-        margins.every((margin) => margin < -limit) ||
-        (stableSide && !outside && margins.some((margin) => margin < -limit));
-      const clear =
+    const uncertainty = radius + travel + pupilDisplacement;
+    const motionUncertainty = travel + displacement;
+    // A circular pupil's plane moves by at most R*chord as the optical axis
+    // turns. Bound its actual normal extent, not a sphere of radius R: this
+    // also proves blocked inward rays when only the pupil rim is room-side.
+    const pupilNormalExtent = pupilRadius * sqrt(max(0, 1 - forward * forward));
+    const pupilMotion = pupilRadius * 2 * sin(min(PI, travel) / 2);
+    const pupilInFront =
+      distance + pupilNormalExtent + lensTravel + pupilMotion < -1e-7;
+    if (
+      travel < PI / 2 &&
+      forward < -sin(travel) &&
+      distance + pupilNormalExtent - lensTravel - pupilMotion > 1e-7
+    )
+      return false;
+    if (motionUncertainty < PI / 2) {
+      const motionLimit = sin(motionUncertainty);
+      // A blocked centre is enough to reject the whole pupil. Behind the plane
+      // the opening is convex, including directions pointing back into the room.
+      if (
+        distance > lensTravel + 1e-7 &&
+        margins.some((margin) => margin < -motionLimit)
+      )
+        return false;
+      if (
+        distance < -lensTravel - 1e-7 &&
+        forward < -sin(travel) &&
+        margins.some((margin) => margin > motionLimit)
+      )
+        return false;
+    }
+    if (uncertainty < PI / 2) {
+      const limit = sin(uncertainty);
+      const forwardLimit = sin(radius + travel);
+      const outward = forward > forwardLimit;
+      const inward = forward < -forwardLimit;
+      // Inward room-side rays cannot exit through this opening. Front-side
+      // outward rays miss the wall. Otherwise every crossing must fit its hole.
+      if (distance > lensTravel + 1e-7 && inward) return false;
+      if (
+        (pupilInFront && outward) ||
         margins.every((margin) => margin > limit) ||
-        (stableSide && outside && margins.some((margin) => margin > limit));
-      if (blocked) return false;
-      if (clear) return background(left, right);
+        (pupilInFront && inward && margins.every((margin) => margin < -limit))
+      )
+        return background(left, right);
     }
     if (!evaluator.capIntersects(first, (radius + travel) / radians, false))
       return false;

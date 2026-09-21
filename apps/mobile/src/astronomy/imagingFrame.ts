@@ -8,6 +8,7 @@ import type { HorizontalCoordinates } from './horizontalCoordinates';
 
 export type TrackingMode = 'altaz' | 'equatorial' | 'derotatedAltaz';
 export type ImagingFrameSettings = Readonly<{
+  apertureMillimeters?: number;
   lensOffsetMillimeters?: number;
   horizontalFovDegrees: number;
   verticalFovDegrees: number;

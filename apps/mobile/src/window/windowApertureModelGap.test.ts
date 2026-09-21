@@ -5,9 +5,7 @@ import { physicalWindow } from './__fixtures__/physicalWindow';
 import { windowContainsFrame } from './windowFrame';
 import { createWindowGeometry, lensPositionMeters } from './windowGeometry';
 
-// Documents a missing physical dimension, not the desired final classifier.
-// Replace the clear expectation when finite-aperture clearance is implemented.
-it('demonstrates aperture shading despite a clear full frame behind a 178-degree window', () => {
+it('rejects aperture shading despite clear centre-origin frame rays behind a 178-degree window', () => {
   const fixture = physicalWindow(1.2, 178);
   const direction = { azimuthDegrees: 82, altitudeDegrees: 20 };
   const lens = lensPositionMeters(direction, 50, 'altaz', 44);
@@ -35,6 +33,14 @@ it('demonstrates aperture shading despite a clear full frame behind a 178-degree
   expect(
     windowContainsFrame(createWindowGeometry(fixture.definition), frame, lens),
   ).toBe(true);
+  expect(
+    windowContainsFrame(
+      createWindowGeometry(fixture.definition),
+      frame,
+      lens,
+      35,
+    ),
+  ).toBe(false);
   expect(
     frame.corners.every((ray) => fixture.rayClearsOpening(ray, lens)),
   ).toBe(true);
@@ -122,6 +128,7 @@ it('measures the missing aperture contribution separately from the 50 mm lateral
           y + yExtent < 1.1
         );
       });
+      expect(windowContainsFrame(geometry, frame, lens, 35)).toBe(pupilClear);
       if (pupilEnd === undefined && !pupilClear) pupilEnd = second;
       if (pointEnd !== undefined && pupilEnd !== undefined) break;
     }

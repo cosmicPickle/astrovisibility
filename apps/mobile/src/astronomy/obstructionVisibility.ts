@@ -34,7 +34,7 @@ import {
 export const ASTRONOMY_ADAPTER_VERSION =
   'astronomy-engine-2.1.19-horizontal-adapter-v1';
 export const VISIBILITY_CALCULATION_VERSION =
-  'obstruction-visibility-v4-window-sill';
+  'obstruction-visibility-v5-physical-pupil';
 
 const COARSE_STEP_MILLISECONDS = 5 * 60 * 1000;
 // The all-target summary path may start coarser because every segment whose
@@ -214,7 +214,15 @@ function createFrameClassification(input: ClassificationInput) {
         })
       : null;
     if (correction && lens && frame) {
-      if (!windowContainsFrame(correction.geometry, frame, lens)) return true;
+      if (
+        !windowContainsFrame(
+          correction.geometry,
+          frame,
+          lens,
+          input.imagingFrame?.apertureMillimeters,
+        )
+      )
+        return true;
     }
     return Boolean(frame && evaluator?.isBlocked(frame));
   };

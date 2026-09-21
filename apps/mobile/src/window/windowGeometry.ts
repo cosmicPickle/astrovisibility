@@ -241,33 +241,23 @@ export function windowContainsRay(
     (lens.z - geometry.bottomLeft.z) * geometry.right.z;
   const height = lens.y - geometry.bottomLeft.y;
   const forward = windowDot(geometry.normal, ray);
+  // Room-side rays must leave through the opening. In front, outward/parallel
+  // rays miss this wall; inward rays must pass through the physical hole.
+  if (distance < 0 && forward >= -1e-12) return true;
+  if (distance >= 0 && forward <= 1e-12) return false;
+  const side = distance < 0 ? -1 : 1;
+  const contact = WINDOW_CONTACT_TOLERANCE_METERS * Math.abs(forward);
   const lateral = windowDot(geometry.right, ray);
   const rightMargin = geometry.definition.widthMeters - across;
   const topMargin = geometry.heightMeters - height;
   // These are the four oriented plane dot products before normalization.
   // Avoid constructing four vectors for the center-only early rejection.
-  const leftLength = Math.hypot(distance, across);
-  const rightLength = Math.hypot(distance, rightMargin);
-  const bottomLength = Math.hypot(distance, height);
-  const topLength = Math.hypot(distance, topMargin);
-  const leftClear =
-    leftLength > WINDOW_CONTACT_TOLERANCE_METERS &&
-    distance * lateral + across * forward > 1e-10 * leftLength;
+  const leftClear = side * (distance * lateral + across * forward) > contact;
   const rightClear =
-    rightLength > WINDOW_CONTACT_TOLERANCE_METERS &&
-    -distance * lateral + rightMargin * forward > 1e-10 * rightLength;
-  const bottomClear =
-    bottomLength > WINDOW_CONTACT_TOLERANCE_METERS &&
-    distance * ray.y + height * forward > 1e-10 * bottomLength;
-  const topClear =
-    topLength > WINDOW_CONTACT_TOLERANCE_METERS &&
-    -distance * ray.y + topMargin * forward > 1e-10 * topLength;
-  // Beyond the plane the sky is the exterior of the rear boundary, not a
-  // convex aperture in front of the lens. At contact use the outward hemisphere
-  // only when the lens lies inside the opening (all four normals agree).
-  return distance < -WINDOW_CONTACT_TOLERANCE_METERS
-    ? leftClear || rightClear || bottomClear || topClear
-    : leftClear && rightClear && bottomClear && topClear;
+    side * (-distance * lateral + rightMargin * forward) > contact;
+  const bottomClear = side * (distance * ray.y + height * forward) > contact;
+  const topClear = side * (-distance * ray.y + topMargin * forward) > contact;
+  return leftClear && rightClear && bottomClear && topClear;
 }
 
 /** Signed offset: positive is right when looking out along the telescope, with

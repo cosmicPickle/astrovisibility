@@ -7,7 +7,7 @@
 **Authority:** User reports a 178-degree window and requires geometry to be
 audited before investigating any other cause of the roughly 90-minute error.
 Controlling sources: product specification, existing full-frame and window
-specifications, and the user's instruction to defer the front-of-window fix.
+specifications, and the subsequently authorized pupil/front correction.
 
 - [x] Independently reconstruct measured rectangles and check editing/round trips.
 - [x] Verify signed 50 mm rigid lens motion for every mount mode, including
@@ -33,33 +33,16 @@ a moving lens. No physical phone or exact saved profile is available here;
 the user's roughly 90-minute discrepancy remains unexplained. Do not certify
 geometry 100 percent or move to other causes on the strength of synthetic tests.
 
-**Model review, 2026-09-21 20:28 +03:00:** Confirmed missing finite-aperture
-clearance. The classifier ignores saved aperture diameter and treats the lens
-as a point. A new 178-degree counterexample is falsely clear while part of a
-35 mm pupil is shaded, with the entire pupil behind the plane. Synthetic M27
-cases advance shading by 5–29 minutes; they do not reproduce all 90 minutes.
-Evidence: `docs/superpowers/reports/mobile/2026-09-21-2028-window-aperture-model-gap.md`.
+**Update, 2026-09-21 21:45 +03:00:** Both demonstrated gaps are now fixed using
+the existing aperture diameter and physical front-wall intersections. The new
+270-test validation and release APK are documented in
+`docs/superpowers/reports/mobile/2026-09-21-2145-window-pupil-and-front-clearance.md`.
+Synthetic M27 aperture cases advance shading by 5–29 minutes; the actual night
+still needs replay. The earlier audit establishes point-lens behavior only.
 
-- [ ] Specify and implement physical aperture clearance using existing optics
-      diameter, including refinement/cache contracts and at/front-plane handling.
 - [ ] Account for the observed four-minute change at 50 mm when checking whether
       this omission explains the user's night; do not equate a counterexample
       with a confirmed diagnosis of that discrepancy.
-
-## Front-of-window geometry correction — explicitly deferred
-
-**Deferred by user:** 2026-09-21 18:19 +03:00 (Europe/Sofia)
-
-**Reproduction and scope:**
-`docs/superpowers/reports/mobile/2026-09-21-1751-window-front-geometry-defect.md`.
-The centre, whole-frame and refinement paths use an incorrect complement-of-cone
-model when the lens is in front of the window plane. Fix later, with independent
-wall/aperture intersection tests and a documented physical model. A 178-degree
-reference must not be presumed to exclude this branch after lens displacement.
-
-- [ ] Specify the corrected front/at/behind wall-opening behavior and compatibility.
-- [ ] Fix centre/frame/refinement consistently, test physical intersections and
-      plane crossings, validate migration implications, and deliver a new APK.
 
 ## Window displacement correction — physical performance verification
 

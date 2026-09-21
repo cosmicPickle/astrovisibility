@@ -1,48 +1,49 @@
+const { max, min, sqrt } = Math;
 import type { ImagingFrame } from '../astronomy/imagingFrame';
 import type { Vector3 } from '../sky/planetariumProjection';
 import {
   WINDOW_CONTACT_TOLERANCE_METERS,
+  windowContainsRay,
   windowDot,
-  windowPlanesAtLens,
   type WindowGeometry,
 } from './windowGeometry';
+import { createWindowPupilEvaluator } from './windowPupil';
 
-/** Beyond the opening, clear sky surrounds a convex blocked rear cone. Clip
- * the entire tangent-plane frame against that cone: testing corners alone
- * misses a blocked island or a boundary crossing through the frame's edges.
- * Four clipping planes produce at most eight vertices. Contact is blocked. */
+/** A frame facing one side of the wall is convex in ray coordinates. Test its
+ * four corners against the complete pupil. A frame spanning an incoming and
+ * tangent direction contains wall hits even when its corners clear. */
 export function windowContainsFrame(
   geometry: WindowGeometry,
   frame: ImagingFrame,
   lens: Vector3,
+  apertureMillimeters = 0,
 ): boolean {
-  const planes = windowPlanesAtLens(geometry, lens);
+  if (!Number.isFinite(apertureMillimeters) || apertureMillimeters < 0)
+    throw new RangeError('Invalid aperture diameter.');
+  const radius = apertureMillimeters / 2000;
   const distance = geometry.distanceMeters - windowDot(geometry.normal, lens);
-  if (distance >= -WINDOW_CONTACT_TOLERANCE_METERS)
-    return frame.corners.every((corner) =>
-      planes.every((plane) => windowDot(plane, corner) > 1e-10),
-    );
-
-  let polygon = [...frame.corners];
-  for (const plane of planes) {
-    const clipped: Vector3[] = [];
-    for (let index = 0; index < polygon.length; index += 1) {
-      const start = polygon[index]!;
-      const end = polygon[(index + 1) % polygon.length]!;
-      const startMargin = windowDot(plane, start) - 1e-10;
-      const endMargin = windowDot(plane, end) - 1e-10;
-      if (startMargin <= 0) clipped.push(start);
-      if (startMargin <= 0 !== endMargin <= 0) {
-        const ratio = startMargin / (startMargin - endMargin);
-        clipped.push({
-          x: start.x + ratio * (end.x - start.x),
-          y: start.y + ratio * (end.y - start.y),
-          z: start.z + ratio * (end.z - start.z),
-        });
-      }
-    }
-    if (clipped.length === 0) return true;
-    polygon = clipped;
+  const axial = windowDot(geometry.normal, frame.center);
+  const pupilDepth = radius * sqrt(max(0, 1 - axial * axial));
+  let minimumForward = Infinity;
+  let maximumForward = -Infinity;
+  for (const corner of frame.corners) {
+    const forward = windowDot(geometry.normal, corner);
+    minimumForward = min(minimumForward, forward);
+    maximumForward = max(maximumForward, forward);
   }
-  return false;
+  if (distance + pupilDepth >= -WINDOW_CONTACT_TOLERANCE_METERS) {
+    if (minimumForward <= 1e-12) return false;
+  } else {
+    if (minimumForward >= -1e-12) return true;
+    if (maximumForward >= -1e-12) return false;
+  }
+  if (!radius)
+    return frame.corners.every((ray) => windowContainsRay(geometry, ray, lens));
+  const clears = createWindowPupilEvaluator(
+    geometry,
+    frame.center,
+    lens,
+    radius,
+  );
+  return frame.corners.every(clears);
 }
