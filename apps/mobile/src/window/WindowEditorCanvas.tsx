@@ -21,6 +21,7 @@ import {
 import type { CanvasSizePixels } from '../sky/projection';
 import type { ActivePanorama } from '../storage/panoramaDraftRepository';
 import { colors } from '../theme/tokens';
+import { projectWindowPoint } from './windowProjection';
 import {
   createInitialWindow,
   createWindowGeometry,
@@ -76,16 +77,26 @@ export function WindowEditorCanvas({
 }: WindowEditorCanvasProps) {
   const [canvas, setCanvas] = useState({ widthPixels: 1, heightPixels: 1 });
   const [initialCamera] = useState(() => {
-    const corners = createWindowGeometry(definition).corners;
-    const direction = vectorToHorizontalDirection({
-      x: corners[0]!.x + corners[2]!.x,
-      y: corners[0]!.y + corners[2]!.y,
-      z: corners[0]!.z + corners[2]!.z,
-    });
+    const geometry = createWindowGeometry(definition);
+    const corners = geometry.corners;
+    const span =
+      (definition.rightAzimuthDegrees - definition.leftAzimuthDegrees + 360) %
+      360;
+    // A wide opening's geometric midpoint can be at/behind the observer.
+    // Keep the camera on its outward side when reopening a sill definition.
+    const direction = vectorToHorizontalDirection(
+      geometry.distanceMeters <= definition.widthMeters / 4
+        ? geometry.normal
+        : {
+            x: corners[0]!.x + corners[2]!.x,
+            y: corners[0]!.y + corners[2]!.y,
+            z: corners[0]!.z + corners[2]!.z,
+          },
+    );
     return createPlanetariumCamera({
       centerAzimuthDegrees: direction.azimuthDegrees,
       centerAltitudeDegrees: direction.altitudeDegrees,
-      fieldOfViewDegrees: 85,
+      fieldOfViewDegrees: Math.max(85, Math.min(235, span + 30)),
     });
   });
   const camera = useSharedValue(initialCamera);
@@ -170,7 +181,7 @@ export function WindowEditorCanvas({
       let connected = false;
       for (let step = 0; step <= 32; step += 1) {
         const ratio = step / 32;
-        const point = projectVectorToCanvas(
+        const point = projectWindowPoint(
           {
             x: start.x + (end.x - start.x) * ratio,
             y: start.y + (end.y - start.y) * ratio,
@@ -179,7 +190,7 @@ export function WindowEditorCanvas({
           camera.value,
           canvas,
         );
-        if (point.visible) {
+        if (point?.visible) {
           if (connected) path.lineTo(point.xPixels, point.yPixels);
           else path.moveTo(point.xPixels, point.yPixels);
           connected = true;

@@ -8,6 +8,11 @@
 
 **Delivery:** Android application, including creation-time setup and later redefinition.
 
+**Geometry correction:** The front-only limits and corner movement below are
+superseded by [the window-sill correction](2026-09-21-1620-window-sill-geometry-fix.md),
+authorized after the user reported the 160-degree stop. It preserves this flow and
+data format while supporting signed plane distance and a directed opening over 180°.
+
 ## Purpose and authority
 
 Approximate the change in a nearby window's usable opening when the telescope's

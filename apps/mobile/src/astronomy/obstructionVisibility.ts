@@ -7,6 +7,7 @@ import {
   windowContainsRay,
 } from '../window/windowGeometry';
 import { createWindowRefinementPredicate } from '../window/windowRefinement';
+import { windowContainsFrame } from '../window/windowFrame';
 import { horizontalDirectionToVector } from '../sky/planetariumProjection';
 import {
   createVisibilityMaskEvaluator,
@@ -33,7 +34,7 @@ import {
 export const ASTRONOMY_ADAPTER_VERSION =
   'astronomy-engine-2.1.19-horizontal-adapter-v1';
 export const VISIBILITY_CALCULATION_VERSION =
-  'obstruction-visibility-v3-window';
+  'obstruction-visibility-v4-window-sill';
 
 const COARSE_STEP_MILLISECONDS = 5 * 60 * 1000;
 // The all-target summary path may start coarser because every segment whose
@@ -193,8 +194,8 @@ function createFrameClassification(input: ClassificationInput) {
           input.observer.latitudeDegreesNorth,
         )
       : null;
-    // A convex opening cannot contain the complete frame when its center is
-    // outside. Reject that common case before constructing the four corners.
+    // A blocked center always rejects the frame. A clear center still requires
+    // full-frame intersection, including a rear obstruction inside the frame.
     if (
       correction &&
       lens &&
@@ -213,11 +214,7 @@ function createFrameClassification(input: ClassificationInput) {
         })
       : null;
     if (correction && lens && frame) {
-      const rays = frame.corners;
-      if (
-        rays.some((ray) => !windowContainsRay(correction.geometry, ray, lens))
-      )
-        return true;
+      if (!windowContainsFrame(correction.geometry, frame, lens)) return true;
     }
     return Boolean(frame && evaluator?.isBlocked(frame));
   };

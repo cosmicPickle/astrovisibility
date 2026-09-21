@@ -369,8 +369,9 @@ export function WindowEditorScreen({
         >
           <AppText>
             Use the inside clear width. The connected corners describe one
-            upright, flat rectangle; the right corners also adjust its
-            perspective.
+            upright, flat rectangle. All corners resize it; the right corners
+            also adjust its perspective. The opening can extend beyond 180° when
+            the lens is in front of it.
           </AppText>
           <AppText>
             The panorama should be captured with the phone lens above the

@@ -160,6 +160,21 @@ describe('single-image mask persistence', () => {
     ).toEqual(maskInput().blockedBitset);
     await windows.remove(profile.id, 'panorama-1');
     expect(await windows.getForProfile(profile.id)).toBeNull();
+    for (const span of [179.9, 180, 200]) {
+      const wide = {
+        ...definition,
+        leftAzimuthDegrees: 360 - span / 2,
+        rightAzimuthDegrees: span / 2,
+      };
+      await windows.save(profile.id, 'panorama-1', wide);
+      expect(
+        await new WindowRepository(database).getForProfile(profile.id),
+      ).toEqual(wide);
+      expect(
+        (await repository.getActiveForProfile(profile.id))?.windowCorrection
+          ?.geometry.definition,
+      ).toEqual(wide);
+    }
     await windows.save(profile.id, 'panorama-1', definition);
     await repository.deleteActivePanoramaAndMasks(
       profile.id,

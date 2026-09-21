@@ -11,10 +11,10 @@ import {
   type WindowGeometry,
 } from '../window/windowGeometry';
 import {
-  projectVectorToCanvas,
   vectorToHorizontalDirection,
   type PlanetariumCamera,
 } from './planetariumProjection';
+import { projectWindowPoint } from '../window/windowProjection';
 import type { CanvasSizePixels } from './projection';
 import { colors } from '../theme/tokens';
 
@@ -65,7 +65,7 @@ export function WindowBoundaryLayer({
       let connected = false;
       for (let step = 0; step <= 32; step += 1) {
         const ratio = step / 32;
-        const point = projectVectorToCanvas(
+        const point = projectWindowPoint(
           {
             x: start.x + (end.x - start.x) * ratio - lens.x,
             y: start.y + (end.y - start.y) * ratio - lens.y,
@@ -74,11 +74,11 @@ export function WindowBoundaryLayer({
           camera.value,
           canvas,
         );
-        if (point.visible) {
+        if (point?.visible) {
           if (connected) builder.lineTo(point.xPixels, point.yPixels);
           else builder.moveTo(point.xPixels, point.yPixels);
         }
-        connected = point.visible;
+        connected = Boolean(point?.visible);
       }
     }
     return builder.build();

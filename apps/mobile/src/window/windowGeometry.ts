@@ -48,6 +48,49 @@ const cross = (a: Vector3, b: Vector3): Vector3 => {
   };
 };
 
+export function windowPlanesAtLens(
+  geometry: WindowGeometry,
+  lens: Vector3,
+): readonly Vector3[] {
+  'worklet';
+  let distance = geometry.distanceMeters - windowDot(geometry.normal, lens);
+  if (Math.abs(distance) <= WINDOW_CONTACT_TOLERANCE_METERS) distance = 0;
+  const across = windowDot(
+    {
+      x: lens.x - geometry.bottomLeft.x,
+      y: 0,
+      z: lens.z - geometry.bottomLeft.z,
+    },
+    geometry.right,
+  );
+  const height = lens.y - geometry.bottomLeft.y;
+  return [
+    { axis: geometry.right, sign: 1, margin: across },
+    {
+      axis: geometry.right,
+      sign: -1,
+      margin: geometry.definition.widthMeters - across,
+    },
+    { axis: { x: 0, y: 1, z: 0 }, sign: 1, margin: height },
+    {
+      axis: { x: 0, y: 1, z: 0 },
+      sign: -1,
+      margin: geometry.heightMeters - height,
+    },
+  ].map(({ axis, sign, margin }) => {
+    const plane = {
+      x: sign * distance * axis.x + margin * geometry.normal.x,
+      y: sign * distance * axis.y + margin * geometry.normal.y,
+      z: sign * distance * axis.z + margin * geometry.normal.z,
+    };
+    // A lens exactly on a frame edge is blocked, without creating a NaN normal.
+    const length = Math.hypot(plane.x, plane.y, plane.z);
+    return length <= WINDOW_CONTACT_TOLERANCE_METERS
+      ? origin
+      : { x: plane.x / length, y: plane.y / length, z: plane.z / length };
+  });
+}
+
 export function createWindowGeometry(
   definition: WindowDefinition,
 ): WindowGeometry {
@@ -71,15 +114,15 @@ export function createWindowGeometry(
       rightDistanceRatio,
       widthMeters,
     ].every(Number.isFinite) ||
-    span < 0.1 ||
-    span > 160 ||
+    span < 1e-7 ||
+    span > 360 - 1e-7 ||
     widthMeters < 0.01 ||
     widthMeters > 100 ||
-    rightDistanceRatio < 0.05 ||
-    rightDistanceRatio > 20 ||
+    rightDistanceRatio < 1e-6 ||
+    rightDistanceRatio > 1e6 ||
     topSlope <= bottomSlope ||
-    topSlope - bottomSlope < 0.001 ||
-    Math.max(Math.abs(topSlope), Math.abs(bottomSlope)) > 100
+    topSlope - bottomSlope < 1e-9 ||
+    Math.max(Math.abs(topSlope), Math.abs(bottomSlope)) > 1e6
   ) {
     throw new RangeError(
       'Keep the corners on an upright, open rectangle and enter a width from 1 to 10,000 cm.',
@@ -107,8 +150,6 @@ export function createWindowGeometry(
     z: leftRay.z * leftRange,
   };
   const distanceMeters = windowDot(normal, bottomLeft);
-  if (distanceMeters < widthMeters * 0.001)
-    throw new RangeError('The window is too edge-on. Adjust the corners.');
   const heightMeters = (topSlope - bottomSlope) * leftRange;
   const topLeft = { ...bottomLeft, y: topSlope * leftRange };
   const bottomRight = {
@@ -118,17 +159,7 @@ export function createWindowGeometry(
   };
   const topRight = { ...bottomRight, y: topLeft.y };
   const corners = [topLeft, topRight, bottomRight, bottomLeft];
-  const center = normalize({
-    x: (topLeft.x + bottomRight.x) / 2,
-    y: (topLeft.y + bottomRight.y) / 2,
-    z: (topLeft.z + bottomRight.z) / 2,
-  });
-  const planes = corners.map((corner, index) => {
-    const plane = normalize(cross(corner, corners[(index + 1) % 4]!));
-    const sign = windowDot(plane, center) < 0 ? -1 : 1;
-    return { x: plane.x * sign, y: plane.y * sign, z: plane.z * sign };
-  });
-  return {
+  const geometry = {
     definition,
     corners,
     normal,
@@ -136,13 +167,15 @@ export function createWindowGeometry(
     distanceMeters,
     heightMeters,
     bottomLeft,
-    planes,
+    planes: [] as readonly Vector3[],
   };
+  geometry.planes = windowPlanesAtLens(geometry, origin);
+  return geometry;
 }
 
-/** Left handles change the opening's height; right handles adjust perspective
- * while keeping the left edge fixed. Each drag follows the finger exactly and
- * updates the connected opposite corner to keep the rectangle upright. */
+/** Both sides resize their row. Right handles also fit perspective with the
+ * smallest squared change in dimensionless row height and horizontal range.
+ * Unlike height / tan(altitude), this stays finite across the horizon. */
 export function moveWindowCorner(
   definition: WindowDefinition,
   corner: number,
@@ -152,6 +185,17 @@ export function moveWindowCorner(
   const slope = Math.tan(direction.altitudeDegrees * radians);
   const top = corner < 2;
   const left = corner === 0 || corner === 3;
+  const oldSlope = top ? definition.topSlope : definition.bottomSlope;
+  const ratio = left
+    ? definition.rightDistanceRatio
+    : Math.max(
+        1e-6,
+        Math.min(
+          1e6,
+          (slope * oldSlope + definition.rightDistanceRatio) /
+            (slope * slope + 1),
+        ),
+      );
   const updated = left
     ? {
         ...definition,
@@ -161,8 +205,8 @@ export function moveWindowCorner(
     : {
         ...definition,
         rightAzimuthDegrees: direction.azimuthDegrees,
-        rightDistanceRatio:
-          (top ? definition.topSlope : definition.bottomSlope) / slope,
+        rightDistanceRatio: ratio,
+        ...(top ? { topSlope: slope * ratio } : { bottomSlope: slope * ratio }),
       };
   createWindowGeometry(updated);
   return updated;
@@ -190,45 +234,40 @@ export function windowContainsRay(
   lens: Vector3 = origin,
 ): boolean {
   'worklet';
-  const distance = geometry.distanceMeters - windowDot(geometry.normal, lens);
-  const denominator = windowDot(geometry.normal, ray);
-  if (distance <= WINDOW_CONTACT_TOLERANCE_METERS || denominator <= 1e-10)
-    return false;
-  const travel = distance / denominator;
-  const relative = {
-    x: lens.x + ray.x * travel - geometry.bottomLeft.x,
-    y: lens.y + ray.y * travel - geometry.bottomLeft.y,
-    z: lens.z + ray.z * travel - geometry.bottomLeft.z,
-  };
-  const across = windowDot(relative, geometry.right);
-  const tolerance = WINDOW_CONTACT_TOLERANCE_METERS;
-  return (
-    across > tolerance &&
-    across < geometry.definition.widthMeters - tolerance &&
-    relative.y > tolerance &&
-    relative.y < geometry.heightMeters - tolerance
-  );
-}
-
-export function windowPlanesAtLens(
-  geometry: WindowGeometry,
-  lens: Vector3,
-): readonly Vector3[] {
-  const corners = geometry.corners.map((point) => ({
-    x: point.x - lens.x,
-    y: point.y - lens.y,
-    z: point.z - lens.z,
-  }));
-  const center = {
-    x: corners[0]!.x + corners[2]!.x,
-    y: corners[0]!.y + corners[2]!.y,
-    z: corners[0]!.z + corners[2]!.z,
-  };
-  return corners.map((point, index) => {
-    const plane = normalize(cross(point, corners[(index + 1) % 4]!));
-    const sign = windowDot(plane, center) < 0 ? -1 : 1;
-    return { x: sign * plane.x, y: sign * plane.y, z: sign * plane.z };
-  });
+  let distance = geometry.distanceMeters - windowDot(geometry.normal, lens);
+  if (Math.abs(distance) <= WINDOW_CONTACT_TOLERANCE_METERS) distance = 0;
+  const across =
+    (lens.x - geometry.bottomLeft.x) * geometry.right.x +
+    (lens.z - geometry.bottomLeft.z) * geometry.right.z;
+  const height = lens.y - geometry.bottomLeft.y;
+  const forward = windowDot(geometry.normal, ray);
+  const lateral = windowDot(geometry.right, ray);
+  const rightMargin = geometry.definition.widthMeters - across;
+  const topMargin = geometry.heightMeters - height;
+  // These are the four oriented plane dot products before normalization.
+  // Avoid constructing four vectors for the center-only early rejection.
+  const leftLength = Math.hypot(distance, across);
+  const rightLength = Math.hypot(distance, rightMargin);
+  const bottomLength = Math.hypot(distance, height);
+  const topLength = Math.hypot(distance, topMargin);
+  const leftClear =
+    leftLength > WINDOW_CONTACT_TOLERANCE_METERS &&
+    distance * lateral + across * forward > 1e-10 * leftLength;
+  const rightClear =
+    rightLength > WINDOW_CONTACT_TOLERANCE_METERS &&
+    -distance * lateral + rightMargin * forward > 1e-10 * rightLength;
+  const bottomClear =
+    bottomLength > WINDOW_CONTACT_TOLERANCE_METERS &&
+    distance * ray.y + height * forward > 1e-10 * bottomLength;
+  const topClear =
+    topLength > WINDOW_CONTACT_TOLERANCE_METERS &&
+    -distance * ray.y + topMargin * forward > 1e-10 * topLength;
+  // Beyond the plane the sky is the exterior of the rear boundary, not a
+  // convex aperture in front of the lens. At contact use the outward hemisphere
+  // only when the lens lies inside the opening (all four normals agree).
+  return distance < -WINDOW_CONTACT_TOLERANCE_METERS
+    ? leftClear || rightClear || bottomClear || topClear
+    : leftClear && rightClear && bottomClear && topClear;
 }
 
 /** Signed offset: positive is right when looking out along the telescope, with
@@ -248,10 +287,10 @@ export function lensPositionMeters(
   )
     throw new RangeError('Invalid lens offset.');
   if (!offsetMillimeters) return origin;
-  const forward = horizontalDirectionToVector(direction);
   const azimuth = direction.azimuthDegrees * radians;
   let right: Vector3 = { x: Math.cos(azimuth), y: 0, z: -Math.sin(azimuth) };
   if (trackingMode === 'equatorial') {
+    const forward = horizontalDirectionToVector(direction);
     const pole = {
       x: 0,
       y: Math.sin(latitudeDegrees * radians),

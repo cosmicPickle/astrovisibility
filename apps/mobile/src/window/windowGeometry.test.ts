@@ -79,7 +79,7 @@ describe('physical window geometry', () => {
       z: 0,
     });
   });
-  it('rejects invalid, collapsed, inverted, grazing and behind-lens geometry', () => {
+  it('rejects invalid, collapsed, inverted and grazing geometry, while allowing outward rays beyond the plane', () => {
     for (const changes of [
       { widthMeters: 0 },
       { widthMeters: NaN },
@@ -98,6 +98,6 @@ describe('physical window geometry', () => {
         { x: 0, y: 0, z: 1 },
         { x: 0, y: 0, z: 10 },
       ),
-    ).toBe(false);
+    ).toBe(true);
   });
 });

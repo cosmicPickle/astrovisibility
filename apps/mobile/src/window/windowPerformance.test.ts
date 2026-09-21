@@ -3,6 +3,7 @@ import { createBlockedBitset } from '../mask/rasterMask';
 import { calculateRankedTargetsProgressively } from '../targets/rankedTargetCalculation';
 import { VisibilityCalculationCache } from '../astronomy/obstructionVisibility';
 import { prepareWindowCorrection } from './windowMask';
+import { createWindowGeometry } from './windowGeometry';
 
 it('bounds catalogue work for absent, zero-offset and displaced windows', async () => {
   const raster = {
@@ -29,7 +30,27 @@ it('bounds catalogue work for absent, zero-offset and displaced windows', async 
   const preparationMs = performance.now() - preparationStart;
   expect(preparationMs).toBeLessThan(2000);
   const timings: Record<string, number> = {};
-  for (const mode of ['absent', 'zero', 'displaced'] as const) {
+  for (const mode of [
+    'absent',
+    'zero',
+    'displaced',
+    'flush',
+    'exterior',
+  ] as const) {
+    const activeCorrection =
+      mode === 'flush' || mode === 'exterior'
+        ? {
+            ...correction,
+            geometry: createWindowGeometry({
+              ...correction.geometry.definition,
+              leftAzimuthDegrees: mode === 'flush' ? 90 : 80,
+              rightAzimuthDegrees: mode === 'flush' ? 270 : 280,
+              rightDistanceRatio: 1,
+              topSlope: 1,
+              bottomSlope: -1,
+            }),
+          }
+        : correction;
     const started = performance.now();
     const result = await calculateRankedTargetsProgressively(
       {
@@ -43,7 +64,10 @@ it('bounds catalogue work for absent, zero-offset and displaced windows', async 
           sensorHeightPixels: 2160,
           pixelSizeMicrometers: 2,
           trackingMode: 'altaz',
-          lensOffsetMillimeters: mode === 'displaced' ? 120 : 0,
+          lensOffsetMillimeters:
+            mode === 'displaced' || mode === 'flush' || mode === 'exterior'
+              ? 120
+              : 0,
           createdAtUtc: '2026-01-01T00:00:00.000Z',
           updatedAtUtc: '2026-01-01T00:00:00.000Z',
         },
@@ -68,7 +92,7 @@ it('bounds catalogue work for absent, zero-offset and displaced windows', async 
           coveragePolygons: [],
           operations: [],
           raster,
-          ...(mode === 'absent' ? {} : { windowCorrection: correction }),
+          ...(mode === 'absent' ? {} : { windowCorrection: activeCorrection }),
         },
       },
       {
@@ -92,4 +116,4 @@ it('bounds catalogue work for absent, zero-offset and displaced windows', async 
       Object.entries(timings).map(([key, value]) => [key, Math.round(value)]),
     ),
   });
-}, 45000);
+}, 60000);

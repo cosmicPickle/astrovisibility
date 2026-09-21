@@ -4,10 +4,11 @@
 
 **Started:** 2026-09-21 13:56 +03:00 (Europe/Sofia)
 
-**Updated:** 2026-09-21 15:30 +03:00 (Europe/Sofia)
+**Updated:** 2026-09-21 16:51 +03:00 (Europe/Sofia)
 
 **Controlling specifications:** `astro-visibility-spec.md`,
 `docs/superpowers/specs/mobile/2026-09-21-0955-window-displacement-correction.md`,
+`docs/superpowers/specs/mobile/2026-09-21-1620-window-sill-geometry-fix.md`,
 and the companion full-frame visibility specification.
 
 **Objective:** Measure physical Android performance for the implemented optional
@@ -22,18 +23,24 @@ menu has one Define/Redefine window action. Original panorama/mask data is prese
 - [x] Verify both window crossings against an independent one-second oracle.
 - [x] Tune conservative lens-travel bounds: desktop full-catalogue timings about
       2.0 s absent, 2.3 s zero offset, 2.9 s displaced (12-hour synthetic workload).
-- [x] Final format, typecheck, lint, 532 tests, and Android export pass.
+- [x] Correct sill geometry, right-corner horizon drag and exact-plane rendering.
+      Wide-window benchmarks: 3.5 s flush and 4.0 s exterior on desktop.
+- [x] Final format, typecheck, lint, 563 tests, and Android export pass.
 - [x] Android two-viewport QA: all handles, pan/pinch, keyboard/large text,
       post-mask offer/skip, later setup, save/reopen/reset/cancel/remove/restart.
+- [x] Verify 175-to-190-degree editing, exact 180-degree contact, 193-degree save,
+      pan/pinch and restart on the final release APK, including constrained large text.
 - [x] Build and stage the final release APK at `tmp/artifacts/android/app-release.apk`.
 - [ ] Measure physical cold/warm calculations, memory and cancellation latency;
       verify 50 fps p95 and no interaction stall over 100 ms.
 
 **Blocker:** No physical Android device is connected. Desktop timings and emulator
 QA do not establish physical-device performance. Connect a representative phone,
-install the staged APK and compare absent-window, zero-offset and displaced cases.
+install the staged APK and compare absent-window, zero-offset, displaced, flush
+and exterior cases.
 
 **Evidence:** `docs/superpowers/reports/mobile/2026-09-21-1530-window-displacement-correction.md`.
+Sill correction: `docs/superpowers/reports/mobile/2026-09-21-1651-window-sill-geometry-fix.md`.
 Geometry, capture reference and the explicit clear-background approximation are
 recorded in the spec. Schema 11 is forward-only. New code is under `src/window`,
 `storage/windowRepository.ts`, and the window route. Preserve unrelated task entries

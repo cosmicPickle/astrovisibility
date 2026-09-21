@@ -69,6 +69,8 @@ export function createWindowRefinementPredicate(
     if (left.refractedAltitudeDegrees * radians + travel < 0) return false;
     let planes = correction.geometry.planes;
     let displacement = 0;
+    let distance = correction.geometry.distanceMeters;
+    let stableSide = true;
     if (offsetMeters && settings) {
       const lens = lensPositionMeters(
         {
@@ -79,8 +81,9 @@ export function createWindowRefinementPredicate(
         settings.trackingMode,
         latitude,
       );
-      // Normalizing axis × direction is Lipschitz away from the mount pole.
-      // Near a singularity use the full diameter of the lens-offset sphere.
+      // For vectors u,v: |unit(u)-unit(v)| <= |u-v| / min(|u|,|v|).
+      // axis × direction moves by at most chord, and its length cannot fall
+      // below tangentLength - chord. At a pole use the full offset diameter.
       const axisDot = windowDot(axis, first);
       const tangentLength = Math.sqrt(Math.max(0, 1 - axisDot * axisDot));
       const chord = 2 * Math.sin(Math.min(Math.PI, travel) / 2);
@@ -88,63 +91,60 @@ export function createWindowRefinementPredicate(
         tangentLength > chord
           ? Math.min(
               2 * offsetMeters,
-              (2 * offsetMeters * chord) / (tangentLength - chord),
+              (offsetMeters * chord) / (tangentLength - chord),
             )
           : 2 * offsetMeters;
-      const distance =
+      distance =
         correction.geometry.distanceMeters -
         windowDot(correction.geometry.normal, lens);
-      if (distance + lensTravel <= 0) return false;
-      if (distance > lensTravel && distance > 1e-7) {
+      stableSide = Math.abs(distance) > lensTravel + 1e-7;
+      const across = windowDot(
+        {
+          x: lens.x - correction.geometry.bottomLeft.x,
+          y: 0,
+          z: lens.z - correction.geometry.bottomLeft.z,
+        },
+        correction.geometry.right,
+      );
+      const height = lens.y - correction.geometry.bottomLeft.y;
+      // Each boundary rotates about its physical frame edge. Distance to that
+      // edge stays useful at the sill, where distance to the plane is zero.
+      const nearestEdge = Math.hypot(
+        distance,
+        Math.min(
+          Math.abs(across),
+          Math.abs(correction.geometry.definition.widthMeters - across),
+          Math.abs(height),
+          Math.abs(correction.geometry.heightMeters - height),
+        ),
+      );
+      if (nearestEdge > lensTravel + 1e-7) {
         planes = windowPlanesAtLens(correction.geometry, lens);
-        displacement = Math.asin(lensTravel / distance);
+        displacement = Math.asin(lensTravel / nearestEdge);
       } else displacement = Math.PI;
     }
     const uncertainty = radius + travel + displacement;
     if (uncertainty < Math.PI / 2) {
       const limit = Math.sin(uncertainty);
       const margins = planes.map((plane) => windowDot(plane, first));
-      if (margins.some((margin) => margin < -limit)) return false;
-      if (margins.every((margin) => margin > limit))
-        return background(left, right);
+      const outside = distance < -1e-7;
+      // All four positive/negative margins prove the same classification on
+      // either side, so a plane crossing alone need not force fine sampling.
+      const blocked =
+        margins.every((margin) => margin < -limit) ||
+        (stableSide && !outside && margins.some((margin) => margin < -limit));
+      const clear =
+        margins.every((margin) => margin > limit) ||
+        (stableSide && outside && margins.some((margin) => margin > limit));
+      if (blocked) return false;
+      if (clear) return background(left, right);
     }
     if (!evaluator.capIntersects(first, (radius + travel) / radians, false))
       return false;
     if (duration > 30000 || separation > 0.05 * radians) return true;
-    if (settings?.lensOffsetMillimeters) {
-      const leftLens = lensPositionMeters(
-        {
-          azimuthDegrees: left.azimuthDegreesClockwiseFromNorth,
-          altitudeDegrees: left.refractedAltitudeDegrees,
-        },
-        settings.lensOffsetMillimeters,
-        settings.trackingMode,
-        latitude,
-      );
-      const rightLens = lensPositionMeters(
-        {
-          azimuthDegrees: right.azimuthDegreesClockwiseFromNorth,
-          altitudeDegrees: right.refractedAltitudeDegrees,
-        },
-        settings.lensOffsetMillimeters,
-        settings.trackingMode,
-        latitude,
-      );
-      const movement = Math.hypot(
-        rightLens.x - leftLens.x,
-        rightLens.y - leftLens.y,
-        rightLens.z - leftLens.z,
-      );
-      const distance = Math.max(
-        1e-6,
-        correction.geometry.distanceMeters -
-          Math.max(
-            windowDot(correction.geometry.normal, leftLens),
-            windowDot(correction.geometry.normal, rightLens),
-          ),
-      );
-      if (Math.atan2(movement, distance) > 0.05 * radians) return true;
-    }
+    // Refine the swept boundary angle, not movement divided by plane distance.
+    // Plane distance vanishes at the sill even when the edges hardly move.
+    if (displacement > 0.05 * radians) return true;
     // Background's corner-motion criterion catches orientation changes near poles.
     return Boolean(settings) && background(left, right);
   };
