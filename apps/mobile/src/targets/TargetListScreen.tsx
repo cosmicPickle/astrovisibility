@@ -493,9 +493,8 @@ function TargetListHeader({
         </AppText>
         {data.maskRevision ? (
           <AppText tone="muted">
-            {data.equipment
-              ? 'Visibility requires the full imaging frame to be clear.'
-              : 'Visibility checks the target center.'}
+            Times are approximate, using the target center. Select a target to
+            check the full view.
           </AppText>
         ) : null}
         {data.equipment ? (
@@ -589,14 +588,14 @@ function TargetRow({
       </View>
       <AppText style={styles.durationText}>
         {item.durationKind === 'visible'
-          ? `${formatDuration(item.totalDurationMilliseconds)} visible through local obstructions`
+          ? `Approx. ${formatDuration(item.totalDurationMilliseconds)} through local obstructions`
           : `${formatDuration(item.totalDurationMilliseconds)} above horizon · obstructions not assessed`}
       </AppText>
       <AppText tone="muted">
         {intervalLabels.length > 0
-          ? intervalLabels.join(' · ')
+          ? `${item.durationKind === 'visible' ? 'Approx. ' : ''}${intervalLabels.join(' · ')}`
           : item.durationKind === 'visible'
-            ? 'No visible intervals through local obstructions'
+            ? 'No estimated visibility through local obstructions'
             : 'No above-horizon intervals'}
       </AppText>
       {item.suitability ? (

@@ -4,7 +4,7 @@ import { calculateRankedTargetsProgressively } from './rankedTargetCalculation';
 import { VisibilityCalculationCache } from '../astronomy/obstructionVisibility';
 
 it.each([12, 25])(
-  'ranks the production catalogue over %s hours within the desktop budget',
+  'ranks the production catalogue with centre estimates over %s hours within the desktop budget',
   async (hours) => {
     const raster = {
       widthPixels: 2048,
@@ -69,9 +69,13 @@ it.each([12, 25])(
     );
     expect(result.length).toBeGreaterThan(100);
     expect(batches).toBeGreaterThan(1);
-    expect(performance.now() - started).toBeLessThan(
-      process.env.CI ? 10_000 : 5000,
+    const elapsedMilliseconds = performance.now() - started;
+    console.info(
+      'centre_catalogue_benchmark',
+      hours,
+      Math.round(elapsedMilliseconds),
     );
+    expect(elapsedMilliseconds).toBeLessThan(process.env.CI ? 4000 : 2000);
   },
   20_000,
 );

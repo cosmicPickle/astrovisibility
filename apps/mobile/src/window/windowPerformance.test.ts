@@ -1,11 +1,14 @@
 import catalogue from '../catalogue/generated/catalogue.json';
 import { createBlockedBitset } from '../mask/rasterMask';
-import { calculateRankedTargetsProgressively } from '../targets/rankedTargetCalculation';
+import {
+  calculateRankedTargetsProgressively,
+  type RankedTarget,
+} from '../targets/rankedTargetCalculation';
 import { VisibilityCalculationCache } from '../astronomy/obstructionVisibility';
 import { prepareWindowCorrection } from './windowMask';
 import { createWindowGeometry } from './windowGeometry';
 
-it('bounds catalogue work for absent, zero-offset and displaced windows', async () => {
+it('keeps catalogue estimates fast and identical across absent, displaced, flush and exterior windows', async () => {
   const raster = {
     widthPixels: 2048,
     heightPixels: 2048,
@@ -30,6 +33,7 @@ it('bounds catalogue work for absent, zero-offset and displaced windows', async 
   const preparationMs = performance.now() - preparationStart;
   expect(preparationMs).toBeLessThan(2000);
   const timings: Record<string, number> = {};
+  let baseline: RankedTarget[] | undefined;
   for (const mode of [
     'absent',
     'zero',
@@ -107,7 +111,9 @@ it('bounds catalogue work for absent, zero-offset and displaced windows', async 
       Math.round(timings[mode]!),
     );
     expect(result.length).toBeGreaterThan(100);
-    expect(timings[mode]).toBeLessThan(process.env.CI ? 10000 : 5000);
+    expect(timings[mode]).toBeLessThan(process.env.CI ? 4000 : 2000);
+    if (baseline) expect(result).toEqual(baseline);
+    else baseline = result;
   }
   // Synthetic workload timings only; no observing data or device identifiers.
   console.info('window_benchmark_ms', {

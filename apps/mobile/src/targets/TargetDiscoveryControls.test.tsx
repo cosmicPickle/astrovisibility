@@ -35,6 +35,9 @@ it('starts collapsed, shares valid limits, shows invalid edits, and selects exac
   await fireEvent.press(
     screen.getByRole('button', { name: 'Advanced filters' }),
   );
+  expect(
+    screen.getByText('Duration filtering uses approximate times.'),
+  ).toBeTruthy();
   await fireEvent.changeText(
     screen.getByLabelText('Min size in pixels'),
     '100',

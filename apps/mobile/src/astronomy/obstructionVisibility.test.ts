@@ -80,6 +80,45 @@ const linearProjector =
   };
 
 describe('obstruction-aware trajectory classification', () => {
+  it('rejects accidentally mixing approximate centre sampling with detailed frame geometry', () => {
+    expect(() =>
+      calculateObstructionVisibilitySummary(
+        baseInput({
+          imagingFrame: {
+            horizontalFovDegrees: 3,
+            verticalFovDegrees: 2,
+            orientationDegrees: 0,
+            trackingMode: 'altaz',
+          },
+        }),
+        { approximateCentreSampling: true },
+      ),
+    ).toThrow('Approximate centre sampling cannot include');
+  });
+  it('bounds approximate centre sampling while retaining detected blocked gaps and transitions', () => {
+    const input = baseInput({
+      window: {
+        startTimestampUtc,
+        endTimestampUtc: '2026-01-02T00:00:00.000Z',
+      },
+    });
+    const projectAtMilliseconds = jest.fn((timestamp: number) => ({
+      azimuthDegreesClockwiseFromNorth: 0,
+      refractedAltitudeDegrees:
+        timestamp < startMilliseconds + 24 * 60 * 60_000 &&
+        ((timestamp - startMilliseconds) / 60_000) % 60 < 30
+          ? 20
+          : 60,
+    }));
+    const summary = calculateObstructionVisibilitySummary(input, {
+      approximateCentreSampling: true,
+      projectAtMilliseconds,
+    });
+    expect(summary.visibilityIntervals).toHaveLength(24);
+    expect(summary.totalVisibleMilliseconds).toBe(12 * 60 * 60_000);
+    expect(projectAtMilliseconds.mock.calls.length).toBeLessThan(1000);
+  });
+
   it('keeps cooperative summaries identical and cancels during an expensive target', async () => {
     const input = baseInput({
       window: {

@@ -60,6 +60,7 @@ export function AdvancedTargetFilterFields({
         discovery={discovery}
         error={errors.minDurationMinutes}
       />
+      <AppText tone="muted">Duration filtering uses approximate times.</AppText>
     </View>
   );
 }

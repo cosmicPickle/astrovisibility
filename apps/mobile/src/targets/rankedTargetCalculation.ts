@@ -1,5 +1,4 @@
 import type { CatalogueTarget } from '../../scripts/catalogue/catalogueImporter';
-import { imagingFrameForEquipment } from '../equipment/imagingFrameSettings';
 import {
   createAstronomicalDarknessIntervals,
   intersectTimeIntervals,
@@ -7,8 +6,7 @@ import {
 import { createWindowHorizontalProjectorAtMilliseconds } from '../astronomy/horizontalCoordinates';
 import {
   calculateObstructionAwareTrajectory,
-  calculateObstructionVisibilitySummaryCooperatively,
-  createVisibilityCalculationCacheKey,
+  createVisibilityCalculationContextKey,
   createVisibilityCalculationTargetKey,
   selectedTrajectoryCache,
   VisibilityCalculationCancelledError,
@@ -30,6 +28,7 @@ import {
 } from './equipmentSuitability';
 import { isDefaultDiscoverableTarget } from './targetDiscoveryFilter';
 import type { TargetOrder } from './advancedTargetFilters';
+import { calculateCatalogueVisibility } from './catalogueVisibility';
 
 export type RankedTarget = Readonly<{
   durationKind: 'visible' | 'aboveHorizonUnassessed';
@@ -89,6 +88,14 @@ export class TargetListCalculationCancelledError extends Error {
 
 const defaultYieldToEventLoop = () =>
   new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+/** Keep approximate discovery summaries separate from selected-target results,
+ * while retaining both in the existing observing-context cache lifecycle. */
+export function createCatalogueTargetKey(
+  target: ObstructionVisibilityInput['target'],
+): string {
+  return `catalogue-center-2min-v1:${createVisibilityCalculationTargetKey(target)}`;
+}
 
 export function compareRankedTargets(
   left: RankedTarget,
@@ -195,7 +202,25 @@ export async function calculateRankedTargetsProgressively(
   let processedCount = 0;
   let lastYieldMilliseconds = performance.now();
   let lastProgressMilliseconds = lastYieldMilliseconds;
-  const imagingFrame = imagingFrameForEquipment(input.equipment);
+  const visibilityContext: Omit<ObstructionVisibilityInput, 'target'> = {
+    imagingFrame: null,
+    profileId: input.profileId,
+    observer: input.observer,
+    timeZoneId: input.timeZoneId,
+    window: input.window,
+    panoramaRevisionId: input.panoramaRevisionId,
+    maskRevision: input.maskRevision
+      ? {
+          id: input.maskRevision.id,
+          panoramaRevisionId: input.maskRevision.panoramaRevisionId,
+          // Use the original painted mask, not the window's separated background.
+          // Only selected-target inspection performs physical window/frame work.
+          mask: { ...input.maskRevision, windowCorrection: undefined },
+        }
+      : null,
+  };
+  const cacheContextKey =
+    createVisibilityCalculationContextKey(visibilityContext);
 
   const publish = (complete: boolean) => {
     lastProgressMilliseconds = performance.now();
@@ -227,43 +252,23 @@ export async function calculateRankedTargetsProgressively(
   for (const { suitability, target } of candidates) {
     throwIfCancelled(options.signal);
     const visibilityInput: ObstructionVisibilityInput = {
-      imagingFrame,
-      profileId: input.profileId,
+      ...visibilityContext,
       target: {
         id: target.id,
         rightAscensionJ2000Hours: target.rightAscensionJ2000Hours,
         declinationJ2000Degrees: target.declinationJ2000Degrees,
       },
-      observer: input.observer,
-      timeZoneId: input.timeZoneId,
-      window: input.window,
-      panoramaRevisionId: input.panoramaRevisionId,
-      maskRevision: input.maskRevision
-        ? {
-            id: input.maskRevision.id,
-            panoramaRevisionId: input.maskRevision.panoramaRevisionId,
-            mask: input.maskRevision,
-          }
-        : null,
     };
-    // Building a complete cache key for every catalogue row is measurable work.
-    // An empty cache cannot contain the selected-target trajectory we reuse, so
-    // defer key construction until either a lookup is possible or a calculated
-    // full trajectory must be stored.
-    let cacheKey =
-      cache.size === undefined || cache.size > 0
-        ? createVisibilityCalculationCacheKey(visibilityInput)
-        : null;
+    const targetKey = createCatalogueTargetKey(visibilityInput.target);
+    const cacheKey = `${cacheContextKey};target=${targetKey}`;
     let trajectory: Pick<
       SelectedTargetTrajectory,
       | 'aboveHorizonIntervals'
       | 'visibilityIntervals'
       | 'totalAboveHorizonMilliseconds'
       | 'totalVisibleMilliseconds'
-    > | null = cacheKey ? cache.get(cacheKey) : null;
-    const targetKey = createVisibilityCalculationTargetKey(
-      visibilityInput.target,
-    );
+    > | null =
+      cache.size === undefined || cache.size > 0 ? cache.get(cacheKey) : null;
     trajectory ??= options.summaryCache?.get(targetKey) ?? null;
     if (!trajectory) {
       try {
@@ -274,8 +279,9 @@ export async function calculateRankedTargetsProgressively(
             window: input.window,
           });
         if (options.calculateVisibility === undefined) {
-          trajectory = await calculateObstructionVisibilitySummaryCooperatively(
+          trajectory = await calculateCatalogueVisibility(
             visibilityInput,
+            astronomicalDarknessIntervals,
             {
               projectAtMilliseconds,
               signal: options.signal,
@@ -289,7 +295,6 @@ export async function calculateRankedTargetsProgressively(
             signal: options.signal,
           });
           trajectory = fullTrajectory;
-          cacheKey ??= createVisibilityCalculationCacheKey(visibilityInput);
           cache.set(cacheKey, fullTrajectory);
         }
       } catch (error) {

@@ -4,9 +4,9 @@ import { Alert, PanResponder, Pressable, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import type { CatalogueTarget } from '../../scripts/catalogue/catalogueImporter';
+import { createCatalogueTargetKey } from '../targets/rankedTargetCalculation';
 import {
   selectedTrajectoryCache,
-  createVisibilityCalculationTargetKey,
   VisibilityCalculationCache,
 } from '../astronomy/obstructionVisibility';
 import type { SelectedTargetTrajectory } from '../astronomy/trajectory';
@@ -351,7 +351,7 @@ describe('SkyViewScreen', () => {
         .mockResolvedValue(
           new Map(
             [catalogueTarget, other].map((target) => [
-              createVisibilityCalculationTargetKey(target),
+              createCatalogueTargetKey(target),
               summary,
             ]),
           ),

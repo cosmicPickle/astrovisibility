@@ -3,10 +3,7 @@ import type { ReactElement } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import type { CatalogueTarget } from '../../scripts/catalogue/catalogueImporter';
-import {
-  createVisibilityCalculationTargetKey,
-  selectedTrajectoryCache,
-} from '../astronomy/obstructionVisibility';
+import { selectedTrajectoryCache } from '../astronomy/obstructionVisibility';
 import type { ObservingWindow } from '../astronomy/localCivilTime';
 import type { SelectedTargetTrajectory } from '../astronomy/trajectory';
 import type { ProfileRecord } from '../storage/profileRepository';
@@ -17,6 +14,7 @@ import {
   type TargetListNavigation,
 } from './TargetListScreen';
 import { resetTargetDiscoveryStateForTests } from './targetDiscoveryState';
+import { createCatalogueTargetKey } from './rankedTargetCalculation';
 
 const profile: ProfileRecord = {
   id: 'profile-1',
@@ -202,10 +200,16 @@ describe('TargetListScreen', () => {
 
     await waitFor(() => screen.getByText('Andromeda Galaxy'));
     expect(
-      screen.getByText('5h 39m visible through local obstructions'),
+      screen.getByText('Approx. 5h 39m through local obstructions'),
     ).toBeTruthy();
     expect(screen.getByText(/22:14–01:10/)).toBeTruthy();
     expect(screen.getByText(/02:10–04:52/)).toBeTruthy();
+    expect(screen.getByText(/^Approx\. .*22:14–01:10/)).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Times are approximate, using the target center. Select a target to check the full view.',
+      ),
+    ).toBeTruthy();
     await fireEvent.press(
       screen.getByLabelText('Inspect Andromeda Galaxy in Sky View'),
     );
@@ -244,7 +248,7 @@ describe('TargetListScreen', () => {
       getSummaries: jest.fn().mockResolvedValue(
         new Map([
           [
-            createVisibilityCalculationTargetKey({
+            createCatalogueTargetKey({
               id: target.id,
               rightAscensionJ2000Hours: target.rightAscensionJ2000Hours,
               declinationJ2000Degrees: target.declinationJ2000Degrees,

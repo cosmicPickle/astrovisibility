@@ -1,12 +1,17 @@
 import type { CatalogueTarget } from '../../scripts/catalogue/catalogueImporter';
 import {
   createVisibilityCalculationTargetKey,
+  createObstructionClassifier,
+  type ObstructionVisibilityInput,
   VisibilityCalculationCache,
 } from '../astronomy/obstructionVisibility';
 import type { SelectedTargetTrajectory } from '../astronomy/trajectory';
 import type { EquipmentRecord } from '../storage/equipmentRepository';
+import { createBlockedBitset } from '../mask/rasterMask';
+import { createWindowGeometry } from '../window/windowGeometry';
 import {
   calculateRankedTargetsProgressively,
+  createCatalogueTargetKey,
   compareRankedTargets,
   TargetListCalculationCancelledError,
   type RankedTarget,
@@ -223,6 +228,104 @@ describe('ranked target ordering', () => {
 });
 
 describe('progressive all-target calculation', () => {
+  it('uses the original centre mask without frame or window geometry, retaining optical suitability', async () => {
+    const raster = {
+      widthPixels: 32,
+      heightPixels: 32,
+      uri: 'synthetic',
+      blockedBitset: createBlockedBitset(32, 32, true),
+    };
+    const correction = {
+      backgroundRaster: {
+        ...raster,
+        blockedBitset: createBlockedBitset(32, 32, false),
+      },
+      geometry: createWindowGeometry({
+        version: 1,
+        leftAzimuthDegrees: 300,
+        rightAzimuthDegrees: 60,
+        rightDistanceRatio: 1,
+        topSlope: 2,
+        bottomSlope: -1,
+        widthMeters: 1.2,
+      }),
+    };
+    const calculateVisibility = jest.fn(
+      async (input: ObstructionVisibilityInput) => {
+        expect(input.imagingFrame).toBeNull();
+        expect(input.maskRevision!.mask.raster).toBe(raster);
+        expect(input.maskRevision!.mask.windowCorrection).toBeUndefined();
+        expect(
+          createObstructionClassifier(input)({
+            azimuthDegreesClockwiseFromNorth: 0,
+            refractedAltitudeDegrees: 20,
+          }),
+        ).toBe('blocked');
+        return trajectory([interval(0, 60)], []);
+      },
+    );
+    await calculateRankedTargetsProgressively(
+      {
+        ...baseInput,
+        equipment,
+        panoramaRevisionId: 'p',
+        maskRevision: {
+          id: 'm',
+          profileId: 'profile-1',
+          panoramaRevisionId: 'p',
+          formatVersion: 2,
+          createdAtUtc: '2026-01-01T00:00:00Z',
+          coveragePolygons: [],
+          operations: [],
+          raster,
+          windowCorrection: correction,
+        },
+        targets: [
+          catalogueTarget('large', 'Large'),
+          catalogueTarget('small', 'Small', 2, { majorAxisArcminutes: 0.01 }),
+        ],
+      },
+      {
+        cache: new VisibilityCalculationCache(),
+        calculateVisibility,
+        yieldToEventLoop: async () => undefined,
+      },
+    );
+    expect(calculateVisibility).toHaveBeenCalledTimes(1);
+    expect(correction.backgroundRaster.blockedBitset[0]).toBe(0);
+  });
+
+  it('does not substitute a detailed selected-target summary for a catalogue estimate', async () => {
+    const target = catalogueTarget('a', 'A');
+    const calculateVisibility = jest.fn(async () =>
+      trajectory([interval(0, 30)], []),
+    );
+    const summaryCache = new Map([
+      [
+        createVisibilityCalculationTargetKey(target),
+        trajectory([interval(0, 60)], []),
+      ],
+    ]);
+    const onSummaryBatch = jest.fn(async () => undefined);
+    const results = await calculateRankedTargetsProgressively(
+      { ...baseInput, targets: [target] },
+      {
+        cache: new VisibilityCalculationCache(),
+        summaryCache,
+        calculateVisibility,
+        onSummaryBatch,
+        yieldToEventLoop: async () => undefined,
+      },
+    );
+    expect(calculateVisibility).toHaveBeenCalledTimes(1);
+    expect(results[0]?.totalDurationMilliseconds).toBe(30 * 60_000);
+    expect(onSummaryBatch).toHaveBeenCalledWith([
+      expect.objectContaining({ targetKey: createCatalogueTargetKey(target) }),
+    ]);
+    expect(createCatalogueTargetKey(target)).not.toBe(
+      createVisibilityCalculationTargetKey(target),
+    );
+  });
   it('publishes the filtered total immediately and slow progress before a database batch fills', async () => {
     let clock = 0;
     const priorPerformance = globalThis.performance;
@@ -401,7 +504,7 @@ describe('progressive all-target calculation', () => {
         onSummaryBatch,
         summaryCache: new Map([
           [
-            createVisibilityCalculationTargetKey({
+            createCatalogueTargetKey({
               id: cachedTarget.id,
               rightAscensionJ2000Hours: cachedTarget.rightAscensionJ2000Hours,
               declinationJ2000Degrees: cachedTarget.declinationJ2000Degrees,

@@ -84,6 +84,8 @@ export type ObstructionVisibilitySummary = Readonly<{
 }>;
 
 export type VisibilitySummaryCalculationOptions = Readonly<{
+  /** Bulk discovery only: two-minute centre samples, no spatial refinement. */
+  approximateCentreSampling?: boolean;
   projectAt?: ProjectionFunction;
   projectAtMilliseconds?: (
     timestampMilliseconds: number,
@@ -714,16 +716,26 @@ export async function calculateObstructionAwareTrajectory(
 }
 
 /**
- * Computes the exact Stage 7 interval contract without allocating render
+ * Computes interval summaries without allocating render
  * samples, markers, or transitions. Checkpoints let catalogue callers yield
  * within a target without a Promise per sample. Synchronous callers drain the
- * same steps, preserving the temporal/spatial refinement rules and order.
+ * same steps. Detailed spatial refinement remains the default; bulk discovery
+ * may explicitly request approximate centre sampling.
  */
 function* visibilitySummarySteps(
   input: ObstructionVisibilityInput,
   options: VisibilitySummaryCalculationOptions = {},
 ): Generator<void, ObstructionVisibilitySummary> {
   const { startMilliseconds, endMilliseconds } = parseWindow(input.window);
+  const approximateCentreSampling = options.approximateCentreSampling === true;
+  if (
+    approximateCentreSampling &&
+    (input.imagingFrame || input.maskRevision?.mask.windowCorrection)
+  ) {
+    throw new TypeError(
+      'Approximate centre sampling cannot include imaging-frame or window geometry.',
+    );
+  }
   if (
     input.maskRevision &&
     input.maskRevision.panoramaRevisionId !== input.panoramaRevisionId
@@ -745,19 +757,21 @@ function* visibilitySummarySteps(
     ? createVisibilityMaskEvaluator(calculationMask(mask))
     : null;
   const frameIsBlocked = createFrameClassification(input);
-  const shouldRefineSpatially = input.maskRevision?.mask.windowCorrection
-    ? createWindowRefinementPredicate(
-        input.maskRevision.mask.windowCorrection,
-        input.imagingFrame,
-        input.observer.latitudeDegreesNorth,
-      )
-    : input.imagingFrame && input.maskRevision?.mask.raster
-      ? createFrameRefinementPredicate(
-          input.maskRevision.mask.raster,
+  const shouldRefineSpatially = approximateCentreSampling
+    ? () => false
+    : input.maskRevision?.mask.windowCorrection
+      ? createWindowRefinementPredicate(
+          input.maskRevision.mask.windowCorrection,
           input.imagingFrame,
           input.observer.latitudeDegreesNorth,
         )
-      : createSpatialRefinementPredicate(maskEvaluator);
+      : input.imagingFrame && input.maskRevision?.mask.raster
+        ? createFrameRefinementPredicate(
+            input.maskRevision.mask.raster,
+            input.imagingFrame,
+            input.observer.latitudeDegreesNorth,
+          )
+        : createSpatialRefinementPredicate(maskEvaluator);
   let evaluationCount = 0;
   const evaluate = (timestampMilliseconds: number): EvaluatedSample => {
     if (options.signal?.aborted) {
@@ -783,20 +797,32 @@ function* visibilitySummarySteps(
     };
   };
   const coarseSamples: EvaluatedSample[] = [];
+  const coarseStepMilliseconds = approximateCentreSampling
+    ? 2 * 60_000
+    : SUMMARY_COARSE_STEP_MILLISECONDS;
   for (
     let timestampMilliseconds = startMilliseconds;
     timestampMilliseconds < endMilliseconds;
-    timestampMilliseconds += SUMMARY_COARSE_STEP_MILLISECONDS
+    timestampMilliseconds += coarseStepMilliseconds
   ) {
     coarseSamples.push(evaluate(timestampMilliseconds));
   }
   coarseSamples.push(evaluate(endMilliseconds));
   const refinedSamples: EvaluatedSample[] = [coarseSamples[0]!];
   for (let index = 1; index < coarseSamples.length; index += 1) {
+    const left = coarseSamples[index - 1]!;
+    const right = coarseSamples[index]!;
+    // Approximate centre sampling only refines detected transitions. Avoid a
+    // subdivision stack and generator for every unchanged two-minute segment.
+    if (approximateCentreSampling && left.assessment === right.assessment) {
+      refinedSamples.push(right);
+      if (index % 32 === 0) yield;
+      continue;
+    }
     yield* appendRefinedSegmentCooperatively(
       refinedSamples,
-      coarseSamples[index - 1]!,
-      coarseSamples[index]!,
+      left,
+      right,
       evaluate,
       shouldRefineSpatially,
       Boolean(input.imagingFrame),
