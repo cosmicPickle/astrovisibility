@@ -55,11 +55,25 @@ night and does not resolve the exact residual. See
 `docs/superpowers/reports/mobile/2026-09-21-2232-near-mask-displacement-gap.md` and
 `apps/mobile/src/window/windowNearMaskModelGap.test.ts`.
 
-- [ ] Decide how nearby window-mask portions are distinguished from distant
-      obstacles without imposing excessive setup. Do not silently reproject all
-      mask pixels onto the window plane or infer depth from connectivity alone.
-- [ ] After that decision, specify/implement local-mask displacement, pupil and
-      refinement together; replace the characterization's false-clear assertion.
+**Latest constraint, 2026-09-21 23:04 +03:00:** User moved the rectangle so all
+masked obstructions are outside the defined opening. The current cutoff is
+02:13 versus observed 01:35: **38 minutes late**. Their mention of 15 minutes
+meant improvement over a prior approximately 02:30 benchmark, not the residual.
+Do not use the interior-near-mask counterexample as the explanation for this
+revised case or introduce near-mask annotation as its fix.
+
+**Current check:** Right-edge sensitivity to the stated 120–160 cm width range.
+Synthetic 178-degree M27 cases with AltAz/+50 mm/35 mm aperture, a 3-by-2-degree
+frame and an assumed 44 N/25 E observer were individually oriented to cut off
+at 2026-09-21 23:13 UTC for width 1.4 m. Holding each case's angular definition
+fixed, 1.2 versus 1.6 m changed the cutoff by 5.57, 10.04, 25.75 and 57.11 minutes
+at 10%, 50%, 80% and 90% positions from the left edge respectively. Top/bottom
+were excluded to isolate the right edge. Local script:
+`tmp/window-qa/window-scale-check.cjs`. These are conditional sensitivity results,
+not a reproduction of the revised saved geometry or evidence of another bug.
+The original six-minute width comparison preceded corner edits and cannot bound
+the new definition. A repeated width comparison with the revised corners held
+fixed would distinguish low from high sensitivity without changing calibration.
 
 - [ ] Account for the observed four-minute change at 50 mm when checking whether
       this omission explains the user's night; do not equate a counterexample
